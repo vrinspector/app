@@ -41,73 +41,98 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/*
+ * VR Inspector brand tokens — PRD v2.51 "Confirmed Color Palette" (carried
+ * forward by PRD v2.63 / ADR-009). These are the single source of truth for
+ * brand colour and type; components should use the semantic shadcn tokens
+ * below (bg-primary, text-muted-foreground, ...) or the vri-* utilities
+ * (bg-vri-green, text-vri-gold, font-heading) rather than raw hex values.
+ */
+@theme {
+  --color-vri-green: #2e3d2e; /* Dark Forest Green — banners, headers, sidebar */
+  --color-vri-green-dk: #1a2a1a; /* Dark Green — dark-mode page background */
+  --color-vri-gold: #b8960c; /* Gold — rules, accents, calls to action */
+  --color-vri-copper: #a07850; /* Copper — labels, eyebrows, secondary accents */
+  --color-vri-charcoal: #2b2b2b; /* Charcoal — body text, text on gold */
+  --color-vri-offwhite: #f7f5f0; /* Warm Off-White — page background */
+  --color-vri-white: #ffffff; /* White — content areas */
+
+  /* Body: Calibri. Headings/logo: Book Antiqua. Open fallbacks follow each. */
+  --font-sans:
+    Calibri, Carlito, "Segoe UI", system-ui, -apple-system, "Helvetica Neue",
+    Arial, sans-serif;
+  --font-heading:
+    "Book Antiqua", "Palatino Linotype", Palatino, "URW Palladio L", P052,
+    Georgia, serif;
+}
+
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.5982 0.10687 182.4689);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.5982 0.10687 182.4689);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --radius: 0.5rem;
+  --background: var(--color-vri-offwhite);
+  --foreground: var(--color-vri-charcoal);
+  --card: var(--color-vri-white);
+  --card-foreground: var(--color-vri-charcoal);
+  --popover: var(--color-vri-white);
+  --popover-foreground: var(--color-vri-charcoal);
+  --primary: var(--color-vri-green);
+  --primary-foreground: var(--color-vri-offwhite);
+  --secondary: #ece6da;
+  --secondary-foreground: var(--color-vri-green);
+  --muted: #efebe3;
+  --muted-foreground: #6b6258;
+  --accent: #ece6da;
+  --accent-foreground: var(--color-vri-green);
+  --destructive: #a12b2b;
+  --border: #e4dccf;
+  --input: #d5cbb9;
+  --ring: var(--color-vri-gold);
+  --chart-1: var(--color-vri-green);
+  --chart-2: var(--color-vri-gold);
+  --chart-3: var(--color-vri-copper);
+  --chart-4: #4a6fa5;
+  --chart-5: #7a2020;
+  --sidebar: var(--color-vri-green);
+  --sidebar-foreground: var(--color-vri-offwhite);
+  --sidebar-primary: var(--color-vri-gold);
+  --sidebar-primary-foreground: var(--color-vri-charcoal);
+  --sidebar-accent: #3f533f;
+  --sidebar-accent-foreground: var(--color-vri-offwhite);
+  --sidebar-border: rgb(184 150 12 / 45%);
+  --sidebar-ring: var(--color-vri-gold);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.65 0.10687 182.4689);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.65 0.10687 182.4689);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: var(--color-vri-green-dk);
+  --foreground: var(--color-vri-offwhite);
+  --card: #243324;
+  --card-foreground: var(--color-vri-offwhite);
+  --popover: #243324;
+  --popover-foreground: var(--color-vri-offwhite);
+  --primary: var(--color-vri-gold);
+  --primary-foreground: #1a1a1a;
+  --secondary: var(--color-vri-green);
+  --secondary-foreground: var(--color-vri-offwhite);
+  --muted: var(--color-vri-green);
+  --muted-foreground: #c9b79c;
+  --accent: #3a4d3a;
+  --accent-foreground: var(--color-vri-offwhite);
+  --destructive: #e5645f;
+  --border: rgb(247 245 240 / 14%);
+  --input: rgb(247 245 240 / 20%);
+  --ring: var(--color-vri-gold);
+  --chart-1: var(--color-vri-gold);
+  --chart-2: #8fb08f;
+  --chart-3: var(--color-vri-copper);
+  --chart-4: #7d9fd0;
+  --chart-5: #e5645f;
+  --sidebar: #142014;
+  --sidebar-foreground: var(--color-vri-offwhite);
+  --sidebar-primary: var(--color-vri-gold);
+  --sidebar-primary-foreground: #1a1a1a;
+  --sidebar-accent: var(--color-vri-green);
+  --sidebar-accent-foreground: var(--color-vri-offwhite);
+  --sidebar-border: rgb(184 150 12 / 35%);
+  --sidebar-ring: var(--color-vri-gold);
 }
 
 @layer base {
@@ -116,6 +141,11 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-heading);
   }
   button,
   [role="button"] {

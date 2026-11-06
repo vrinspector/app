@@ -1,4 +1,7 @@
-# FastAPI Project - Docker Compose Deployment
+# VR Inspector - Docker Compose Deployment (template reference)
+
+> **Template reference only — not the VR Inspector deployment procedure.**
+> This page came with the open-source starter template. VR Inspector runs on AWS (RDS, S3, Lightsail) behind Auth0, and **no deployment to staging or production happens from this repository until release gate RG-1 evidence is recorded** (PRD v2.63 §8). All deploys are owner actions. The deploy workflows in `.github/workflows/` are manual-only and are not configured.
 
 You can deploy the project to your own remote server with Docker Compose. The deployment configuration includes Traefik to handle HTTPS and route incoming traffic to the application.
 
@@ -24,7 +27,7 @@ Set the application domain, project name, and first superuser email:
 
 ```bash
 export DOMAIN=fastapi-project.example.com
-export PROJECT_NAME="Full Stack FastAPI Project"
+export PROJECT_NAME="VR Inspector"
 export FIRST_SUPERUSER=admin@example.com
 ```
 

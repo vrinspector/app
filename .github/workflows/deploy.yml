@@ -1,11 +1,10 @@
 name: Deploy
 
+# VR Inspector: manual trigger only. This is the starter template's deploy
+# workflow and is NOT configured for VR Inspector's infrastructure. No
+# deployment happens from this repository until release gate RG-1 evidence is
+# recorded (PRD v2.63 section 8); deploys are owner actions.
 on:
-  push:
-    branches:
-      - master
-    paths-ignore:
-      - release-notes.md
   workflow_dispatch:
 
 permissions:

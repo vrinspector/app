@@ -1,4 +1,4 @@
-# FastAPI Project - Development
+# VR Inspector - Development
 
 ## Local Development
 
