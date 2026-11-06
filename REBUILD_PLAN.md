@@ -12,6 +12,7 @@ Single source of truth for rebuild increments. Automated and interactive session
 6. Porting spec: the legacy SQL and routes are authoritative for behavior. Current staging snapshots live in the July 16, 2026 transfer package (`03_Current_Implementation/`), baseline-committed to the legacy repos.
 7. Hard Rules in force: Auth0 identity (sub as anchor), INTEGER PKs (+ public_id), `/api/v1/` external prefix, S3-only file storage. No secrets in the repo — placeholders only.
 8. If an increment is blocked, open an issue describing the blocker, leave the box unchecked, and stop.
+9. **Deployment is switched off by design.** The `Deploy` and `Deploy with Docker Compose` workflows in this repo, and the legacy `Deploy ... to Staging` workflows in vrinspector/backend and vrinspector/frontend, were disabled on 2026-11-06 after the legacy ones auto-fired (and failed harmlessly) on a merge. Do not re-enable or add any deploy workflow. Deployment is re-established deliberately at release gate RG-3 after RG-1 evidence is recorded (PRD v2.63 §8).
 
 ## Increments
 
