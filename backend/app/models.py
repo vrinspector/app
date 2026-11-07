@@ -22,8 +22,9 @@ route ports in increments 04 and 05.
 import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, Literal
 
+from pydantic import EmailStr
 from sqlalchemy import (
     BigInteger,
     Column,
@@ -402,3 +403,229 @@ class UserPublic(SQLModel):
     name: str | None = None
     picture: str | None = None
     permissions: list[str] = []
+
+
+# --- Increment 04: request/response shapes of the ported Block 1–8C routes ---
+#
+# Request bodies mirror exactly what the deployed SPA sends (field names and
+# defaults). Responses return every table column (the legacy routers returned
+# ``dict(row)``), so the new ``public_id`` / ``user_sub`` columns ride along.
+
+ProjectStatus = Literal["active", "on_hold", "complete"]
+InspectionType = Literal[
+    "civil", "structural", "mechanical", "electrical", "piping", "general"
+]
+FindingPriority = Literal["high", "medium", "low"]
+FindingStatus = Literal["open", "in-progress", "resolved"]
+MemberRole = Literal["owner", "inspector", "viewer"]
+
+
+class ProjectCreate(SQLModel):
+    name: str = Field(min_length=1, max_length=255)
+    client: str | None = Field(default=None, max_length=255)
+    location: str | None = Field(default=None, max_length=255)
+    status: ProjectStatus = "active"
+    # Sent by the SPA (literal "Inspector"); the API records the verified
+    # Auth0 identity instead, as the drawings router does for ``uploaded_by``.
+    created_by: str | None = Field(default=None, max_length=255)
+
+
+class ProjectUpdate(SQLModel):
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    client: str | None = Field(default=None, max_length=255)
+    location: str | None = Field(default=None, max_length=255)
+    status: ProjectStatus | None = None
+
+
+class ProjectPublic(SQLModel):
+    id: int
+    public_id: uuid.UUID
+    name: str
+    client: str | None
+    location: str | None
+    status: str
+    created_by: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class MemberInvite(SQLModel):
+    email: EmailStr
+    role: MemberRole = "inspector"
+
+
+class MemberPublic(SQLModel):
+    id: int
+    public_id: uuid.UUID
+    project_id: int
+    # The SPA reads ``m.email``; ``user_email`` is the column name.
+    email: str
+    user_email: str
+    user_sub: str | None
+    role: str
+    invited_by: str | None
+    created_at: datetime
+
+    @classmethod
+    def from_member(cls, member: ProjectMember) -> MemberPublic:
+        return cls(
+            id=member.id or 0,
+            public_id=member.public_id or uuid.UUID(int=0),
+            project_id=member.project_id,
+            email=member.user_email,
+            user_email=member.user_email,
+            user_sub=member.user_sub,
+            role=member.role,
+            invited_by=member.invited_by,
+            created_at=member.created_at or get_datetime_utc(),
+        )
+
+
+class InspectionCreate(SQLModel):
+    project_id: int
+    title: str = Field(min_length=1, max_length=255)
+    inspection_type: InspectionType | None = None
+    inspector: str | None = Field(default=None, max_length=255)
+    notes: str | None = None
+    status: Literal["open", "closed"] = "open"
+
+
+class InspectionUpdate(SQLModel):
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+    inspection_type: InspectionType | None = None
+    inspector: str | None = Field(default=None, max_length=255)
+    notes: str | None = None
+
+
+class InspectionPublic(SQLModel):
+    id: int
+    public_id: uuid.UUID
+    project_id: int
+    title: str
+    inspection_type: str | None
+    # The SPA's list card reads ``type``; create sends ``inspection_type``.
+    type: str | None
+    inspector: str | None
+    notes: str | None
+    status: str
+    inspection_status: str
+    signed_off_by: str | None
+    signed_off_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+
+    @classmethod
+    def from_inspection(cls, inspection: Inspection) -> InspectionPublic:
+        data = inspection.model_dump()
+        data["type"] = inspection.inspection_type
+        return cls.model_validate(data)
+
+
+class FindingCreate(SQLModel):
+    inspection_id: int
+    title: str = Field(min_length=1, max_length=255)
+    description: str | None = None
+    priority: FindingPriority = "medium"
+    location_ref: str | None = Field(default=None, max_length=255)
+    status: FindingStatus = "open"
+
+
+class FindingUpdate(SQLModel):
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+    description: str | None = None
+    priority: FindingPriority | None = None
+    location_ref: str | None = Field(default=None, max_length=255)
+
+
+class FindingStatusUpdate(SQLModel):
+    status: FindingStatus
+
+
+class FindingResolve(SQLModel):
+    resolution_notes: str | None = None
+
+
+class FindingPublic(SQLModel):
+    id: int
+    public_id: uuid.UUID
+    inspection_id: int
+    title: str
+    description: str | None
+    priority: str
+    location_ref: str | None
+    status: str
+    resolved_by: str | None
+    resolved_at: datetime | None
+    resolution_notes: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class PhotoPresignRequest(SQLModel):
+    inspection_id: int
+    filename: str = Field(min_length=1, max_length=255)
+    content_type: str = Field(default="image/jpeg", max_length=100)
+
+
+class PhotoPresignResponse(SQLModel):
+    upload_url: str
+    s3_key: str
+
+
+class PhotoCreate(SQLModel):
+    inspection_id: int
+    s3_key: str = Field(min_length=1, max_length=512)
+    filename: str | None = Field(default=None, max_length=255)
+    content_type: str | None = Field(default=None, max_length=100)
+    # Sent by the SPA (display name); the API records the verified identity.
+    uploaded_by: str | None = Field(default=None, max_length=255)
+
+
+class PhotoPublic(SQLModel):
+    id: int
+    public_id: uuid.UUID
+    inspection_id: int
+    s3_key: str
+    filename: str | None
+    content_type: str | None
+    uploaded_by: str | None
+    created_at: datetime
+    # Presigned S3 GET URL, generated per response (never stored).
+    view_url: str | None = None
+
+
+class DashboardSummary(SQLModel):
+    total_projects: int
+    total_inspections: int
+    open_findings: int
+    high_priority_findings: int
+    total_photos: int
+
+
+class DashboardProject(SQLModel):
+    id: int
+    name: str
+    client: str | None
+    status: str
+    inspection_count: int
+    open_finding_count: int
+    high_finding_count: int
+    photo_count: int
+    # Display string as the SPA renders it (date of the latest inspection).
+    last_inspected: str
+
+
+class DashboardInspection(SQLModel):
+    id: int
+    project_id: int
+    project_name: str
+    title: str
+    inspector: str | None
+    created_at: datetime
+    finding_count: int
+
+
+class DashboardPublic(SQLModel):
+    summary: DashboardSummary
+    projects: list[DashboardProject]
+    recent_inspections: list[DashboardInspection]

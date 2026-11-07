@@ -2,10 +2,15 @@ from collections.abc import Generator
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 
 from app.core import auth
+from app.core.db import engine
+from app.core.storage import storage
 from app.main import app
+from app.models import DOMAIN_TABLES
 from tests.utils.auth0 import FakeTenant
+from tests.utils.s3 import FakeS3
 
 
 @pytest.fixture(scope="session")
@@ -32,6 +37,25 @@ def offline_auth0(tenant: FakeTenant) -> Generator[FakeTenant]:
     yield tenant
     auth.jwks_cache.clear()
     auth.userinfo_cache.clear()
+
+
+@pytest.fixture(autouse=True)
+def fake_s3() -> Generator[FakeS3]:
+    """Presigned URLs and deletes go to an in-memory recorder, never to AWS."""
+    fake = FakeS3()
+    storage.use_client(fake)
+    yield fake
+    storage.use_client(None)
+
+
+@pytest.fixture(autouse=True)
+def clean_domain_tables() -> Generator[None]:
+    """API tests commit real rows; wipe the domain tables after each test."""
+    yield
+    with engine.begin() as conn:
+        conn.execute(
+            text("TRUNCATE " + ", ".join(DOMAIN_TABLES) + " RESTART IDENTITY CASCADE")
+        )
 
 
 @pytest.fixture(scope="module")

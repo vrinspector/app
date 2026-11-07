@@ -24,6 +24,13 @@ creates and drops its own scratch databases on the same server, so the
 configured database user must be allowed to `CREATE DATABASE` (the Compose
 `db` service's `postgres` user is).
 
+Photo (and, from increment 05, drawing) uploads go browser → S3 through
+presigned URLs; the API only signs URLs. Locally this needs AWS credentials in
+your shell (`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`, or an SSO profile)
+with access to `S3_BUCKET`; nothing is read from the repo. Without credentials
+every other route works and the tests still pass (they use an in-memory S3
+stand-in). See `docs/API_PORT.md` for the ported route contract.
+
 Start the FastAPI development server:
 
 ```bash

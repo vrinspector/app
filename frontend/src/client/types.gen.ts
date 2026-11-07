@@ -5,6 +5,623 @@ export type ClientOptions = {
 };
 
 /**
+ * DashboardInspection
+ */
+export type DashboardInspection = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Project Id
+     */
+    project_id: number;
+    /**
+     * Project Name
+     */
+    project_name: string;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Inspector
+     */
+    inspector: string | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Finding Count
+     */
+    finding_count: number;
+};
+
+/**
+ * DashboardProject
+ */
+export type DashboardProject = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Client
+     */
+    client: string | null;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Inspection Count
+     */
+    inspection_count: number;
+    /**
+     * Open Finding Count
+     */
+    open_finding_count: number;
+    /**
+     * High Finding Count
+     */
+    high_finding_count: number;
+    /**
+     * Photo Count
+     */
+    photo_count: number;
+    /**
+     * Last Inspected
+     */
+    last_inspected: string;
+};
+
+/**
+ * DashboardPublic
+ */
+export type DashboardPublic = {
+    summary: DashboardSummary;
+    /**
+     * Projects
+     */
+    projects: Array<DashboardProject>;
+    /**
+     * Recent Inspections
+     */
+    recent_inspections: Array<DashboardInspection>;
+};
+
+/**
+ * DashboardSummary
+ */
+export type DashboardSummary = {
+    /**
+     * Total Projects
+     */
+    total_projects: number;
+    /**
+     * Total Inspections
+     */
+    total_inspections: number;
+    /**
+     * Open Findings
+     */
+    open_findings: number;
+    /**
+     * High Priority Findings
+     */
+    high_priority_findings: number;
+    /**
+     * Total Photos
+     */
+    total_photos: number;
+};
+
+/**
+ * FindingCreate
+ */
+export type FindingCreate = {
+    /**
+     * Inspection Id
+     */
+    inspection_id: number;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Description
+     */
+    description?: string | null;
+    /**
+     * Priority
+     */
+    priority?: 'high' | 'medium' | 'low';
+    /**
+     * Location Ref
+     */
+    location_ref?: string | null;
+    /**
+     * Status
+     */
+    status?: 'open' | 'in-progress' | 'resolved';
+};
+
+/**
+ * FindingPublic
+ */
+export type FindingPublic = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Public Id
+     */
+    public_id: string;
+    /**
+     * Inspection Id
+     */
+    inspection_id: number;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Description
+     */
+    description: string | null;
+    /**
+     * Priority
+     */
+    priority: string;
+    /**
+     * Location Ref
+     */
+    location_ref: string | null;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Resolved By
+     */
+    resolved_by: string | null;
+    /**
+     * Resolved At
+     */
+    resolved_at: string | null;
+    /**
+     * Resolution Notes
+     */
+    resolution_notes: string | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+};
+
+/**
+ * FindingResolve
+ */
+export type FindingResolve = {
+    /**
+     * Resolution Notes
+     */
+    resolution_notes?: string | null;
+};
+
+/**
+ * FindingStatusUpdate
+ */
+export type FindingStatusUpdate = {
+    /**
+     * Status
+     */
+    status: 'open' | 'in-progress' | 'resolved';
+};
+
+/**
+ * FindingUpdate
+ */
+export type FindingUpdate = {
+    /**
+     * Title
+     */
+    title?: string | null;
+    /**
+     * Description
+     */
+    description?: string | null;
+    /**
+     * Priority
+     */
+    priority?: 'high' | 'medium' | 'low' | null;
+    /**
+     * Location Ref
+     */
+    location_ref?: string | null;
+};
+
+/**
+ * HTTPValidationError
+ */
+export type HTTPValidationError = {
+    /**
+     * Detail
+     */
+    detail?: Array<ValidationError>;
+};
+
+/**
+ * InspectionCreate
+ */
+export type InspectionCreate = {
+    /**
+     * Project Id
+     */
+    project_id: number;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Inspection Type
+     */
+    inspection_type?: 'civil' | 'structural' | 'mechanical' | 'electrical' | 'piping' | 'general' | null;
+    /**
+     * Inspector
+     */
+    inspector?: string | null;
+    /**
+     * Notes
+     */
+    notes?: string | null;
+    /**
+     * Status
+     */
+    status?: 'open' | 'closed';
+};
+
+/**
+ * InspectionPublic
+ */
+export type InspectionPublic = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Public Id
+     */
+    public_id: string;
+    /**
+     * Project Id
+     */
+    project_id: number;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Inspection Type
+     */
+    inspection_type: string | null;
+    /**
+     * Type
+     */
+    type: string | null;
+    /**
+     * Inspector
+     */
+    inspector: string | null;
+    /**
+     * Notes
+     */
+    notes: string | null;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Inspection Status
+     */
+    inspection_status: string;
+    /**
+     * Signed Off By
+     */
+    signed_off_by: string | null;
+    /**
+     * Signed Off At
+     */
+    signed_off_at: string | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+};
+
+/**
+ * InspectionUpdate
+ */
+export type InspectionUpdate = {
+    /**
+     * Title
+     */
+    title?: string | null;
+    /**
+     * Inspection Type
+     */
+    inspection_type?: 'civil' | 'structural' | 'mechanical' | 'electrical' | 'piping' | 'general' | null;
+    /**
+     * Inspector
+     */
+    inspector?: string | null;
+    /**
+     * Notes
+     */
+    notes?: string | null;
+};
+
+/**
+ * MemberInvite
+ */
+export type MemberInvite = {
+    /**
+     * Email
+     */
+    email: string;
+    /**
+     * Role
+     */
+    role?: 'owner' | 'inspector' | 'viewer';
+};
+
+/**
+ * MemberPublic
+ */
+export type MemberPublic = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Public Id
+     */
+    public_id: string;
+    /**
+     * Project Id
+     */
+    project_id: number;
+    /**
+     * Email
+     */
+    email: string;
+    /**
+     * User Email
+     */
+    user_email: string;
+    /**
+     * User Sub
+     */
+    user_sub: string | null;
+    /**
+     * Role
+     */
+    role: string;
+    /**
+     * Invited By
+     */
+    invited_by: string | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+};
+
+/**
+ * PhotoCreate
+ */
+export type PhotoCreate = {
+    /**
+     * Inspection Id
+     */
+    inspection_id: number;
+    /**
+     * S3 Key
+     */
+    s3_key: string;
+    /**
+     * Filename
+     */
+    filename?: string | null;
+    /**
+     * Content Type
+     */
+    content_type?: string | null;
+    /**
+     * Uploaded By
+     */
+    uploaded_by?: string | null;
+};
+
+/**
+ * PhotoPresignRequest
+ */
+export type PhotoPresignRequest = {
+    /**
+     * Inspection Id
+     */
+    inspection_id: number;
+    /**
+     * Filename
+     */
+    filename: string;
+    /**
+     * Content Type
+     */
+    content_type?: string;
+};
+
+/**
+ * PhotoPresignResponse
+ */
+export type PhotoPresignResponse = {
+    /**
+     * Upload Url
+     */
+    upload_url: string;
+    /**
+     * S3 Key
+     */
+    s3_key: string;
+};
+
+/**
+ * PhotoPublic
+ */
+export type PhotoPublic = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Public Id
+     */
+    public_id: string;
+    /**
+     * Inspection Id
+     */
+    inspection_id: number;
+    /**
+     * S3 Key
+     */
+    s3_key: string;
+    /**
+     * Filename
+     */
+    filename: string | null;
+    /**
+     * Content Type
+     */
+    content_type: string | null;
+    /**
+     * Uploaded By
+     */
+    uploaded_by: string | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * View Url
+     */
+    view_url?: string | null;
+};
+
+/**
+ * ProjectCreate
+ */
+export type ProjectCreate = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Client
+     */
+    client?: string | null;
+    /**
+     * Location
+     */
+    location?: string | null;
+    /**
+     * Status
+     */
+    status?: 'active' | 'on_hold' | 'complete';
+    /**
+     * Created By
+     */
+    created_by?: string | null;
+};
+
+/**
+ * ProjectPublic
+ */
+export type ProjectPublic = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Public Id
+     */
+    public_id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Client
+     */
+    client: string | null;
+    /**
+     * Location
+     */
+    location: string | null;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Created By
+     */
+    created_by: string | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+};
+
+/**
+ * ProjectUpdate
+ */
+export type ProjectUpdate = {
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Client
+     */
+    client?: string | null;
+    /**
+     * Location
+     */
+    location?: string | null;
+    /**
+     * Status
+     */
+    status?: 'active' | 'on_hold' | 'complete' | null;
+};
+
+/**
  * UserPublic
  */
 export type UserPublic = {
@@ -28,6 +645,34 @@ export type UserPublic = {
      * Permissions
      */
     permissions?: Array<string>;
+};
+
+/**
+ * ValidationError
+ */
+export type ValidationError = {
+    /**
+     * Location
+     */
+    loc: Array<string | number>;
+    /**
+     * Message
+     */
+    msg: string;
+    /**
+     * Error Type
+     */
+    type: string;
+    /**
+     * Input
+     */
+    input?: unknown;
+    /**
+     * Context
+     */
+    ctx?: {
+        [key: string]: unknown;
+    };
 };
 
 export type usersReadUserMeData = {
@@ -63,3 +708,804 @@ export type utilsHealthCheckResponses = {
 };
 
 export type utilsHealthCheckResponse = utilsHealthCheckResponses[keyof utilsHealthCheckResponses];
+
+export type projectsListProjectsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/projects';
+};
+
+export type projectsListProjectsResponses = {
+    /**
+     * Response Projects-List Projects
+     *
+     * Successful Response
+     */
+    200: Array<ProjectPublic>;
+};
+
+export type projectsListProjectsResponse = projectsListProjectsResponses[keyof projectsListProjectsResponses];
+
+export type projectsCreateProjectData = {
+    body: ProjectCreate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/projects';
+};
+
+export type projectsCreateProjectErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type projectsCreateProjectError = projectsCreateProjectErrors[keyof projectsCreateProjectErrors];
+
+export type projectsCreateProjectResponses = {
+    /**
+     * Successful Response
+     */
+    201: ProjectPublic;
+};
+
+export type projectsCreateProjectResponse = projectsCreateProjectResponses[keyof projectsCreateProjectResponses];
+
+export type projectsDeleteProjectData = {
+    body?: never;
+    path: {
+        /**
+         * Project Id
+         */
+        project_id: number;
+    };
+    query?: never;
+    url: '/api/v1/projects/{project_id}';
+};
+
+export type projectsDeleteProjectErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type projectsDeleteProjectError = projectsDeleteProjectErrors[keyof projectsDeleteProjectErrors];
+
+export type projectsDeleteProjectResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type projectsDeleteProjectResponse = projectsDeleteProjectResponses[keyof projectsDeleteProjectResponses];
+
+export type projectsReadProjectData = {
+    body?: never;
+    path: {
+        /**
+         * Project Id
+         */
+        project_id: number;
+    };
+    query?: never;
+    url: '/api/v1/projects/{project_id}';
+};
+
+export type projectsReadProjectErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type projectsReadProjectError = projectsReadProjectErrors[keyof projectsReadProjectErrors];
+
+export type projectsReadProjectResponses = {
+    /**
+     * Successful Response
+     */
+    200: ProjectPublic;
+};
+
+export type projectsReadProjectResponse = projectsReadProjectResponses[keyof projectsReadProjectResponses];
+
+export type projectsUpdateProjectData = {
+    body: ProjectUpdate;
+    path: {
+        /**
+         * Project Id
+         */
+        project_id: number;
+    };
+    query?: never;
+    url: '/api/v1/projects/{project_id}';
+};
+
+export type projectsUpdateProjectErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type projectsUpdateProjectError = projectsUpdateProjectErrors[keyof projectsUpdateProjectErrors];
+
+export type projectsUpdateProjectResponses = {
+    /**
+     * Successful Response
+     */
+    200: ProjectPublic;
+};
+
+export type projectsUpdateProjectResponse = projectsUpdateProjectResponses[keyof projectsUpdateProjectResponses];
+
+export type projectsListMembersData = {
+    body?: never;
+    path: {
+        /**
+         * Project Id
+         */
+        project_id: number;
+    };
+    query?: never;
+    url: '/api/v1/projects/{project_id}/members';
+};
+
+export type projectsListMembersErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type projectsListMembersError = projectsListMembersErrors[keyof projectsListMembersErrors];
+
+export type projectsListMembersResponses = {
+    /**
+     * Response Projects-List Members
+     *
+     * Successful Response
+     */
+    200: Array<MemberPublic>;
+};
+
+export type projectsListMembersResponse = projectsListMembersResponses[keyof projectsListMembersResponses];
+
+export type projectsInviteMemberData = {
+    body: MemberInvite;
+    path: {
+        /**
+         * Project Id
+         */
+        project_id: number;
+    };
+    query?: never;
+    url: '/api/v1/projects/{project_id}/members';
+};
+
+export type projectsInviteMemberErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type projectsInviteMemberError = projectsInviteMemberErrors[keyof projectsInviteMemberErrors];
+
+export type projectsInviteMemberResponses = {
+    /**
+     * Successful Response
+     */
+    201: MemberPublic;
+};
+
+export type projectsInviteMemberResponse = projectsInviteMemberResponses[keyof projectsInviteMemberResponses];
+
+export type projectsRemoveMemberData = {
+    body?: never;
+    path: {
+        /**
+         * Project Id
+         */
+        project_id: number;
+        /**
+         * Member Id
+         */
+        member_id: number;
+    };
+    query?: never;
+    url: '/api/v1/projects/{project_id}/members/{member_id}';
+};
+
+export type projectsRemoveMemberErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type projectsRemoveMemberError = projectsRemoveMemberErrors[keyof projectsRemoveMemberErrors];
+
+export type projectsRemoveMemberResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type projectsRemoveMemberResponse = projectsRemoveMemberResponses[keyof projectsRemoveMemberResponses];
+
+export type inspectionsListInspectionsData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * Project Id
+         */
+        project_id: number;
+    };
+    url: '/api/v1/inspections';
+};
+
+export type inspectionsListInspectionsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type inspectionsListInspectionsError = inspectionsListInspectionsErrors[keyof inspectionsListInspectionsErrors];
+
+export type inspectionsListInspectionsResponses = {
+    /**
+     * Response Inspections-List Inspections
+     *
+     * Successful Response
+     */
+    200: Array<InspectionPublic>;
+};
+
+export type inspectionsListInspectionsResponse = inspectionsListInspectionsResponses[keyof inspectionsListInspectionsResponses];
+
+export type inspectionsCreateInspectionData = {
+    body: InspectionCreate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/inspections';
+};
+
+export type inspectionsCreateInspectionErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type inspectionsCreateInspectionError = inspectionsCreateInspectionErrors[keyof inspectionsCreateInspectionErrors];
+
+export type inspectionsCreateInspectionResponses = {
+    /**
+     * Successful Response
+     */
+    201: InspectionPublic;
+};
+
+export type inspectionsCreateInspectionResponse = inspectionsCreateInspectionResponses[keyof inspectionsCreateInspectionResponses];
+
+export type inspectionsDeleteInspectionData = {
+    body?: never;
+    path: {
+        /**
+         * Inspection Id
+         */
+        inspection_id: number;
+    };
+    query?: never;
+    url: '/api/v1/inspections/{inspection_id}';
+};
+
+export type inspectionsDeleteInspectionErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type inspectionsDeleteInspectionError = inspectionsDeleteInspectionErrors[keyof inspectionsDeleteInspectionErrors];
+
+export type inspectionsDeleteInspectionResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type inspectionsDeleteInspectionResponse = inspectionsDeleteInspectionResponses[keyof inspectionsDeleteInspectionResponses];
+
+export type inspectionsReadInspectionData = {
+    body?: never;
+    path: {
+        /**
+         * Inspection Id
+         */
+        inspection_id: number;
+    };
+    query?: never;
+    url: '/api/v1/inspections/{inspection_id}';
+};
+
+export type inspectionsReadInspectionErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type inspectionsReadInspectionError = inspectionsReadInspectionErrors[keyof inspectionsReadInspectionErrors];
+
+export type inspectionsReadInspectionResponses = {
+    /**
+     * Successful Response
+     */
+    200: InspectionPublic;
+};
+
+export type inspectionsReadInspectionResponse = inspectionsReadInspectionResponses[keyof inspectionsReadInspectionResponses];
+
+export type inspectionsUpdateInspectionData = {
+    body: InspectionUpdate;
+    path: {
+        /**
+         * Inspection Id
+         */
+        inspection_id: number;
+    };
+    query?: never;
+    url: '/api/v1/inspections/{inspection_id}';
+};
+
+export type inspectionsUpdateInspectionErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type inspectionsUpdateInspectionError = inspectionsUpdateInspectionErrors[keyof inspectionsUpdateInspectionErrors];
+
+export type inspectionsUpdateInspectionResponses = {
+    /**
+     * Successful Response
+     */
+    200: InspectionPublic;
+};
+
+export type inspectionsUpdateInspectionResponse = inspectionsUpdateInspectionResponses[keyof inspectionsUpdateInspectionResponses];
+
+export type inspectionsSignoffInspectionData = {
+    body?: never;
+    path: {
+        /**
+         * Inspection Id
+         */
+        inspection_id: number;
+    };
+    query?: never;
+    url: '/api/v1/inspections/{inspection_id}/signoff';
+};
+
+export type inspectionsSignoffInspectionErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type inspectionsSignoffInspectionError = inspectionsSignoffInspectionErrors[keyof inspectionsSignoffInspectionErrors];
+
+export type inspectionsSignoffInspectionResponses = {
+    /**
+     * Successful Response
+     */
+    200: InspectionPublic;
+};
+
+export type inspectionsSignoffInspectionResponse = inspectionsSignoffInspectionResponses[keyof inspectionsSignoffInspectionResponses];
+
+export type inspectionsReopenInspectionData = {
+    body?: never;
+    path: {
+        /**
+         * Inspection Id
+         */
+        inspection_id: number;
+    };
+    query?: never;
+    url: '/api/v1/inspections/{inspection_id}/reopen';
+};
+
+export type inspectionsReopenInspectionErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type inspectionsReopenInspectionError = inspectionsReopenInspectionErrors[keyof inspectionsReopenInspectionErrors];
+
+export type inspectionsReopenInspectionResponses = {
+    /**
+     * Successful Response
+     */
+    200: InspectionPublic;
+};
+
+export type inspectionsReopenInspectionResponse = inspectionsReopenInspectionResponses[keyof inspectionsReopenInspectionResponses];
+
+export type findingsListFindingsData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * Inspection Id
+         */
+        inspection_id: number;
+    };
+    url: '/api/v1/findings';
+};
+
+export type findingsListFindingsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type findingsListFindingsError = findingsListFindingsErrors[keyof findingsListFindingsErrors];
+
+export type findingsListFindingsResponses = {
+    /**
+     * Response Findings-List Findings
+     *
+     * Successful Response
+     */
+    200: Array<FindingPublic>;
+};
+
+export type findingsListFindingsResponse = findingsListFindingsResponses[keyof findingsListFindingsResponses];
+
+export type findingsCreateFindingData = {
+    body: FindingCreate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/findings';
+};
+
+export type findingsCreateFindingErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type findingsCreateFindingError = findingsCreateFindingErrors[keyof findingsCreateFindingErrors];
+
+export type findingsCreateFindingResponses = {
+    /**
+     * Successful Response
+     */
+    201: FindingPublic;
+};
+
+export type findingsCreateFindingResponse = findingsCreateFindingResponses[keyof findingsCreateFindingResponses];
+
+export type findingsDeleteFindingData = {
+    body?: never;
+    path: {
+        /**
+         * Finding Id
+         */
+        finding_id: number;
+    };
+    query?: never;
+    url: '/api/v1/findings/{finding_id}';
+};
+
+export type findingsDeleteFindingErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type findingsDeleteFindingError = findingsDeleteFindingErrors[keyof findingsDeleteFindingErrors];
+
+export type findingsDeleteFindingResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type findingsDeleteFindingResponse = findingsDeleteFindingResponses[keyof findingsDeleteFindingResponses];
+
+export type findingsReadFindingData = {
+    body?: never;
+    path: {
+        /**
+         * Finding Id
+         */
+        finding_id: number;
+    };
+    query?: never;
+    url: '/api/v1/findings/{finding_id}';
+};
+
+export type findingsReadFindingErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type findingsReadFindingError = findingsReadFindingErrors[keyof findingsReadFindingErrors];
+
+export type findingsReadFindingResponses = {
+    /**
+     * Successful Response
+     */
+    200: FindingPublic;
+};
+
+export type findingsReadFindingResponse = findingsReadFindingResponses[keyof findingsReadFindingResponses];
+
+export type findingsUpdateFindingData = {
+    body: FindingUpdate;
+    path: {
+        /**
+         * Finding Id
+         */
+        finding_id: number;
+    };
+    query?: never;
+    url: '/api/v1/findings/{finding_id}';
+};
+
+export type findingsUpdateFindingErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type findingsUpdateFindingError = findingsUpdateFindingErrors[keyof findingsUpdateFindingErrors];
+
+export type findingsUpdateFindingResponses = {
+    /**
+     * Successful Response
+     */
+    200: FindingPublic;
+};
+
+export type findingsUpdateFindingResponse = findingsUpdateFindingResponses[keyof findingsUpdateFindingResponses];
+
+export type findingsSetFindingStatusData = {
+    body: FindingStatusUpdate;
+    path: {
+        /**
+         * Finding Id
+         */
+        finding_id: number;
+    };
+    query?: never;
+    url: '/api/v1/findings/{finding_id}/status';
+};
+
+export type findingsSetFindingStatusErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type findingsSetFindingStatusError = findingsSetFindingStatusErrors[keyof findingsSetFindingStatusErrors];
+
+export type findingsSetFindingStatusResponses = {
+    /**
+     * Successful Response
+     */
+    200: FindingPublic;
+};
+
+export type findingsSetFindingStatusResponse = findingsSetFindingStatusResponses[keyof findingsSetFindingStatusResponses];
+
+export type findingsResolveFindingData = {
+    body: FindingResolve;
+    path: {
+        /**
+         * Finding Id
+         */
+        finding_id: number;
+    };
+    query?: never;
+    url: '/api/v1/findings/{finding_id}/resolve';
+};
+
+export type findingsResolveFindingErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type findingsResolveFindingError = findingsResolveFindingErrors[keyof findingsResolveFindingErrors];
+
+export type findingsResolveFindingResponses = {
+    /**
+     * Successful Response
+     */
+    200: FindingPublic;
+};
+
+export type findingsResolveFindingResponse = findingsResolveFindingResponses[keyof findingsResolveFindingResponses];
+
+export type photosPresignPhotoUploadData = {
+    body: PhotoPresignRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/photos/presign';
+};
+
+export type photosPresignPhotoUploadErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type photosPresignPhotoUploadError = photosPresignPhotoUploadErrors[keyof photosPresignPhotoUploadErrors];
+
+export type photosPresignPhotoUploadResponses = {
+    /**
+     * Successful Response
+     */
+    200: PhotoPresignResponse;
+};
+
+export type photosPresignPhotoUploadResponse = photosPresignPhotoUploadResponses[keyof photosPresignPhotoUploadResponses];
+
+export type photosListPhotosData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * Inspection Id
+         */
+        inspection_id: number;
+    };
+    url: '/api/v1/photos';
+};
+
+export type photosListPhotosErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type photosListPhotosError = photosListPhotosErrors[keyof photosListPhotosErrors];
+
+export type photosListPhotosResponses = {
+    /**
+     * Response Photos-List Photos
+     *
+     * Successful Response
+     */
+    200: Array<PhotoPublic>;
+};
+
+export type photosListPhotosResponse = photosListPhotosResponses[keyof photosListPhotosResponses];
+
+export type photosRegisterPhotoData = {
+    body: PhotoCreate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/photos';
+};
+
+export type photosRegisterPhotoErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type photosRegisterPhotoError = photosRegisterPhotoErrors[keyof photosRegisterPhotoErrors];
+
+export type photosRegisterPhotoResponses = {
+    /**
+     * Successful Response
+     */
+    201: PhotoPublic;
+};
+
+export type photosRegisterPhotoResponse = photosRegisterPhotoResponses[keyof photosRegisterPhotoResponses];
+
+export type photosDeletePhotoData = {
+    body?: never;
+    path: {
+        /**
+         * Photo Id
+         */
+        photo_id: number;
+    };
+    query?: never;
+    url: '/api/v1/photos/{photo_id}';
+};
+
+export type photosDeletePhotoErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type photosDeletePhotoError = photosDeletePhotoErrors[keyof photosDeletePhotoErrors];
+
+export type photosDeletePhotoResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type photosDeletePhotoResponse = photosDeletePhotoResponses[keyof photosDeletePhotoResponses];
+
+export type photosReadPhotoData = {
+    body?: never;
+    path: {
+        /**
+         * Photo Id
+         */
+        photo_id: number;
+    };
+    query?: never;
+    url: '/api/v1/photos/{photo_id}';
+};
+
+export type photosReadPhotoErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type photosReadPhotoError = photosReadPhotoErrors[keyof photosReadPhotoErrors];
+
+export type photosReadPhotoResponses = {
+    /**
+     * Successful Response
+     */
+    200: PhotoPublic;
+};
+
+export type photosReadPhotoResponse = photosReadPhotoResponses[keyof photosReadPhotoResponses];
+
+export type dashboardReadDashboardData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/dashboard';
+};
+
+export type dashboardReadDashboardResponses = {
+    /**
+     * Successful Response
+     */
+    200: DashboardPublic;
+};
+
+export type dashboardReadDashboardResponse = dashboardReadDashboardResponses[keyof dashboardReadDashboardResponses];

@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { usersReadUserMeData, usersReadUserMeResponses, utilsHealthCheckData, utilsHealthCheckResponses } from './types.gen';
+import type { dashboardReadDashboardData, dashboardReadDashboardResponses, findingsCreateFindingData, findingsCreateFindingErrors, findingsCreateFindingResponses, findingsDeleteFindingData, findingsDeleteFindingErrors, findingsDeleteFindingResponses, findingsListFindingsData, findingsListFindingsErrors, findingsListFindingsResponses, findingsReadFindingData, findingsReadFindingErrors, findingsReadFindingResponses, findingsResolveFindingData, findingsResolveFindingErrors, findingsResolveFindingResponses, findingsSetFindingStatusData, findingsSetFindingStatusErrors, findingsSetFindingStatusResponses, findingsUpdateFindingData, findingsUpdateFindingErrors, findingsUpdateFindingResponses, inspectionsCreateInspectionData, inspectionsCreateInspectionErrors, inspectionsCreateInspectionResponses, inspectionsDeleteInspectionData, inspectionsDeleteInspectionErrors, inspectionsDeleteInspectionResponses, inspectionsListInspectionsData, inspectionsListInspectionsErrors, inspectionsListInspectionsResponses, inspectionsReadInspectionData, inspectionsReadInspectionErrors, inspectionsReadInspectionResponses, inspectionsReopenInspectionData, inspectionsReopenInspectionErrors, inspectionsReopenInspectionResponses, inspectionsSignoffInspectionData, inspectionsSignoffInspectionErrors, inspectionsSignoffInspectionResponses, inspectionsUpdateInspectionData, inspectionsUpdateInspectionErrors, inspectionsUpdateInspectionResponses, photosDeletePhotoData, photosDeletePhotoErrors, photosDeletePhotoResponses, photosListPhotosData, photosListPhotosErrors, photosListPhotosResponses, photosPresignPhotoUploadData, photosPresignPhotoUploadErrors, photosPresignPhotoUploadResponses, photosReadPhotoData, photosReadPhotoErrors, photosReadPhotoResponses, photosRegisterPhotoData, photosRegisterPhotoErrors, photosRegisterPhotoResponses, projectsCreateProjectData, projectsCreateProjectErrors, projectsCreateProjectResponses, projectsDeleteProjectData, projectsDeleteProjectErrors, projectsDeleteProjectResponses, projectsInviteMemberData, projectsInviteMemberErrors, projectsInviteMemberResponses, projectsListMembersData, projectsListMembersErrors, projectsListMembersResponses, projectsListProjectsData, projectsListProjectsResponses, projectsReadProjectData, projectsReadProjectErrors, projectsReadProjectResponses, projectsRemoveMemberData, projectsRemoveMemberErrors, projectsRemoveMemberResponses, projectsUpdateProjectData, projectsUpdateProjectErrors, projectsUpdateProjectResponses, usersReadUserMeData, usersReadUserMeResponses, utilsHealthCheckData, utilsHealthCheckResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -45,6 +45,407 @@ export class UtilsService {
         return (options?.client ?? client).get<utilsHealthCheckResponses, unknown, ThrowOnError>({
             responseType: 'json',
             url: '/api/v1/utils/health-check/',
+            ...options
+        });
+    }
+}
+
+export class ProjectsService {
+    /**
+     * List Projects
+     *
+     * Projects the caller is a member of, newest first.
+     */
+    public static listProjects<ThrowOnError extends boolean = true>(options?: Options<projectsListProjectsData, ThrowOnError>) {
+        return (options?.client ?? client).get<projectsListProjectsResponses, unknown, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/projects',
+            ...options
+        });
+    }
+    
+    /**
+     * Create Project
+     */
+    public static createProject<ThrowOnError extends boolean = true>(options: Options<projectsCreateProjectData, ThrowOnError>) {
+        return (options.client ?? client).post<projectsCreateProjectResponses, projectsCreateProjectErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/projects',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Delete Project
+     *
+     * Delete a project and, via FK cascades, its members, inspections,
+     * findings, photos, drawings and pins. S3 objects are left for the storage
+     * lifecycle policy (the legacy app did the same for photos).
+     */
+    public static deleteProject<ThrowOnError extends boolean = true>(options: Options<projectsDeleteProjectData, ThrowOnError>) {
+        return (options.client ?? client).delete<projectsDeleteProjectResponses, projectsDeleteProjectErrors, ThrowOnError>({
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/projects/{project_id}',
+            ...options
+        });
+    }
+    
+    /**
+     * Read Project
+     */
+    public static readProject<ThrowOnError extends boolean = true>(options: Options<projectsReadProjectData, ThrowOnError>) {
+        return (options.client ?? client).get<projectsReadProjectResponses, projectsReadProjectErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/projects/{project_id}',
+            ...options
+        });
+    }
+    
+    /**
+     * Update Project
+     */
+    public static updateProject<ThrowOnError extends boolean = true>(options: Options<projectsUpdateProjectData, ThrowOnError>) {
+        return (options.client ?? client).put<projectsUpdateProjectResponses, projectsUpdateProjectErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/projects/{project_id}',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * List Members
+     */
+    public static listMembers<ThrowOnError extends boolean = true>(options: Options<projectsListMembersData, ThrowOnError>) {
+        return (options.client ?? client).get<projectsListMembersResponses, projectsListMembersErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/projects/{project_id}/members',
+            ...options
+        });
+    }
+    
+    /**
+     * Invite Member
+     *
+     * Add a member by email. The invitee's Auth0 ``sub`` is recorded the first
+     * time they open the project. (Block 7.1 — SES invitation emails — remains
+     * deferred, as on staging.)
+     */
+    public static inviteMember<ThrowOnError extends boolean = true>(options: Options<projectsInviteMemberData, ThrowOnError>) {
+        return (options.client ?? client).post<projectsInviteMemberResponses, projectsInviteMemberErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/projects/{project_id}/members',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Remove Member
+     */
+    public static removeMember<ThrowOnError extends boolean = true>(options: Options<projectsRemoveMemberData, ThrowOnError>) {
+        return (options.client ?? client).delete<projectsRemoveMemberResponses, projectsRemoveMemberErrors, ThrowOnError>({
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/projects/{project_id}/members/{member_id}',
+            ...options
+        });
+    }
+}
+
+export class InspectionsService {
+    /**
+     * List Inspections
+     */
+    public static listInspections<ThrowOnError extends boolean = true>(options: Options<inspectionsListInspectionsData, ThrowOnError>) {
+        return (options.client ?? client).get<inspectionsListInspectionsResponses, inspectionsListInspectionsErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/inspections',
+            ...options
+        });
+    }
+    
+    /**
+     * Create Inspection
+     */
+    public static createInspection<ThrowOnError extends boolean = true>(options: Options<inspectionsCreateInspectionData, ThrowOnError>) {
+        return (options.client ?? client).post<inspectionsCreateInspectionResponses, inspectionsCreateInspectionErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/inspections',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Delete Inspection
+     */
+    public static deleteInspection<ThrowOnError extends boolean = true>(options: Options<inspectionsDeleteInspectionData, ThrowOnError>) {
+        return (options.client ?? client).delete<inspectionsDeleteInspectionResponses, inspectionsDeleteInspectionErrors, ThrowOnError>({
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/inspections/{inspection_id}',
+            ...options
+        });
+    }
+    
+    /**
+     * Read Inspection
+     */
+    public static readInspection<ThrowOnError extends boolean = true>(options: Options<inspectionsReadInspectionData, ThrowOnError>) {
+        return (options.client ?? client).get<inspectionsReadInspectionResponses, inspectionsReadInspectionErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/inspections/{inspection_id}',
+            ...options
+        });
+    }
+    
+    /**
+     * Update Inspection
+     */
+    public static updateInspection<ThrowOnError extends boolean = true>(options: Options<inspectionsUpdateInspectionData, ThrowOnError>) {
+        return (options.client ?? client).put<inspectionsUpdateInspectionResponses, inspectionsUpdateInspectionErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/inspections/{inspection_id}',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Signoff Inspection
+     *
+     * Block 8B: close the inspection and lock its findings.
+     */
+    public static signoffInspection<ThrowOnError extends boolean = true>(options: Options<inspectionsSignoffInspectionData, ThrowOnError>) {
+        return (options.client ?? client).patch<inspectionsSignoffInspectionResponses, inspectionsSignoffInspectionErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/inspections/{inspection_id}/signoff',
+            ...options
+        });
+    }
+    
+    /**
+     * Reopen Inspection
+     */
+    public static reopenInspection<ThrowOnError extends boolean = true>(options: Options<inspectionsReopenInspectionData, ThrowOnError>) {
+        return (options.client ?? client).patch<inspectionsReopenInspectionResponses, inspectionsReopenInspectionErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/inspections/{inspection_id}/reopen',
+            ...options
+        });
+    }
+}
+
+export class FindingsService {
+    /**
+     * List Findings
+     */
+    public static listFindings<ThrowOnError extends boolean = true>(options: Options<findingsListFindingsData, ThrowOnError>) {
+        return (options.client ?? client).get<findingsListFindingsResponses, findingsListFindingsErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/findings',
+            ...options
+        });
+    }
+    
+    /**
+     * Create Finding
+     */
+    public static createFinding<ThrowOnError extends boolean = true>(options: Options<findingsCreateFindingData, ThrowOnError>) {
+        return (options.client ?? client).post<findingsCreateFindingResponses, findingsCreateFindingErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/findings',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Delete Finding
+     */
+    public static deleteFinding<ThrowOnError extends boolean = true>(options: Options<findingsDeleteFindingData, ThrowOnError>) {
+        return (options.client ?? client).delete<findingsDeleteFindingResponses, findingsDeleteFindingErrors, ThrowOnError>({
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/findings/{finding_id}',
+            ...options
+        });
+    }
+    
+    /**
+     * Read Finding
+     */
+    public static readFinding<ThrowOnError extends boolean = true>(options: Options<findingsReadFindingData, ThrowOnError>) {
+        return (options.client ?? client).get<findingsReadFindingResponses, findingsReadFindingErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/findings/{finding_id}',
+            ...options
+        });
+    }
+    
+    /**
+     * Update Finding
+     */
+    public static updateFinding<ThrowOnError extends boolean = true>(options: Options<findingsUpdateFindingData, ThrowOnError>) {
+        return (options.client ?? client).put<findingsUpdateFindingResponses, findingsUpdateFindingErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/findings/{finding_id}',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Set Finding Status
+     *
+     * Block 8A: move a finding between open / in-progress / resolved.
+     */
+    public static setFindingStatus<ThrowOnError extends boolean = true>(options: Options<findingsSetFindingStatusData, ThrowOnError>) {
+        return (options.client ?? client).patch<findingsSetFindingStatusResponses, findingsSetFindingStatusErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/findings/{finding_id}/status',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Resolve Finding
+     *
+     * Block 8A: resolve with optional notes; records who and when.
+     */
+    public static resolveFinding<ThrowOnError extends boolean = true>(options: Options<findingsResolveFindingData, ThrowOnError>) {
+        return (options.client ?? client).patch<findingsResolveFindingResponses, findingsResolveFindingErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/findings/{finding_id}/resolve',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+}
+
+export class PhotosService {
+    /**
+     * Presign Photo Upload
+     */
+    public static presignPhotoUpload<ThrowOnError extends boolean = true>(options: Options<photosPresignPhotoUploadData, ThrowOnError>) {
+        return (options.client ?? client).post<photosPresignPhotoUploadResponses, photosPresignPhotoUploadErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/photos/presign',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * List Photos
+     */
+    public static listPhotos<ThrowOnError extends boolean = true>(options: Options<photosListPhotosData, ThrowOnError>) {
+        return (options.client ?? client).get<photosListPhotosResponses, photosListPhotosErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/photos',
+            ...options
+        });
+    }
+    
+    /**
+     * Register Photo
+     */
+    public static registerPhoto<ThrowOnError extends boolean = true>(options: Options<photosRegisterPhotoData, ThrowOnError>) {
+        return (options.client ?? client).post<photosRegisterPhotoResponses, photosRegisterPhotoErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/photos',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Delete Photo
+     */
+    public static deletePhoto<ThrowOnError extends boolean = true>(options: Options<photosDeletePhotoData, ThrowOnError>) {
+        return (options.client ?? client).delete<photosDeletePhotoResponses, photosDeletePhotoErrors, ThrowOnError>({
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/photos/{photo_id}',
+            ...options
+        });
+    }
+    
+    /**
+     * Read Photo
+     */
+    public static readPhoto<ThrowOnError extends boolean = true>(options: Options<photosReadPhotoData, ThrowOnError>) {
+        return (options.client ?? client).get<photosReadPhotoResponses, photosReadPhotoErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/photos/{photo_id}',
+            ...options
+        });
+    }
+}
+
+export class DashboardService {
+    /**
+     * Read Dashboard
+     */
+    public static readDashboard<ThrowOnError extends boolean = true>(options?: Options<dashboardReadDashboardData, ThrowOnError>) {
+        return (options?.client ?? client).get<dashboardReadDashboardResponses, unknown, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/dashboard',
             ...options
         });
     }
