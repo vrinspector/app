@@ -54,3 +54,4 @@ Single source of truth for rebuild increments. Automated and interactive session
 |---|---|---|---|
 | 2026-11-06 | 00 | initial commit | Skeleton scaffolded from fastapi/full-stack-fastapi-template @ aabb901 |
 | 2026-11-07 | 01 | #4 | Merged (squash) after all CI checks passed: brand tokens (v2.51 palette), template "items" feature removed, CI on `main` |
+| 2026-11-07 | 02 | #5 | Merged (squash) after all CI checks passed: Auth0 OIDC (PKCE) on the frontend, JWT/JWKS validation on the backend, `sub` anchor + email display, local `user` table and password auth removed |
