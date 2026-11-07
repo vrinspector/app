@@ -21,7 +21,7 @@ Single source of truth for rebuild increments. Automated and interactive session
 - [x] 00 — Scaffold template skeleton, README, this plan (initial commit)
 - [x] 01 — Project config pass: VR Inspector naming/branding tokens (v2.51 palette) in frontend theme; strip template example "items" feature; CI green on a clean clone
 - [x] 02 — Auth: replace template password auth with Auth0 (OIDC code flow on frontend, JWT validation on backend, `sub` anchor + email display). No local users table
-- [ ] 03 — Data layer: SQLModel models + Alembic baseline matching the live schema (projects, inspections, findings, photos, members, drawings, inspection_pins — INTEGER PKs, page_number, page_width/height_pts). Migration applies cleanly to a copy of the real schema
+- [x] 03 — Data layer: SQLModel models + Alembic baseline matching the live schema (projects, inspections, findings, photos, members, drawings, inspection_pins — INTEGER PKs, page_number, page_width/height_pts). Migration applies cleanly to a copy of the real schema
 - [ ] 04 — API port 1: projects, inspections, findings, photos, members routes (legacy SQL as spec; same request/response shapes under `/api/v1/`)
 - [ ] 05 — API port 2: drawings + pins incl. presign, register, view-url, dimensions, deletes — porting the authorization hardening (membership checks, 404 object-hiding, project-bound upload keys) with the local authz test suite ported to pytest
 - [ ] 06 — Frontend shell: layout, nav, auth/session, brand tokens, loading/empty/error state patterns
@@ -55,3 +55,4 @@ Single source of truth for rebuild increments. Automated and interactive session
 | 2026-11-06 | 00 | initial commit | Skeleton scaffolded from fastapi/full-stack-fastapi-template @ aabb901 |
 | 2026-11-07 | 01 | #4 | Merged (squash) after all CI checks passed: brand tokens (v2.51 palette), template "items" feature removed, CI on `main` |
 | 2026-11-07 | 02 | #5 | Merged (squash) after all CI checks passed: Auth0 OIDC (PKCE) on the frontend, JWT/JWKS validation on the backend, `sub` anchor + email display, local `user` table and password auth removed |
+| 2026-11-07 | 03 | PR opened | SQLModel tables for the 7 domain tables + reconciling Alembic baseline `b7d3e9a1c204` (creates on a fresh DB; adds only missing columns/indexes on the live schema; downgrade refuses to drop populated tables). Verified against an empty DB and a reconstructed legacy schema with rows; `docs/DATA_MODEL.md` records column provenance. Owner action: replace the reconstructed schema with a `pg_dump --schema-only` of staging (issue filed) |

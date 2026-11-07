@@ -17,6 +17,13 @@ uv sync
 uv run bash scripts/prestart.sh
 ```
 
+`prestart.sh` runs the Alembic migrations. The data-layer baseline is safe to
+run against a database that already holds the legacy VR Inspector tables: it
+only adds what is missing (see `docs/DATA_MODEL.md`). The backend test suite
+creates and drops its own scratch databases on the same server, so the
+configured database user must be allowed to `CREATE DATABASE` (the Compose
+`db` service's `postgres` user is).
+
 Start the FastAPI development server:
 
 ```bash
