@@ -10,5 +10,5 @@ test("Unknown route shows the 404 page", async ({ page }) => {
 test("404 page offers a way back", async ({ page }) => {
   await page.goto("/nope")
 
-  await expect(page.getByRole("button", { name: "Go Back" })).toBeVisible()
+  await expect(page.getByRole("link", { name: "Go Back" })).toBeVisible()
 })

@@ -1,27 +1,32 @@
 import { Link } from "@tanstack/react-router"
+import { AlertTriangle } from "lucide-react"
+
+import { LogoMark } from "@/components/Common/Logo"
 import { Button } from "@/components/ui/button"
 
+/** Full-page failure (outside the shell). In-shell errors use <ErrorState>. */
 const ErrorComponent = () => {
   return (
     <div
-      className="flex min-h-screen items-center justify-center flex-col p-4"
+      className="flex min-h-svh flex-col items-center justify-center gap-4 p-6 text-center"
       data-testid="error-component"
     >
-      <div className="flex items-center z-10">
-        <div className="flex flex-col ml-4 items-center justify-center p-4">
-          <span className="text-6xl md:text-8xl font-bold leading-none mb-4">
-            Error
-          </span>
-          <span className="text-2xl font-bold mb-2">Oops!</span>
-        </div>
-      </div>
-
-      <p className="text-lg text-muted-foreground mb-4 text-center z-10">
-        Something went wrong. Please try again.
+      <LogoMark className="size-12" />
+      <AlertTriangle className="size-8 text-destructive" aria-hidden="true" />
+      <h1 className="text-2xl font-bold">Something went wrong</h1>
+      <p className="max-w-md text-muted-foreground">
+        The app hit a problem it could not recover from. Reloading usually
+        clears it; if it keeps happening, tell your administrator what you were
+        doing.
       </p>
-      <Link to="/">
-        <Button>Go Home</Button>
-      </Link>
+      <div className="mt-2 flex flex-wrap justify-center gap-2">
+        <Button variant="outline" onClick={() => window.location.reload()}>
+          Reload
+        </Button>
+        <Button asChild>
+          <Link to="/">Go Home</Link>
+        </Button>
+      </div>
     </div>
   )
 }

@@ -1,6 +1,11 @@
 import { AxiosError } from "axios"
 
-function extractErrorMessage(err: Error): string {
+/**
+ * A person-readable message for an API or runtime error: the FastAPI
+ * `detail` when there is one, a plain sentence when the server could not be
+ * reached, the error's own message otherwise.
+ */
+export function extractErrorMessage(err: Error): string {
   if (err instanceof AxiosError) {
     const errDetail = (err.response?.data as any)?.detail
     if (Array.isArray(errDetail) && errDetail.length > 0) {
@@ -9,8 +14,12 @@ function extractErrorMessage(err: Error): string {
     if (typeof errDetail === "string") {
       return errDetail
     }
+    if (!err.response) {
+      return "Could not reach the VR Inspector server. Check your connection and try again."
+    }
     return err.message
   }
+  if (err.message) return err.message
   return "Something went wrong."
 }
 
