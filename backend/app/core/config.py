@@ -71,6 +71,15 @@ class Settings(BaseSettings):
     def auth0_userinfo_url(self) -> str:
         return f"https://{self.AUTH0_DOMAIN}/userinfo"
 
+    # --- S3 (Hard Rule 8: file storage is S3 only) ---
+    # Bucket and region are configuration, not secrets. AWS credentials come
+    # from the runtime (instance role / env vars) and are never in the repo.
+    S3_BUCKET: str = "vrinspector-files"
+    AWS_REGION: str = "us-east-1"
+    # Lifetimes of presigned URLs (seconds), as deployed on staging.
+    S3_PRESIGN_PUT_SECONDS: int = 600
+    S3_PRESIGN_GET_SECONDS: int = 3600
+
     SMTP_TLS: bool = True
     SMTP_SSL: bool = False
     SMTP_PORT: int = 587

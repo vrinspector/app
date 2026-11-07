@@ -60,6 +60,8 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       EMAILS_FROM_EMAIL: ${EMAILS_FROM_EMAIL}
+      S3_BUCKET: ${S3_BUCKET:-vrinspector-files}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:?Variable not set}@db:5432/app
       SENTRY_DSN: ${SENTRY_DSN:-}
 
