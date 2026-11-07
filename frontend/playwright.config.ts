@@ -30,37 +30,42 @@ export default defineConfig({
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
+
+    /*
+     * The Auth0 SDK needs the Web Crypto API, which browsers only expose on
+     * secure contexts (HTTPS or localhost). In Docker Compose the app is
+     * reached as http://backend:8000, so tell Chromium to treat that origin
+     * as secure. Test-only; production is served over HTTPS.
+     */
+    launchOptions: {
+      args: [`--unsafely-treat-insecure-origin-as-secure=${baseURL}`],
+    },
   },
 
   /* Configure projects for major browsers */
+  // Sign-in is handled by Auth0's hosted page, so there is no stored
+  // authenticated state here: the suite covers the signed-out experience.
+  // Authenticated end-to-end runs against a real tenant are an owner action
+  // until test-user credentials exist.
   projects: [
-    { name: 'setup', testMatch: /.*\.setup\.ts/ },
-
     {
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
-        storageState: 'playwright/.auth/user.json',
+        // Full Chromium (new headless) rather than chrome-headless-shell: the
+        // headless shell ignores --unsafely-treat-insecure-origin-as-secure.
+        channel: 'chromium',
       },
-      dependencies: ['setup'],
     },
 
     // {
     //   name: 'firefox',
-    //   use: {
-    //     ...devices['Desktop Firefox'],
-    //     storageState: 'playwright/.auth/user.json',
-    //   },
-    //   dependencies: ['setup'],
+    //   use: { ...devices['Desktop Firefox'] },
     // },
 
     // {
     //   name: 'webkit',
-    //   use: {
-    //     ...devices['Desktop Safari'],
-    //     storageState: 'playwright/.auth/user.json',
-    //   },
-    //   dependencies: ['setup'],
+    //   use: { ...devices['Desktop Safari'] },
     // },
 
     /* Test against mobile viewports. */

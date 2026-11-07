@@ -1,4 +1,4 @@
-import { Home, Users } from "lucide-react"
+import { Home } from "lucide-react"
 
 import { SidebarAppearance } from "@/components/Common/Appearance"
 import { Logo } from "@/components/Common/Logo"
@@ -12,14 +12,12 @@ import useAuth from "@/hooks/useAuth"
 import { type Item, Main } from "./Main"
 import { User } from "./User"
 
-const baseItems: Item[] = [{ icon: Home, title: "Dashboard", path: "/" }]
+// Navigation grows with increments 06–10 (projects, inspections, drawings,
+// reports, members, help). Role-based entries will key off Auth0 permissions.
+const items: Item[] = [{ icon: Home, title: "Dashboard", path: "/" }]
 
 export function AppSidebar() {
-  const { user: currentUser } = useAuth()
-
-  const items = currentUser?.is_superuser
-    ? [...baseItems, { icon: Users, title: "Admin", path: "/admin" }]
-    : baseItems
+  const { user } = useAuth()
 
   return (
     <Sidebar collapsible="icon">
@@ -31,7 +29,7 @@ export function AppSidebar() {
       </SidebarContent>
       <SidebarFooter>
         <SidebarAppearance />
-        <User user={currentUser} />
+        <User user={user} />
       </SidebarFooter>
     </Sidebar>
   )

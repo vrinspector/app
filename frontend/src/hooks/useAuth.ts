@@ -1,70 +1,79 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useNavigate } from "@tanstack/react-router"
+import { useAuth0 } from "@auth0/auth0-react"
+import { useQuery } from "@tanstack/react-query"
+import { useCallback } from "react"
 
-import {
-  type Body_login_login_access_token as AccessToken,
-  LoginService,
-  type UserPublic,
-  type UserRegister,
-  UsersService,
-} from "@/client"
-import { handleError } from "@/utils"
-import useCustomToast from "./useCustomToast"
+import { type UserPublic, UsersService } from "@/client"
+import { isAuth0Configured, redirectUri } from "@/lib/auth0"
 
-const isLoggedIn = () => {
-  return localStorage.getItem("access_token") !== null
+/**
+ * The signed-in person, as the UI needs it.
+ *
+ * `sub` (the Auth0 subject) is the identity anchor; `email` and `name` are
+ * for display. Profile fields come from the ID token immediately after login
+ * and are confirmed against the API (`GET /users/me`) once a token is in hand.
+ */
+export interface SessionUser {
+  sub: string
+  email?: string
+  name?: string
+  picture?: string
 }
 
 const useAuth = () => {
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
-  const { showErrorToast } = useCustomToast()
+  const {
+    isAuthenticated,
+    isLoading,
+    error,
+    user: idTokenUser,
+    loginWithRedirect,
+    logout: auth0Logout,
+  } = useAuth0()
 
-  const { data: user } = useQuery<UserPublic | null, Error>({
-    queryKey: ["currentUser"],
+  // Round-trip to the API: proves the access token is accepted by the backend
+  // and picks up the backend's view of the identity (email from the token or
+  // /userinfo fallback, permissions).
+  const { data: apiUser } = useQuery<UserPublic | null, Error>({
+    queryKey: ["currentUser", idTokenUser?.sub],
     queryFn: async () => (await UsersService.readUserMe()).data,
-    enabled: isLoggedIn(),
+    enabled: isAuthenticated,
+    staleTime: 5 * 60 * 1000,
   })
 
-  const signUpMutation = useMutation({
-    mutationFn: (data: UserRegister) =>
-      UsersService.registerUser({ body: data }),
-    onSuccess: () => {
-      navigate({ to: "/login" })
-    },
-    onError: handleError.bind(showErrorToast),
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["users"] })
-    },
-  })
+  const user: SessionUser | null = isAuthenticated
+    ? {
+        sub: apiUser?.sub ?? idTokenUser?.sub ?? "",
+        email: apiUser?.email ?? idTokenUser?.email ?? undefined,
+        name: apiUser?.name ?? idTokenUser?.name ?? undefined,
+        picture: apiUser?.picture ?? idTokenUser?.picture ?? undefined,
+      }
+    : null
 
-  const login = async (data: AccessToken) => {
-    const response = await LoginService.loginAccessToken({
-      body: data,
-    })
-    localStorage.setItem("access_token", response.data.access_token)
-  }
+  const login = useCallback(
+    (returnTo?: string) =>
+      loginWithRedirect({
+        appState: { returnTo: returnTo ?? "/" },
+      }),
+    [loginWithRedirect],
+  )
 
-  const loginMutation = useMutation({
-    mutationFn: login,
-    onSuccess: () => {
-      navigate({ to: "/" })
-    },
-    onError: handleError.bind(showErrorToast),
-  })
-
-  const logout = () => {
-    localStorage.removeItem("access_token")
-    navigate({ to: "/login" })
-  }
+  const logout = useCallback(
+    () =>
+      auth0Logout({
+        logoutParams: { returnTo: redirectUri() },
+      }),
+    [auth0Logout],
+  )
 
   return {
-    signUpMutation,
-    loginMutation,
-    logout,
+    isAuthenticated,
+    isLoading,
+    isConfigured: isAuth0Configured(),
+    error,
     user,
+    permissions: apiUser?.permissions ?? [],
+    login,
+    logout,
   }
 }
 
-export { isLoggedIn }
 export default useAuth

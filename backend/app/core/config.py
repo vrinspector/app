@@ -20,9 +20,6 @@ class Settings(BaseSettings):
         extra="ignore",
     )
     API_V1_STR: str = "/api/v1"
-    SECRET_KEY: str
-    # 60 minutes * 24 hours * 8 days = 8 days
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8
     FRONTEND_HOST: str = "http://localhost:5173"
     FASTAPI_ENV: Literal["development"] | None = None
 
@@ -39,6 +36,41 @@ class Settings(BaseSettings):
                 return database_url.replace(scheme, "postgresql+psycopg://", 1)
         return database_url
 
+    # --- Auth0 (identity provider; Hard Rule: Auth0 `sub` is the identity anchor) ---
+    # Tenant domain, e.g. "example.us.auth0.com" (no scheme, no trailing slash).
+    AUTH0_DOMAIN: str
+    # API identifier registered in Auth0 ("audience" of access tokens).
+    # The legacy backend used the env key AUTH0_API_AUDIENCE; keep the same name.
+    AUTH0_API_AUDIENCE: str
+    # Optional override, e.g. for a custom domain. Defaults to https://{AUTH0_DOMAIN}/
+    AUTH0_ISSUER: str | None = None
+    AUTH0_ALGORITHMS: list[str] = ["RS256"]
+    # Seconds to cache the tenant JWKS before refreshing.
+    AUTH0_JWKS_CACHE_SECONDS: int = 3600
+    # Namespaced custom claim an Auth0 Action may use to copy the email into the
+    # access token (access tokens for an API do not carry `email` by default).
+    AUTH0_EMAIL_CLAIM: str = "https://vrinspector.com/email"
+    # If the access token carries no email claim, look it up at /userinfo
+    # (result cached per token until the token expires).
+    AUTH0_USERINFO_FALLBACK: bool = True
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def auth0_issuer(self) -> str:
+        if self.AUTH0_ISSUER:
+            return self.AUTH0_ISSUER
+        return f"https://{self.AUTH0_DOMAIN}/"
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def auth0_jwks_url(self) -> str:
+        return f"https://{self.AUTH0_DOMAIN}/.well-known/jwks.json"
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def auth0_userinfo_url(self) -> str:
+        return f"https://{self.AUTH0_DOMAIN}/userinfo"
+
     SMTP_TLS: bool = True
     SMTP_SSL: bool = False
     SMTP_PORT: int = 587
@@ -54,16 +86,10 @@ class Settings(BaseSettings):
             self.EMAILS_FROM_NAME = self.PROJECT_NAME
         return self
 
-    EMAIL_RESET_TOKEN_EXPIRE_HOURS: int = 48
-
     @computed_field  # type: ignore[prop-decorator]
     @property
     def emails_enabled(self) -> bool:
         return bool(self.SMTP_HOST and self.EMAILS_FROM_EMAIL)
-
-    EMAIL_TEST_USER: EmailStr = "test@example.com"
-    FIRST_SUPERUSER: EmailStr
-    FIRST_SUPERUSER_PASSWORD: str
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":
@@ -76,15 +102,23 @@ class Settings(BaseSettings):
             else:
                 raise ValueError(message)
 
+    def _check_placeholder(self, var_name: str, value: str) -> None:
+        if "changethis" in value or "example" in value:
+            message = (
+                f"The value of {var_name} is a placeholder ({value!r}). "
+                "Set it to the real Auth0 value for deployments."
+            )
+            if self.FASTAPI_ENV == "development":
+                warnings.warn(message, stacklevel=1)
+            else:
+                raise ValueError(message)
+
     @model_validator(mode="after")
     def _enforce_non_default_secrets(self) -> Self:
-        self._check_default_secret("SECRET_KEY", self.SECRET_KEY)
         for host in self.DATABASE_URL.hosts():
             self._check_default_secret("DATABASE_URL password", host["password"])
-        self._check_default_secret(
-            "FIRST_SUPERUSER_PASSWORD", self.FIRST_SUPERUSER_PASSWORD
-        )
-
+        self._check_placeholder("AUTH0_DOMAIN", self.AUTH0_DOMAIN)
+        self._check_placeholder("AUTH0_API_AUDIENCE", self.AUTH0_API_AUDIENCE)
         return self
 
 

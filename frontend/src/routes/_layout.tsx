@@ -7,14 +7,18 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
-import { isLoggedIn } from "@/hooks/useAuth"
 
 export const Route = createFileRoute("/_layout")({
   component: Layout,
-  beforeLoad: async () => {
-    if (!isLoggedIn()) {
+  // The router mounts only after Auth0 has restored (or failed to restore)
+  // the session, so this guard can be synchronous. Remember where the person
+  // was heading so sign-in brings them straight back.
+  beforeLoad: ({ context, location }) => {
+    if (!context.auth.isAuthenticated) {
       throw redirect({
         to: "/login",
+        search: location.href !== "/" ? { returnTo: location.href } : {},
+        replace: true,
       })
     }
   },

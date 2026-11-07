@@ -101,6 +101,20 @@ docker compose watch
 
 The tracked `.env` file contains local development defaults, passwords, and other configuration. Its hostnames use `localhost` for processes running on your machine. Docker Compose overrides hostnames such as the database and SMTP server with their Compose service names.
 
+## Signing in locally (Auth0)
+
+There is no local users table and no password login: identity comes from Auth0 (the access token's `sub` is the identity anchor; `email` is carried for display and the legacy membership checks). The tracked `.env` ships **placeholders**, so a fresh checkout boots, serves the sign-in page, and shows a "Sign-in is not set up for this build" notice.
+
+To sign in on your machine, set these in `.env` (backend) and `frontend/.env` (Vite dev server) to the values of the VR Inspector Auth0 tenant — they are public identifiers, not secrets, but keep the repo copies as placeholders:
+
+* `AUTH0_DOMAIN` / `VITE_AUTH0_DOMAIN` — tenant domain, e.g. `tenant.us.auth0.com`
+* `AUTH0_API_AUDIENCE` / `VITE_AUTH0_AUDIENCE` — the API identifier (legacy value: `https://api.vrinspector.com`)
+* `VITE_AUTH0_CLIENT_ID` — the Single Page Application's client id
+
+In the Auth0 application settings, allow `http://localhost:5173` and `http://localhost:8000` as Callback URLs, Logout URLs and Web Origins.
+
+Sign-in needs a **secure context**: HTTPS, or `http://localhost` on the same machine. Opening the app from another device over plain HTTP (for example an iPad pointed at `http://192.168.x.x:5173`) shows an "Open VR Inspector over HTTPS" page instead of the sign-in button; use an HTTPS tunnel (ngrok, Cloudflare Tunnel) for device testing. The Playwright suite reaches the app as `http://backend:8000` inside Docker Compose and launches full Chromium with `--unsafely-treat-insecure-origin-as-secure` for that origin only. The backend fetches only the tenant's public JWKS (cached) and, when an access token carries no email claim, looks the email up at `/userinfo` (per-token cache). An Auth0 Action that copies the email into the access token as `https://vrinspector.com/email` avoids that lookup.
+
 Do not store deployment secrets in `.env`. Configure them as described in the [FastAPI Cloud deployment guide](./deployment.md) or the [Docker Compose deployment guide](./deployment-docker-compose.md).
 
 ## Pre-commit Hooks and Code Linting

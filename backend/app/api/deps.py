@@ -1,21 +1,18 @@
 from collections.abc import Generator
 from typing import Annotated
 
-import jwt
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi import Depends, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt.exceptions import InvalidTokenError
-from pydantic import ValidationError
 from sqlmodel import Session
 
-from app.core import security
-from app.core.config import settings
+from app.core.auth import AuthUser, user_from_token
 from app.core.db import engine
-from app.models import TokenPayload, User
 
-reusable_oauth2 = OAuth2PasswordBearer(
-    tokenUrl=f"{settings.API_V1_STR}/login/access-token"
-)
+# auto_error=False so we control the 401 shape and the WWW-Authenticate header.
+bearer_scheme = HTTPBearer(auto_error=False, description="Auth0 access token")
+
+UNAUTHENTICATED_HEADERS = {"WWW-Authenticate": "Bearer"}
 
 
 def get_db() -> Generator[Session]:
@@ -24,34 +21,33 @@ def get_db() -> Generator[Session]:
 
 
 SessionDep = Annotated[Session, Depends(get_db)]
-TokenDep = Annotated[str, Depends(reusable_oauth2)]
+CredentialsDep = Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)]
 
 
-def get_current_user(session: SessionDep, token: TokenDep) -> User:
-    try:
-        payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[security.ALGORITHM]
-        )
-        token_data = TokenPayload(**payload)
-    except InvalidTokenError, ValidationError:
+def get_current_user(request: Request, credentials: CredentialsDep) -> AuthUser:
+    """Resolve the caller from the ``Authorization: Bearer`` header.
+
+    401 for a missing, malformed or expired token, or one with the wrong
+    issuer or audience.
+    Authorization (project membership) is a separate concern handled per route
+    with 404 object-hiding, as in the legacy routers.
+    """
+    if credentials is None or credentials.scheme.lower() != "bearer":
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Could not validate credentials",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers=UNAUTHENTICATED_HEADERS,
         )
-    user = session.get(User, token_data.sub)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    if not user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive user")
+    try:
+        user = user_from_token(credentials.credentials)
+    except InvalidTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers=UNAUTHENTICATED_HEADERS,
+        )
+    request.state.user = user
     return user
 
 
-CurrentUser = Annotated[User, Depends(get_current_user)]
-
-
-def get_current_active_superuser(current_user: CurrentUser) -> User:
-    if not current_user.is_superuser:
-        raise HTTPException(
-            status_code=403, detail="The user doesn't have enough privileges"
-        )
-    return current_user
+CurrentUser = Annotated[AuthUser, Depends(get_current_user)]

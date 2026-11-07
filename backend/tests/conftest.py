@@ -2,24 +2,36 @@ from collections.abc import Generator
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlmodel import Session, delete
 
-from app.core.config import settings
-from app.core.db import engine, init_db
+from app.core import auth
 from app.main import app
-from app.models import User
-from tests.utils.user import authentication_token_from_email
-from tests.utils.utils import get_superuser_token_headers
+from tests.utils.auth0 import FakeTenant
 
 
-@pytest.fixture(scope="session", autouse=True)
-def db() -> Generator[Session]:
-    with Session(engine) as session:
-        init_db(session)
-        yield session
-        statement = delete(User)
-        session.execute(statement)
-        session.commit()
+@pytest.fixture(scope="session")
+def tenant() -> FakeTenant:
+    """One fake Auth0 tenant (RSA key pair + JWKS) for the whole session."""
+    return FakeTenant()
+
+
+@pytest.fixture(autouse=True)
+def offline_auth0(tenant: FakeTenant) -> Generator[FakeTenant]:
+    """Route the backend's JWKS / userinfo lookups to the fake tenant.
+
+    Tests never reach the network: the JWKS cache and userinfo cache are
+    re-pointed at in-memory stubs and reset around every test.
+    """
+    auth.jwks_cache._fetch = tenant.fetch_jwks  # type: ignore[assignment]
+    auth.userinfo_cache._fetch = tenant.fetch_userinfo  # type: ignore[assignment]
+    auth.jwks_cache.clear()
+    auth.userinfo_cache.clear()
+    tenant.jwks_fetches = 0
+    tenant.userinfo_fetches = 0
+    tenant.userinfo = {}
+    tenant.userinfo_error = None
+    yield tenant
+    auth.jwks_cache.clear()
+    auth.userinfo_cache.clear()
 
 
 @pytest.fixture(scope="module")
@@ -28,13 +40,6 @@ def client() -> Generator[TestClient]:
         yield c
 
 
-@pytest.fixture(scope="module")
-def superuser_token_headers(client: TestClient) -> dict[str, str]:
-    return get_superuser_token_headers(client)
-
-
-@pytest.fixture(scope="module")
-def normal_user_token_headers(client: TestClient, db: Session) -> dict[str, str]:
-    return authentication_token_from_email(
-        client=client, email=settings.EMAIL_TEST_USER, db=db
-    )
+@pytest.fixture
+def user_token_headers(tenant: FakeTenant) -> dict[str, str]:
+    return tenant.auth_headers()
