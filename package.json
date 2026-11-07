@@ -1,5 +1,5 @@
 {
-  "name": "fastapi-full-stack-template",
+  "name": "vrinspector-app",
   "private": true,
   "workspaces": [
     "frontend",

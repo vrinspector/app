@@ -19,7 +19,7 @@ Single source of truth for rebuild increments. Automated and interactive session
 ### Block 9 — platform + feature parity (PRD v2.63 §4)
 
 - [x] 00 — Scaffold template skeleton, README, this plan (initial commit)
-- [ ] 01 — Project config pass: VR Inspector naming/branding tokens (v2.51 palette) in frontend theme; strip template example "items" feature; CI green on a clean clone
+- [x] 01 — Project config pass: VR Inspector naming/branding tokens (v2.51 palette) in frontend theme; strip template example "items" feature; CI green on a clean clone
 - [ ] 02 — Auth: replace template password auth with Auth0 (OIDC code flow on frontend, JWT validation on backend, `sub` anchor + email display). No local users table
 - [ ] 03 — Data layer: SQLModel models + Alembic baseline matching the live schema (projects, inspections, findings, photos, members, drawings, inspection_pins — INTEGER PKs, page_number, page_width/height_pts). Migration applies cleanly to a copy of the real schema
 - [ ] 04 — API port 1: projects, inspections, findings, photos, members routes (legacy SQL as spec; same request/response shapes under `/api/v1/`)

@@ -1,4 +1,4 @@
-# FastAPI Project - Backend
+# VR Inspector - Backend
 
 ## Requirements
 
