@@ -594,6 +594,139 @@ class PhotoPublic(SQLModel):
     view_url: str | None = None
 
 
+# --- Increment 05: drawings + pins (Block 8D/8E router, hardening carried over) ---
+#
+# Request bodies mirror the deployed ``staging_drawings_block8e.py`` schemas
+# field for field; responses return every column as ``dict(row)`` did. Numeric
+# columns (pin percentages, PDF page dimensions) are returned as JSON numbers,
+# which is what the SPA's pin overlay and PDF.js scaling arithmetic consume.
+
+DrawingDiscipline = Literal[
+    "general",
+    "pid",
+    "grading",
+    "civil_structural",
+    "equipment_layout",
+    "steel_erection",
+    "electrical",
+    "other",
+]
+DrawingFileType = Literal["pdf", "png", "jpg", "jpeg", "svg"]
+PinStatus = Literal[
+    "verified", "in_progress", "punch_item", "not_installed", "not_started"
+]
+
+
+class DrawingPresignRequest(SQLModel):
+    project_id: int
+    filename: str = Field(min_length=1, max_length=255)
+    content_type: str = Field(default="application/octet-stream", max_length=100)
+
+
+class DrawingPresignResponse(SQLModel):
+    upload_url: str
+    s3_key: str
+
+
+class DrawingCreate(SQLModel):
+    project_id: int
+    title: str = Field(min_length=1, max_length=255)
+    drawing_number: str | None = Field(default=None, max_length=100)
+    discipline: DrawingDiscipline = "general"
+    filename: str = Field(min_length=1, max_length=255)
+    s3_key: str = Field(min_length=1, max_length=512)
+    file_type: DrawingFileType = "png"
+    file_size: int | None = Field(default=None, ge=0)
+    view_url: str | None = None
+    thumbnail_url: str | None = None
+    page_width_pts: float | None = Field(default=None, gt=0)
+    page_height_pts: float | None = Field(default=None, gt=0)
+    # Sent by the SPA (display name); the API records the verified identity.
+    uploaded_by: str | None = Field(default=None, max_length=255)
+
+
+class DrawingUpdate(SQLModel):
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+    drawing_number: str | None = Field(default=None, max_length=100)
+    discipline: DrawingDiscipline | None = None
+    view_url: str | None = None
+    thumbnail_url: str | None = None
+
+
+class DrawingDimensionsUpdate(SQLModel):
+    """Block 8E (R6): PDF MediaBox size in points, captured by the viewer."""
+
+    page_width_pts: float = Field(gt=0)
+    page_height_pts: float = Field(gt=0)
+
+
+class DrawingDimensionsPublic(SQLModel):
+    id: int
+    page_width_pts: float | None
+    page_height_pts: float | None
+
+
+class DrawingPublic(SQLModel):
+    id: int
+    public_id: uuid.UUID
+    project_id: int
+    title: str
+    drawing_number: str | None
+    discipline: str
+    filename: str
+    s3_key: str
+    file_type: str
+    file_size: int | None
+    view_url: str | None
+    thumbnail_url: str | None
+    page_width_pts: float | None
+    page_height_pts: float | None
+    uploaded_by: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class DrawingViewUrl(SQLModel):
+    view_url: str
+
+
+class PinCreate(SQLModel):
+    finding_id: int | None = None
+    tag_number: str | None = Field(default=None, max_length=100)
+    label: str | None = Field(default=None, max_length=255)
+    # Zoom-independent percentages of the rendered page (NUMERIC(6,3)).
+    x_pct: float = Field(ge=0, le=100)
+    y_pct: float = Field(ge=0, le=100)
+    status: PinStatus = "not_started"
+    notes: str | None = None
+    page_number: int = Field(default=1, ge=1)
+
+
+class PinUpdate(SQLModel):
+    finding_id: int | None = None
+    tag_number: str | None = Field(default=None, max_length=100)
+    label: str | None = Field(default=None, max_length=255)
+    status: PinStatus | None = None
+    notes: str | None = None
+
+
+class PinPublic(SQLModel):
+    id: int
+    public_id: uuid.UUID
+    drawing_id: int
+    finding_id: int | None
+    tag_number: str | None
+    label: str | None
+    x_pct: float
+    y_pct: float
+    status: str
+    notes: str | None
+    discipline_data: dict[str, Any] | None
+    page_number: int
+    created_by: str | None
+    created_at: datetime
+
+
 class DashboardSummary(SQLModel):
     total_projects: int
     total_inspections: int

@@ -122,6 +122,240 @@ export type DashboardSummary = {
 };
 
 /**
+ * DrawingCreate
+ */
+export type DrawingCreate = {
+    /**
+     * Project Id
+     */
+    project_id: number;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Drawing Number
+     */
+    drawing_number?: string | null;
+    /**
+     * Discipline
+     */
+    discipline?: 'general' | 'pid' | 'grading' | 'civil_structural' | 'equipment_layout' | 'steel_erection' | 'electrical' | 'other';
+    /**
+     * Filename
+     */
+    filename: string;
+    /**
+     * S3 Key
+     */
+    s3_key: string;
+    /**
+     * File Type
+     */
+    file_type?: 'pdf' | 'png' | 'jpg' | 'jpeg' | 'svg';
+    /**
+     * File Size
+     */
+    file_size?: number | null;
+    /**
+     * View Url
+     */
+    view_url?: string | null;
+    /**
+     * Thumbnail Url
+     */
+    thumbnail_url?: string | null;
+    /**
+     * Page Width Pts
+     */
+    page_width_pts?: number | null;
+    /**
+     * Page Height Pts
+     */
+    page_height_pts?: number | null;
+    /**
+     * Uploaded By
+     */
+    uploaded_by?: string | null;
+};
+
+/**
+ * DrawingDimensionsPublic
+ */
+export type DrawingDimensionsPublic = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Page Width Pts
+     */
+    page_width_pts: number | null;
+    /**
+     * Page Height Pts
+     */
+    page_height_pts: number | null;
+};
+
+/**
+ * DrawingDimensionsUpdate
+ *
+ * Block 8E (R6): PDF MediaBox size in points, captured by the viewer.
+ */
+export type DrawingDimensionsUpdate = {
+    /**
+     * Page Width Pts
+     */
+    page_width_pts: number;
+    /**
+     * Page Height Pts
+     */
+    page_height_pts: number;
+};
+
+/**
+ * DrawingPresignRequest
+ */
+export type DrawingPresignRequest = {
+    /**
+     * Project Id
+     */
+    project_id: number;
+    /**
+     * Filename
+     */
+    filename: string;
+    /**
+     * Content Type
+     */
+    content_type?: string;
+};
+
+/**
+ * DrawingPresignResponse
+ */
+export type DrawingPresignResponse = {
+    /**
+     * Upload Url
+     */
+    upload_url: string;
+    /**
+     * S3 Key
+     */
+    s3_key: string;
+};
+
+/**
+ * DrawingPublic
+ */
+export type DrawingPublic = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Public Id
+     */
+    public_id: string;
+    /**
+     * Project Id
+     */
+    project_id: number;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Drawing Number
+     */
+    drawing_number: string | null;
+    /**
+     * Discipline
+     */
+    discipline: string;
+    /**
+     * Filename
+     */
+    filename: string;
+    /**
+     * S3 Key
+     */
+    s3_key: string;
+    /**
+     * File Type
+     */
+    file_type: string;
+    /**
+     * File Size
+     */
+    file_size: number | null;
+    /**
+     * View Url
+     */
+    view_url: string | null;
+    /**
+     * Thumbnail Url
+     */
+    thumbnail_url: string | null;
+    /**
+     * Page Width Pts
+     */
+    page_width_pts: number | null;
+    /**
+     * Page Height Pts
+     */
+    page_height_pts: number | null;
+    /**
+     * Uploaded By
+     */
+    uploaded_by: string | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+};
+
+/**
+ * DrawingUpdate
+ */
+export type DrawingUpdate = {
+    /**
+     * Title
+     */
+    title?: string | null;
+    /**
+     * Drawing Number
+     */
+    drawing_number?: string | null;
+    /**
+     * Discipline
+     */
+    discipline?: 'general' | 'pid' | 'grading' | 'civil_structural' | 'equipment_layout' | 'steel_erection' | 'electrical' | 'other' | null;
+    /**
+     * View Url
+     */
+    view_url?: string | null;
+    /**
+     * Thumbnail Url
+     */
+    thumbnail_url?: string | null;
+};
+
+/**
+ * DrawingViewUrl
+ */
+export type DrawingViewUrl = {
+    /**
+     * View Url
+     */
+    view_url: string;
+};
+
+/**
  * FindingCreate
  */
 export type FindingCreate = {
@@ -529,6 +763,134 @@ export type PhotoPublic = {
      * View Url
      */
     view_url?: string | null;
+};
+
+/**
+ * PinCreate
+ */
+export type PinCreate = {
+    /**
+     * Finding Id
+     */
+    finding_id?: number | null;
+    /**
+     * Tag Number
+     */
+    tag_number?: string | null;
+    /**
+     * Label
+     */
+    label?: string | null;
+    /**
+     * X Pct
+     */
+    x_pct: number;
+    /**
+     * Y Pct
+     */
+    y_pct: number;
+    /**
+     * Status
+     */
+    status?: 'verified' | 'in_progress' | 'punch_item' | 'not_installed' | 'not_started';
+    /**
+     * Notes
+     */
+    notes?: string | null;
+    /**
+     * Page Number
+     */
+    page_number?: number;
+};
+
+/**
+ * PinPublic
+ */
+export type PinPublic = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Public Id
+     */
+    public_id: string;
+    /**
+     * Drawing Id
+     */
+    drawing_id: number;
+    /**
+     * Finding Id
+     */
+    finding_id: number | null;
+    /**
+     * Tag Number
+     */
+    tag_number: string | null;
+    /**
+     * Label
+     */
+    label: string | null;
+    /**
+     * X Pct
+     */
+    x_pct: number;
+    /**
+     * Y Pct
+     */
+    y_pct: number;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Notes
+     */
+    notes: string | null;
+    /**
+     * Discipline Data
+     */
+    discipline_data: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Page Number
+     */
+    page_number: number;
+    /**
+     * Created By
+     */
+    created_by: string | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+};
+
+/**
+ * PinUpdate
+ */
+export type PinUpdate = {
+    /**
+     * Finding Id
+     */
+    finding_id?: number | null;
+    /**
+     * Tag Number
+     */
+    tag_number?: string | null;
+    /**
+     * Label
+     */
+    label?: string | null;
+    /**
+     * Status
+     */
+    status?: 'verified' | 'in_progress' | 'punch_item' | 'not_installed' | 'not_started' | null;
+    /**
+     * Notes
+     */
+    notes?: string | null;
 };
 
 /**
@@ -1509,3 +1871,391 @@ export type dashboardReadDashboardResponses = {
 };
 
 export type dashboardReadDashboardResponse = dashboardReadDashboardResponses[keyof dashboardReadDashboardResponses];
+
+export type drawingsPresignDrawingUploadData = {
+    body: DrawingPresignRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/drawings/presign';
+};
+
+export type drawingsPresignDrawingUploadErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type drawingsPresignDrawingUploadError = drawingsPresignDrawingUploadErrors[keyof drawingsPresignDrawingUploadErrors];
+
+export type drawingsPresignDrawingUploadResponses = {
+    /**
+     * Successful Response
+     */
+    200: DrawingPresignResponse;
+};
+
+export type drawingsPresignDrawingUploadResponse = drawingsPresignDrawingUploadResponses[keyof drawingsPresignDrawingUploadResponses];
+
+export type drawingsListDrawingsData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * Project Id
+         */
+        project_id: number;
+        /**
+         * Discipline
+         */
+        discipline?: 'general' | 'pid' | 'grading' | 'civil_structural' | 'equipment_layout' | 'steel_erection' | 'electrical' | 'other' | null;
+    };
+    url: '/api/v1/drawings';
+};
+
+export type drawingsListDrawingsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type drawingsListDrawingsError = drawingsListDrawingsErrors[keyof drawingsListDrawingsErrors];
+
+export type drawingsListDrawingsResponses = {
+    /**
+     * Response Drawings-List Drawings
+     *
+     * Successful Response
+     */
+    200: Array<DrawingPublic>;
+};
+
+export type drawingsListDrawingsResponse = drawingsListDrawingsResponses[keyof drawingsListDrawingsResponses];
+
+export type drawingsCreateDrawingData = {
+    body: DrawingCreate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/drawings';
+};
+
+export type drawingsCreateDrawingErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type drawingsCreateDrawingError = drawingsCreateDrawingErrors[keyof drawingsCreateDrawingErrors];
+
+export type drawingsCreateDrawingResponses = {
+    /**
+     * Successful Response
+     */
+    201: DrawingPublic;
+};
+
+export type drawingsCreateDrawingResponse = drawingsCreateDrawingResponses[keyof drawingsCreateDrawingResponses];
+
+export type drawingsDeleteDrawingData = {
+    body?: never;
+    path: {
+        /**
+         * Drawing Id
+         */
+        drawing_id: number;
+    };
+    query?: never;
+    url: '/api/v1/drawings/{drawing_id}';
+};
+
+export type drawingsDeleteDrawingErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type drawingsDeleteDrawingError = drawingsDeleteDrawingErrors[keyof drawingsDeleteDrawingErrors];
+
+export type drawingsDeleteDrawingResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type drawingsDeleteDrawingResponse = drawingsDeleteDrawingResponses[keyof drawingsDeleteDrawingResponses];
+
+export type drawingsReadDrawingData = {
+    body?: never;
+    path: {
+        /**
+         * Drawing Id
+         */
+        drawing_id: number;
+    };
+    query?: never;
+    url: '/api/v1/drawings/{drawing_id}';
+};
+
+export type drawingsReadDrawingErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type drawingsReadDrawingError = drawingsReadDrawingErrors[keyof drawingsReadDrawingErrors];
+
+export type drawingsReadDrawingResponses = {
+    /**
+     * Successful Response
+     */
+    200: DrawingPublic;
+};
+
+export type drawingsReadDrawingResponse = drawingsReadDrawingResponses[keyof drawingsReadDrawingResponses];
+
+export type drawingsUpdateDrawingData = {
+    body: DrawingUpdate;
+    path: {
+        /**
+         * Drawing Id
+         */
+        drawing_id: number;
+    };
+    query?: never;
+    url: '/api/v1/drawings/{drawing_id}';
+};
+
+export type drawingsUpdateDrawingErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type drawingsUpdateDrawingError = drawingsUpdateDrawingErrors[keyof drawingsUpdateDrawingErrors];
+
+export type drawingsUpdateDrawingResponses = {
+    /**
+     * Successful Response
+     */
+    200: DrawingPublic;
+};
+
+export type drawingsUpdateDrawingResponse = drawingsUpdateDrawingResponses[keyof drawingsUpdateDrawingResponses];
+
+export type drawingsUpdateDrawingDimensionsData = {
+    body: DrawingDimensionsUpdate;
+    path: {
+        /**
+         * Drawing Id
+         */
+        drawing_id: number;
+    };
+    query?: never;
+    url: '/api/v1/drawings/{drawing_id}/dimensions';
+};
+
+export type drawingsUpdateDrawingDimensionsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type drawingsUpdateDrawingDimensionsError = drawingsUpdateDrawingDimensionsErrors[keyof drawingsUpdateDrawingDimensionsErrors];
+
+export type drawingsUpdateDrawingDimensionsResponses = {
+    /**
+     * Successful Response
+     */
+    200: DrawingDimensionsPublic;
+};
+
+export type drawingsUpdateDrawingDimensionsResponse = drawingsUpdateDrawingDimensionsResponses[keyof drawingsUpdateDrawingDimensionsResponses];
+
+export type drawingsReadDrawingViewUrlData = {
+    body?: never;
+    path: {
+        /**
+         * Drawing Id
+         */
+        drawing_id: number;
+    };
+    query?: never;
+    url: '/api/v1/drawings/{drawing_id}/view-url';
+};
+
+export type drawingsReadDrawingViewUrlErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type drawingsReadDrawingViewUrlError = drawingsReadDrawingViewUrlErrors[keyof drawingsReadDrawingViewUrlErrors];
+
+export type drawingsReadDrawingViewUrlResponses = {
+    /**
+     * Successful Response
+     */
+    200: DrawingViewUrl;
+};
+
+export type drawingsReadDrawingViewUrlResponse = drawingsReadDrawingViewUrlResponses[keyof drawingsReadDrawingViewUrlResponses];
+
+export type drawingsListPinsData = {
+    body?: never;
+    path: {
+        /**
+         * Drawing Id
+         */
+        drawing_id: number;
+    };
+    query?: never;
+    url: '/api/v1/drawings/{drawing_id}/pins';
+};
+
+export type drawingsListPinsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type drawingsListPinsError = drawingsListPinsErrors[keyof drawingsListPinsErrors];
+
+export type drawingsListPinsResponses = {
+    /**
+     * Response Drawings-List Pins
+     *
+     * Successful Response
+     */
+    200: Array<PinPublic>;
+};
+
+export type drawingsListPinsResponse = drawingsListPinsResponses[keyof drawingsListPinsResponses];
+
+export type drawingsCreatePinData = {
+    body: PinCreate;
+    path: {
+        /**
+         * Drawing Id
+         */
+        drawing_id: number;
+    };
+    query?: never;
+    url: '/api/v1/drawings/{drawing_id}/pins';
+};
+
+export type drawingsCreatePinErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type drawingsCreatePinError = drawingsCreatePinErrors[keyof drawingsCreatePinErrors];
+
+export type drawingsCreatePinResponses = {
+    /**
+     * Successful Response
+     */
+    201: PinPublic;
+};
+
+export type drawingsCreatePinResponse = drawingsCreatePinResponses[keyof drawingsCreatePinResponses];
+
+export type drawingsDeletePinData = {
+    body?: never;
+    path: {
+        /**
+         * Pin Id
+         */
+        pin_id: number;
+    };
+    query?: never;
+    url: '/api/v1/pins/{pin_id}';
+};
+
+export type drawingsDeletePinErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type drawingsDeletePinError = drawingsDeletePinErrors[keyof drawingsDeletePinErrors];
+
+export type drawingsDeletePinResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type drawingsDeletePinResponse = drawingsDeletePinResponses[keyof drawingsDeletePinResponses];
+
+export type drawingsReadPinData = {
+    body?: never;
+    path: {
+        /**
+         * Pin Id
+         */
+        pin_id: number;
+    };
+    query?: never;
+    url: '/api/v1/pins/{pin_id}';
+};
+
+export type drawingsReadPinErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type drawingsReadPinError = drawingsReadPinErrors[keyof drawingsReadPinErrors];
+
+export type drawingsReadPinResponses = {
+    /**
+     * Successful Response
+     */
+    200: PinPublic;
+};
+
+export type drawingsReadPinResponse = drawingsReadPinResponses[keyof drawingsReadPinResponses];
+
+export type drawingsUpdatePinData = {
+    body: PinUpdate;
+    path: {
+        /**
+         * Pin Id
+         */
+        pin_id: number;
+    };
+    query?: never;
+    url: '/api/v1/pins/{pin_id}';
+};
+
+export type drawingsUpdatePinErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type drawingsUpdatePinError = drawingsUpdatePinErrors[keyof drawingsUpdatePinErrors];
+
+export type drawingsUpdatePinResponses = {
+    /**
+     * Successful Response
+     */
+    200: PinPublic;
+};
+
+export type drawingsUpdatePinResponse = drawingsUpdatePinResponses[keyof drawingsUpdatePinResponses];

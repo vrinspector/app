@@ -31,8 +31,10 @@ from app.core.auth import AuthUser
 from app.core.db import engine
 from app.models import (
     MEMBER_ROLES,
+    Drawing,
     Finding,
     Inspection,
+    InspectionPin,
     Photo,
     Project,
     ProjectMember,
@@ -175,6 +177,49 @@ def get_authorized_photo(
         db, inspection.project_id, user, roles=roles, detail="Photo not found"
     )
     return photo
+
+
+def get_authorized_drawing(
+    db: Session, drawing_id: int, user: AuthUser, *, roles: Iterable[str] | None = None
+) -> Drawing:
+    """Legacy ``_get_authorized_drawing``: drawings ⋈ project_members, else 404."""
+    drawing = db.get(Drawing, drawing_id)
+    if drawing is None:
+        raise not_found("Drawing not found")
+    require_project_member(
+        db, drawing.project_id, user, roles=roles, detail="Drawing not found"
+    )
+    return drawing
+
+
+def get_authorized_pin(
+    db: Session, pin_id: int, user: AuthUser, *, roles: Iterable[str] | None = None
+) -> tuple[InspectionPin, Drawing]:
+    """Legacy ``_get_authorized_pin``: pins ⋈ drawings ⋈ project_members, else 404."""
+    pin = db.get(InspectionPin, pin_id)
+    if pin is None:
+        raise not_found("Pin not found")
+    drawing = db.get(Drawing, pin.drawing_id)
+    if drawing is None:  # pragma: no cover - FK guarantees the parent
+        raise not_found("Pin not found")
+    require_project_member(
+        db, drawing.project_id, user, roles=roles, detail="Pin not found"
+    )
+    return pin, drawing
+
+
+def ensure_finding_in_project(db: Session, finding_id: int, project_id: int) -> None:
+    """A pin may only link to a finding of an inspection in the same project.
+
+    Rebuild addition (the legacy router relied on the FK alone): a finding from
+    another project is indistinguishable from a missing one — 404.
+    """
+    finding = db.get(Finding, finding_id)
+    inspection = (
+        db.get(Inspection, finding.inspection_id) if finding is not None else None
+    )
+    if inspection is None or inspection.project_id != project_id:
+        raise not_found("Finding not found")
 
 
 def ensure_inspection_open(inspection: Inspection) -> None:
