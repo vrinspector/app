@@ -1,4 +1,4 @@
-# VR Inspector — API port (increment 04)
+# VR Inspector — API port (increments 04 and 05)
 
 Increment 04 ports the Block 1–8C routes the deployed single-file SPA calls —
 projects, members, inspections, findings, photos, and the dashboard roll-up —
@@ -42,10 +42,59 @@ project-bound S3 keys). Where behaviour had to be inferred it is marked
 | `GET /api/photos?inspection_id=N` | same | each row carries a presigned `view_url` |
 | — | `GET/DELETE /api/v1/photos/{id}` | DELETE removes the S3 object best-effort |
 
-Not in this increment: `GET /api/weather` (Open-Meteo lookup) and
+Not ported yet: `GET /api/weather` (Open-Meteo lookup) and
 `POST /api/reports/generate` (PDF to S3). They have no increment in
-`REBUILD_PLAN.md`; see the tracking issue opened with the increment 04 PR.
-Drawings and pins are increment 05.
+`REBUILD_PLAN.md`; see the tracking issue opened with the increment 04 PR (#9).
+
+## Drawings and pins (increment 05)
+
+Ported from `vrinspector/backend` → `staging_snapshot_20260716/
+staging_drawings_block8e.py`, the one legacy router that survived in source
+form, so here the **legacy code is the contract** rather than the SPA's call
+sites. Its local authorization regression suite
+(`test_drawings_authorization.py`) is ported to pytest as the first two tests
+in `backend/tests/api/routes/test_drawings.py`: same fixture, same
+allowed-member walk, same non-member assertions, same `detail` strings.
+
+| Legacy route | Rebuild | Notes |
+|---|---|---|
+| `POST /v1/drawings/presign` `{project_id, filename, content_type}` | `POST /api/v1/drawings/presign` | `{upload_url, s3_key}`; key `drawings/projects/{project_id}/{uuid}{ext}`, 10-minute PUT |
+| `POST /v1/drawings` | same → 201 | `s3_key` must be under the project prefix, else **404 Drawing not found**; `uploaded_by` recorded server-side |
+| `GET /v1/drawings?project_id=N[&discipline=]` | same | newest first |
+| `GET /v1/drawings/{id}` | same | |
+| `PUT /v1/drawings/{id}` | same | nulls mean "not sent"; empty → 400 `No fields to update` |
+| `DELETE /v1/drawings/{id}` | same → 204 | pins cascade; S3 object deleted best-effort (*inferred*, see below) |
+| `PATCH /v1/drawings/{id}/dimensions` `{page_width_pts, page_height_pts}` | same | Block 8E R6; returns `{id, page_width_pts, page_height_pts}` |
+| `GET /v1/drawings/{id}/view-url` | same | `{view_url}`, 1-hour presigned GET |
+| `GET /v1/drawings/{id}/pins` | same | ordered by `id` |
+| `POST /v1/drawings/{id}/pins` | same → 201 | the SPA's `placePin` body incl. `page_number` (1-indexed) |
+| `DELETE /v1/pins/{id}` | same → 204 | |
+| — | `GET /api/v1/pins/{id}`, `PUT /api/v1/pins/{id}` | rebuild additions; the legacy module declared `PinUpdate` but exposed no route. `PUT` with `finding_id: null` unlinks |
+
+Numeric columns (`x_pct`, `y_pct`, `page_width_pts`, `page_height_pts`) are
+returned as JSON **numbers**, as FastAPI's encoder did for the legacy
+`dict(row)`; the SPA's overlay arithmetic depends on that.
+
+Role policy applies as in increment 04: viewers read (list, get, view-url,
+pins), inspectors and owners write. Non-members get 404 everywhere.
+
+### Decisions for the owner (increment 05)
+
+7. **Vocabularies are enforced** at the API layer: `discipline` ∈ the Block 8D
+   list, `file_type` ∈ {pdf, png, jpg, jpeg, svg}, pin `status` ∈ the five
+   Block 8D statuses, `x_pct`/`y_pct` in 0–100, `page_number ≥ 1`, page
+   dimensions > 0. The legacy router stored any string / number (the column
+   is `NUMERIC(6,3)`, so an out-of-range percentage would have been a 500).
+   The deployed SPA only ever sends values inside these sets.
+8. **Pins may only link to findings in the same project** (404 `Finding not
+   found` otherwise). The legacy router relied on the FK alone, which allowed
+   cross-project links.
+9. **Deleting a drawing deletes its S3 object** best-effort, matching
+   decision 4/5 for single photos. The legacy router left the object to the
+   bucket lifecycle policy. Deleting a project still leaves objects behind.
+10. **`GET /pins/{id}` and `PUT /pins/{id}`** are new. The rebuilt drawing
+    viewer (increment 09) needs a way to change a pin's status / link a
+    finding without delete-and-recreate; the legacy SPA had no such UI.
 
 ## Authorization (carried over from the July 2026 hardening)
 

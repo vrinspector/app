@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { dashboardReadDashboardData, dashboardReadDashboardResponses, findingsCreateFindingData, findingsCreateFindingErrors, findingsCreateFindingResponses, findingsDeleteFindingData, findingsDeleteFindingErrors, findingsDeleteFindingResponses, findingsListFindingsData, findingsListFindingsErrors, findingsListFindingsResponses, findingsReadFindingData, findingsReadFindingErrors, findingsReadFindingResponses, findingsResolveFindingData, findingsResolveFindingErrors, findingsResolveFindingResponses, findingsSetFindingStatusData, findingsSetFindingStatusErrors, findingsSetFindingStatusResponses, findingsUpdateFindingData, findingsUpdateFindingErrors, findingsUpdateFindingResponses, inspectionsCreateInspectionData, inspectionsCreateInspectionErrors, inspectionsCreateInspectionResponses, inspectionsDeleteInspectionData, inspectionsDeleteInspectionErrors, inspectionsDeleteInspectionResponses, inspectionsListInspectionsData, inspectionsListInspectionsErrors, inspectionsListInspectionsResponses, inspectionsReadInspectionData, inspectionsReadInspectionErrors, inspectionsReadInspectionResponses, inspectionsReopenInspectionData, inspectionsReopenInspectionErrors, inspectionsReopenInspectionResponses, inspectionsSignoffInspectionData, inspectionsSignoffInspectionErrors, inspectionsSignoffInspectionResponses, inspectionsUpdateInspectionData, inspectionsUpdateInspectionErrors, inspectionsUpdateInspectionResponses, photosDeletePhotoData, photosDeletePhotoErrors, photosDeletePhotoResponses, photosListPhotosData, photosListPhotosErrors, photosListPhotosResponses, photosPresignPhotoUploadData, photosPresignPhotoUploadErrors, photosPresignPhotoUploadResponses, photosReadPhotoData, photosReadPhotoErrors, photosReadPhotoResponses, photosRegisterPhotoData, photosRegisterPhotoErrors, photosRegisterPhotoResponses, projectsCreateProjectData, projectsCreateProjectErrors, projectsCreateProjectResponses, projectsDeleteProjectData, projectsDeleteProjectErrors, projectsDeleteProjectResponses, projectsInviteMemberData, projectsInviteMemberErrors, projectsInviteMemberResponses, projectsListMembersData, projectsListMembersErrors, projectsListMembersResponses, projectsListProjectsData, projectsListProjectsResponses, projectsReadProjectData, projectsReadProjectErrors, projectsReadProjectResponses, projectsRemoveMemberData, projectsRemoveMemberErrors, projectsRemoveMemberResponses, projectsUpdateProjectData, projectsUpdateProjectErrors, projectsUpdateProjectResponses, usersReadUserMeData, usersReadUserMeResponses, utilsHealthCheckData, utilsHealthCheckResponses } from './types.gen';
+import type { dashboardReadDashboardData, dashboardReadDashboardResponses, drawingsCreateDrawingData, drawingsCreateDrawingErrors, drawingsCreateDrawingResponses, drawingsCreatePinData, drawingsCreatePinErrors, drawingsCreatePinResponses, drawingsDeleteDrawingData, drawingsDeleteDrawingErrors, drawingsDeleteDrawingResponses, drawingsDeletePinData, drawingsDeletePinErrors, drawingsDeletePinResponses, drawingsListDrawingsData, drawingsListDrawingsErrors, drawingsListDrawingsResponses, drawingsListPinsData, drawingsListPinsErrors, drawingsListPinsResponses, drawingsPresignDrawingUploadData, drawingsPresignDrawingUploadErrors, drawingsPresignDrawingUploadResponses, drawingsReadDrawingData, drawingsReadDrawingErrors, drawingsReadDrawingResponses, drawingsReadDrawingViewUrlData, drawingsReadDrawingViewUrlErrors, drawingsReadDrawingViewUrlResponses, drawingsReadPinData, drawingsReadPinErrors, drawingsReadPinResponses, drawingsUpdateDrawingData, drawingsUpdateDrawingDimensionsData, drawingsUpdateDrawingDimensionsErrors, drawingsUpdateDrawingDimensionsResponses, drawingsUpdateDrawingErrors, drawingsUpdateDrawingResponses, drawingsUpdatePinData, drawingsUpdatePinErrors, drawingsUpdatePinResponses, findingsCreateFindingData, findingsCreateFindingErrors, findingsCreateFindingResponses, findingsDeleteFindingData, findingsDeleteFindingErrors, findingsDeleteFindingResponses, findingsListFindingsData, findingsListFindingsErrors, findingsListFindingsResponses, findingsReadFindingData, findingsReadFindingErrors, findingsReadFindingResponses, findingsResolveFindingData, findingsResolveFindingErrors, findingsResolveFindingResponses, findingsSetFindingStatusData, findingsSetFindingStatusErrors, findingsSetFindingStatusResponses, findingsUpdateFindingData, findingsUpdateFindingErrors, findingsUpdateFindingResponses, inspectionsCreateInspectionData, inspectionsCreateInspectionErrors, inspectionsCreateInspectionResponses, inspectionsDeleteInspectionData, inspectionsDeleteInspectionErrors, inspectionsDeleteInspectionResponses, inspectionsListInspectionsData, inspectionsListInspectionsErrors, inspectionsListInspectionsResponses, inspectionsReadInspectionData, inspectionsReadInspectionErrors, inspectionsReadInspectionResponses, inspectionsReopenInspectionData, inspectionsReopenInspectionErrors, inspectionsReopenInspectionResponses, inspectionsSignoffInspectionData, inspectionsSignoffInspectionErrors, inspectionsSignoffInspectionResponses, inspectionsUpdateInspectionData, inspectionsUpdateInspectionErrors, inspectionsUpdateInspectionResponses, photosDeletePhotoData, photosDeletePhotoErrors, photosDeletePhotoResponses, photosListPhotosData, photosListPhotosErrors, photosListPhotosResponses, photosPresignPhotoUploadData, photosPresignPhotoUploadErrors, photosPresignPhotoUploadResponses, photosReadPhotoData, photosReadPhotoErrors, photosReadPhotoResponses, photosRegisterPhotoData, photosRegisterPhotoErrors, photosRegisterPhotoResponses, projectsCreateProjectData, projectsCreateProjectErrors, projectsCreateProjectResponses, projectsDeleteProjectData, projectsDeleteProjectErrors, projectsDeleteProjectResponses, projectsInviteMemberData, projectsInviteMemberErrors, projectsInviteMemberResponses, projectsListMembersData, projectsListMembersErrors, projectsListMembersResponses, projectsListProjectsData, projectsListProjectsResponses, projectsReadProjectData, projectsReadProjectErrors, projectsReadProjectResponses, projectsRemoveMemberData, projectsRemoveMemberErrors, projectsRemoveMemberResponses, projectsUpdateProjectData, projectsUpdateProjectErrors, projectsUpdateProjectResponses, usersReadUserMeData, usersReadUserMeResponses, utilsHealthCheckData, utilsHealthCheckResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -447,6 +447,188 @@ export class DashboardService {
             security: [{ scheme: 'bearer', type: 'http' }],
             url: '/api/v1/dashboard',
             ...options
+        });
+    }
+}
+
+export class DrawingsService {
+    /**
+     * Presign Drawing Upload
+     */
+    public static presignDrawingUpload<ThrowOnError extends boolean = true>(options: Options<drawingsPresignDrawingUploadData, ThrowOnError>) {
+        return (options.client ?? client).post<drawingsPresignDrawingUploadResponses, drawingsPresignDrawingUploadErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/drawings/presign',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * List Drawings
+     */
+    public static listDrawings<ThrowOnError extends boolean = true>(options: Options<drawingsListDrawingsData, ThrowOnError>) {
+        return (options.client ?? client).get<drawingsListDrawingsResponses, drawingsListDrawingsErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/drawings',
+            ...options
+        });
+    }
+    
+    /**
+     * Create Drawing
+     */
+    public static createDrawing<ThrowOnError extends boolean = true>(options: Options<drawingsCreateDrawingData, ThrowOnError>) {
+        return (options.client ?? client).post<drawingsCreateDrawingResponses, drawingsCreateDrawingErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/drawings',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Delete Drawing
+     */
+    public static deleteDrawing<ThrowOnError extends boolean = true>(options: Options<drawingsDeleteDrawingData, ThrowOnError>) {
+        return (options.client ?? client).delete<drawingsDeleteDrawingResponses, drawingsDeleteDrawingErrors, ThrowOnError>({
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/drawings/{drawing_id}',
+            ...options
+        });
+    }
+    
+    /**
+     * Read Drawing
+     */
+    public static readDrawing<ThrowOnError extends boolean = true>(options: Options<drawingsReadDrawingData, ThrowOnError>) {
+        return (options.client ?? client).get<drawingsReadDrawingResponses, drawingsReadDrawingErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/drawings/{drawing_id}',
+            ...options
+        });
+    }
+    
+    /**
+     * Update Drawing
+     */
+    public static updateDrawing<ThrowOnError extends boolean = true>(options: Options<drawingsUpdateDrawingData, ThrowOnError>) {
+        return (options.client ?? client).put<drawingsUpdateDrawingResponses, drawingsUpdateDrawingErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/drawings/{drawing_id}',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Update Drawing Dimensions
+     *
+     * Store captured PDF MediaBox dimensions for future coordinate migration.
+     */
+    public static updateDrawingDimensions<ThrowOnError extends boolean = true>(options: Options<drawingsUpdateDrawingDimensionsData, ThrowOnError>) {
+        return (options.client ?? client).patch<drawingsUpdateDrawingDimensionsResponses, drawingsUpdateDrawingDimensionsErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/drawings/{drawing_id}/dimensions',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Read Drawing View Url
+     */
+    public static readDrawingViewUrl<ThrowOnError extends boolean = true>(options: Options<drawingsReadDrawingViewUrlData, ThrowOnError>) {
+        return (options.client ?? client).get<drawingsReadDrawingViewUrlResponses, drawingsReadDrawingViewUrlErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/drawings/{drawing_id}/view-url',
+            ...options
+        });
+    }
+    
+    /**
+     * List Pins
+     */
+    public static listPins<ThrowOnError extends boolean = true>(options: Options<drawingsListPinsData, ThrowOnError>) {
+        return (options.client ?? client).get<drawingsListPinsResponses, drawingsListPinsErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/drawings/{drawing_id}/pins',
+            ...options
+        });
+    }
+    
+    /**
+     * Create Pin
+     */
+    public static createPin<ThrowOnError extends boolean = true>(options: Options<drawingsCreatePinData, ThrowOnError>) {
+        return (options.client ?? client).post<drawingsCreatePinResponses, drawingsCreatePinErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/drawings/{drawing_id}/pins',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Delete Pin
+     */
+    public static deletePin<ThrowOnError extends boolean = true>(options: Options<drawingsDeletePinData, ThrowOnError>) {
+        return (options.client ?? client).delete<drawingsDeletePinResponses, drawingsDeletePinErrors, ThrowOnError>({
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/pins/{pin_id}',
+            ...options
+        });
+    }
+    
+    /**
+     * Read Pin
+     */
+    public static readPin<ThrowOnError extends boolean = true>(options: Options<drawingsReadPinData, ThrowOnError>) {
+        return (options.client ?? client).get<drawingsReadPinResponses, drawingsReadPinErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/pins/{pin_id}',
+            ...options
+        });
+    }
+    
+    /**
+     * Update Pin
+     */
+    public static updatePin<ThrowOnError extends boolean = true>(options: Options<drawingsUpdatePinData, ThrowOnError>) {
+        return (options.client ?? client).put<drawingsUpdatePinResponses, drawingsUpdatePinErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/pins/{pin_id}',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
         });
     }
 }

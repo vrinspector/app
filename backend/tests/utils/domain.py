@@ -99,6 +99,53 @@ def create_finding(
     return data
 
 
+def upload_drawing(
+    client: TestClient,
+    h: dict[str, str],
+    project_id: int,
+    filename: str = "P&ID-1203.pdf",
+    **overrides: Any,
+) -> dict[str, Any]:
+    """The SPA's ``handleDrawingUpload``: presign → PUT to S3 (skipped) → register."""
+    r = client.post(
+        f"{V1}/drawings/presign",
+        json={
+            "project_id": project_id,
+            "filename": filename,
+            "content_type": "application/pdf",
+        },
+        headers=h,
+    )
+    assert r.status_code == 200, r.text
+    presign = r.json()
+    body = {
+        "project_id": project_id,
+        "s3_key": presign["s3_key"],
+        "filename": filename,
+        "title": filename.rsplit(".", 1)[0],
+        "discipline": "general",
+        "file_type": (filename.rsplit(".", 1)[-1] or "png").lower(),
+        "file_size": 48213,
+        "uploaded_by": "Test Inspector",  # display name the SPA sends
+    }
+    body.update(overrides)
+    r = client.post(f"{V1}/drawings", json=body, headers=h)
+    assert r.status_code == 201, r.text
+    data: dict[str, Any] = r.json()
+    return data
+
+
+def create_pin(
+    client: TestClient, h: dict[str, str], drawing_id: int, **overrides: Any
+) -> dict[str, Any]:
+    body = {"x_pct": 42.5, "y_pct": 17.25, "status": "not_started", "page_number": 1}
+    body.update(overrides)
+    r = client.post(f"{V1}/drawings/{drawing_id}/pins", json=body, headers=h)
+    assert r.status_code == 201, r.text
+    data: dict[str, Any] = r.json()
+    return data
+
+
 def upload_photo(
     client: TestClient,
     h: dict[str, str],
