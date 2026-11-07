@@ -11,6 +11,10 @@ import { StrictMode, useEffect } from "react"
 import ReactDOM from "react-dom/client"
 import { client } from "./client/client.gen"
 import { FullPageLoader } from "./components/Common/FullPageLoader"
+import {
+  InsecureContext,
+  isSecureContextForAuth,
+} from "./components/Common/InsecureContext"
 import { ThemeProvider } from "./components/theme-provider"
 import { Toaster } from "./components/ui/sonner"
 import "./index.css"
@@ -85,27 +89,39 @@ function App() {
   )
 }
 
+function Root() {
+  // The Auth0 SDK throws on non-secure origins (no Web Crypto); explain
+  // instead of crashing (see InsecureContext).
+  if (!isSecureContextForAuth()) {
+    return <InsecureContext />
+  }
+
+  return (
+    <Auth0Provider
+      domain={auth0Config.domain || "unconfigured.invalid"}
+      clientId={auth0Config.clientId || "unconfigured"}
+      authorizationParams={{
+        redirect_uri: redirectUri(),
+        audience: auth0Config.audience || undefined,
+        scope: AUTH0_SCOPE,
+      }}
+      // Refresh tokens + persistent cache so a field session survives page
+      // reloads and iPad tab suspension (Safari blocks third-party-cookie
+      // silent auth in iframes). The SDK's default redirect callback strips
+      // ?code/state and restores appState.returnTo before the router mounts.
+      useRefreshTokens
+      useRefreshTokensFallback
+      cacheLocation="localstorage"
+    >
+      <App />
+    </Auth0Provider>
+  )
+}
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ThemeProvider defaultTheme="light" storageKey="vri-ui-theme">
-      <Auth0Provider
-        domain={auth0Config.domain || "unconfigured.invalid"}
-        clientId={auth0Config.clientId || "unconfigured"}
-        authorizationParams={{
-          redirect_uri: redirectUri(),
-          audience: auth0Config.audience || undefined,
-          scope: AUTH0_SCOPE,
-        }}
-        // Refresh tokens + persistent cache so a field session survives page
-        // reloads and iPad tab suspension (Safari blocks third-party-cookie
-        // silent auth in iframes). The SDK's default redirect callback strips
-        // ?code/state and restores appState.returnTo before the router mounts.
-        useRefreshTokens
-        useRefreshTokensFallback
-        cacheLocation="localstorage"
-      >
-        <App />
-      </Auth0Provider>
+      <Root />
     </ThemeProvider>
   </StrictMode>,
 )

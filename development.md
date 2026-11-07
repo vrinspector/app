@@ -111,7 +111,9 @@ To sign in on your machine, set these in `.env` (backend) and `frontend/.env` (V
 * `AUTH0_API_AUDIENCE` / `VITE_AUTH0_AUDIENCE` — the API identifier (legacy value: `https://api.vrinspector.com`)
 * `VITE_AUTH0_CLIENT_ID` — the Single Page Application's client id
 
-In the Auth0 application settings, allow `http://localhost:5173` and `http://localhost:8000` as Callback URLs, Logout URLs and Web Origins. The backend fetches only the tenant's public JWKS (cached) and, when an access token carries no email claim, looks the email up at `/userinfo` (per-token cache). An Auth0 Action that copies the email into the access token as `https://vrinspector.com/email` avoids that lookup.
+In the Auth0 application settings, allow `http://localhost:5173` and `http://localhost:8000` as Callback URLs, Logout URLs and Web Origins.
+
+Sign-in needs a **secure context**: HTTPS, or `http://localhost` on the same machine. Opening the app from another device over plain HTTP (for example an iPad pointed at `http://192.168.x.x:5173`) shows an "Open VR Inspector over HTTPS" page instead of the sign-in button; use an HTTPS tunnel (ngrok, Cloudflare Tunnel) for device testing. The Playwright suite reaches the app as `http://backend:8000` inside Docker Compose and launches full Chromium with `--unsafely-treat-insecure-origin-as-secure` for that origin only. The backend fetches only the tenant's public JWKS (cached) and, when an access token carries no email claim, looks the email up at `/userinfo` (per-token cache). An Auth0 Action that copies the email into the access token as `https://vrinspector.com/email` avoids that lookup.
 
 Do not store deployment secrets in `.env`. Configure them as described in the [FastAPI Cloud deployment guide](./deployment.md) or the [Docker Compose deployment guide](./deployment-docker-compose.md).
 
