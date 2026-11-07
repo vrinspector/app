@@ -14,13 +14,14 @@ export const Route = createFileRoute("/_layout/")({
 })
 
 function Dashboard() {
-  const { user: currentUser } = useAuth()
+  const { user } = useAuth()
+  const greeting = user?.name || user?.email || "Inspector"
 
   return (
     <div>
       <div>
-        <h1 className="text-2xl truncate max-w-sm">
-          Hi, {currentUser?.full_name || currentUser?.email} 👋
+        <h1 className="text-2xl truncate max-w-sm" data-testid="greeting">
+          Hi, {greeting} 👋
         </h1>
         <p className="text-muted-foreground">
           Welcome back, nice to see you again!!!

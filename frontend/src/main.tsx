@@ -1,3 +1,4 @@
+import { Auth0Provider, useAuth0 } from "@auth0/auth0-react"
 import {
   MutationCache,
   QueryCache,
@@ -6,25 +7,26 @@ import {
 } from "@tanstack/react-query"
 import { createRouter, RouterProvider } from "@tanstack/react-router"
 import { AxiosError } from "axios"
-import { StrictMode } from "react"
+import { StrictMode, useEffect } from "react"
 import ReactDOM from "react-dom/client"
 import { client } from "./client/client.gen"
+import { FullPageLoader } from "./components/Common/FullPageLoader"
 import { ThemeProvider } from "./components/theme-provider"
 import { Toaster } from "./components/ui/sonner"
 import "./index.css"
+import { AUTH0_SCOPE, auth0Config, redirectUri } from "./lib/auth0"
+import type { RouterContext } from "./lib/router-context"
 import { routeTree } from "./routeTree.gen"
 
 client.setConfig({
   baseURL: import.meta.env.VITE_API_URL ?? "",
-  auth: () => localStorage.getItem("access_token") || "",
 })
 
 const handleApiError = (error: Error) => {
-  if (
-    error instanceof AxiosError &&
-    [401, 403].includes(error.response?.status ?? 0)
-  ) {
-    localStorage.removeItem("access_token")
+  // 401 = the access token was missing/expired/rejected by the API. Send the
+  // person back through sign-in. 403/404 are authorization outcomes handled by
+  // the screens themselves (legacy routers hide objects with 404).
+  if (error instanceof AxiosError && error.response?.status === 401) {
     window.location.href = "/login"
   }
 }
@@ -37,20 +39,73 @@ const queryClient = new QueryClient({
   }),
 })
 
-const router = createRouter({ routeTree })
+const router = createRouter({
+  routeTree,
+  context: { auth: { isAuthenticated: false } } satisfies RouterContext,
+})
 declare module "@tanstack/react-router" {
   interface Register {
     router: typeof router
   }
 }
 
+/**
+ * Waits for the Auth0 SDK to restore (or fail to restore) the session, hands
+ * the session to the generated API client, then mounts the router with the
+ * auth state in its context so route guards can be synchronous.
+ */
+function App() {
+  const { isLoading, isAuthenticated, getAccessTokenSilently } = useAuth0()
+
+  useEffect(() => {
+    // Every request to a secured endpoint asks the SDK for a (silently
+    // refreshed) access token for the API audience: `Authorization: Bearer`.
+    client.setConfig({
+      auth: async () => {
+        try {
+          return await getAccessTokenSilently()
+        } catch {
+          // No session (or consent/refresh required): send the request without
+          // a token and let the API answer 401, which routes back to /login.
+          return undefined
+        }
+      },
+    })
+  }, [getAccessTokenSilently])
+
+  if (isLoading) {
+    return <FullPageLoader />
+  }
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} context={{ auth: { isAuthenticated } }} />
+      <Toaster richColors closeButton />
+    </QueryClientProvider>
+  )
+}
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ThemeProvider defaultTheme="light" storageKey="vri-ui-theme">
-      <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
-        <Toaster richColors closeButton />
-      </QueryClientProvider>
+      <Auth0Provider
+        domain={auth0Config.domain || "unconfigured.invalid"}
+        clientId={auth0Config.clientId || "unconfigured"}
+        authorizationParams={{
+          redirect_uri: redirectUri(),
+          audience: auth0Config.audience || undefined,
+          scope: AUTH0_SCOPE,
+        }}
+        // Refresh tokens + persistent cache so a field session survives page
+        // reloads and iPad tab suspension (Safari blocks third-party-cookie
+        // silent auth in iframes). The SDK's default redirect callback strips
+        // ?code/state and restores appState.returnTo before the router mounts.
+        useRefreshTokens
+        useRefreshTokensFallback
+        cacheLocation="localstorage"
+      >
+        <App />
+      </Auth0Provider>
     </ThemeProvider>
   </StrictMode>,
 )

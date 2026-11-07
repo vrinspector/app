@@ -33,34 +33,26 @@ export default defineConfig({
   },
 
   /* Configure projects for major browsers */
+  // Sign-in is handled by Auth0's hosted page, so there is no stored
+  // authenticated state here: the suite covers the signed-out experience.
+  // Authenticated end-to-end runs against a real tenant are an owner action
+  // until test-user credentials exist.
   projects: [
-    { name: 'setup', testMatch: /.*\.setup\.ts/ },
-
     {
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
-        storageState: 'playwright/.auth/user.json',
       },
-      dependencies: ['setup'],
     },
 
     // {
     //   name: 'firefox',
-    //   use: {
-    //     ...devices['Desktop Firefox'],
-    //     storageState: 'playwright/.auth/user.json',
-    //   },
-    //   dependencies: ['setup'],
+    //   use: { ...devices['Desktop Firefox'] },
     // },
 
     // {
     //   name: 'webkit',
-    //   use: {
-    //     ...devices['Desktop Safari'],
-    //     storageState: 'playwright/.auth/user.json',
-    //   },
-    //   dependencies: ['setup'],
+    //   use: { ...devices['Desktop Safari'] },
     // },
 
     /* Test against mobile viewports. */

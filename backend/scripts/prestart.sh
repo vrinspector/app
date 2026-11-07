@@ -6,5 +6,4 @@ set -x
 # Run migrations
 alembic upgrade head
 
-# Create initial data in DB
-python app/initial_data.py
+# No seed data: identity lives in Auth0 (no local users table).

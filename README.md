@@ -17,6 +17,7 @@ This repository is the **Phase 2 rebuild** of the VR Inspector application, per 
 - One increment per branch (`rebuild/NN-slug`), one PR per increment, reviewed and merged by the owner.
 - **No deployment to staging or production until release gate RG-1 evidence is recorded** (PRD v2.63 §8).
 - API compatibility rule: external prefix stays `/api/v1/`; INTEGER PKs; S3-only file storage (Hard Rules 4–8).
+- Identity: Auth0 only (OIDC code flow + PKCE on the frontend, RS256 JWT validation against the tenant JWKS on the backend). No local users table; `sub` is the identity anchor. See `development.md` for local sign-in setup.
 
 ## Authoritative documents
 

@@ -54,9 +54,8 @@ services:
         restart: true
     environment:
       PROJECT_NAME: ${PROJECT_NAME:?Variable not set}
-      SECRET_KEY: ${SECRET_KEY:?Variable not set}
-      FIRST_SUPERUSER: ${FIRST_SUPERUSER:?Variable not set}
-      FIRST_SUPERUSER_PASSWORD: ${FIRST_SUPERUSER_PASSWORD:?Variable not set}
+      AUTH0_DOMAIN: ${AUTH0_DOMAIN:?Variable not set}
+      AUTH0_API_AUDIENCE: ${AUTH0_API_AUDIENCE:?Variable not set}
       SMTP_HOST: ${SMTP_HOST}
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
@@ -73,6 +72,10 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
+      args:
+        - VITE_AUTH0_DOMAIN=${VITE_AUTH0_DOMAIN:-}
+        - VITE_AUTH0_CLIENT_ID=${VITE_AUTH0_CLIENT_ID:-}
+        - VITE_AUTH0_AUDIENCE=${VITE_AUTH0_AUDIENCE:-}
     labels:
       # Enable Traefik for this service
       - traefik.enable=true

@@ -1,117 +1,55 @@
-import { expect, type Page, test } from "@playwright/test"
-import { firstSuperuser, firstSuperuserPassword } from "./config.ts"
-import { randomPassword } from "./utils/random.ts"
+import { expect, test } from "@playwright/test"
+import { auth0Configured } from "./config.ts"
 
-test.use({ storageState: { cookies: [], origins: [] } })
-
-const fillForm = async (page: Page, email: string, password: string) => {
-  await page.getByTestId("email-input").fill(email)
-  await page.getByTestId("password-input").fill(password)
-}
-
-const verifyInput = async (page: Page, testId: string) => {
-  const input = page.getByTestId(testId)
-  await expect(input).toBeVisible()
-  await expect(input).toHaveText("")
-  await expect(input).toBeEditable()
-}
-
-test("Inputs are visible, empty and editable", async ({ page }) => {
+test("Sign-in page renders the login gate", async ({ page }) => {
   await page.goto("/login")
 
-  await verifyInput(page, "email-input")
-  await verifyInput(page, "password-input")
+  await expect(page).toHaveTitle("Sign In - VR Inspector")
+  await expect(page.getByTestId("login-gate")).toBeVisible()
+  await expect(
+    page.getByRole("heading", { name: "Sign in to VR Inspector" }),
+  ).toBeVisible()
+  await expect(page.getByTestId("sign-in-button")).toBeVisible()
 })
 
-test("Log In button is visible", async ({ page }) => {
+test("Sign-in page has no password fields (Auth0 hosted login)", async ({
+  page,
+}) => {
   await page.goto("/login")
 
-  await expect(page.getByRole("button", { name: "Log In" })).toBeVisible()
-})
-
-test("Forgot Password link is visible", async ({ page }) => {
-  await page.goto("/login")
-
+  await expect(page.locator('input[type="password"]')).toHaveCount(0)
+  await expect(page.locator('input[type="email"]')).toHaveCount(0)
+  await expect(page.getByRole("link", { name: "Sign up" })).toHaveCount(0)
   await expect(
     page.getByRole("link", { name: "Forgot your password?" }),
-  ).toBeVisible()
+  ).toHaveCount(0)
 })
 
-test("Log in with valid email and password ", async ({ page }) => {
+test("Sign-in button state follows the Auth0 configuration", async ({
+  page,
+}) => {
   await page.goto("/login")
 
-  await fillForm(page, firstSuperuser, firstSuperuserPassword)
-  await page.getByRole("button", { name: "Log In" }).click()
-
-  await page.waitForURL("/")
-
-  await expect(
-    page.getByText("Welcome back, nice to see you again!"),
-  ).toBeVisible()
+  const button = page.getByTestId("sign-in-button")
+  if (auth0Configured) {
+    await expect(button).toBeEnabled()
+    await expect(page.getByTestId("auth-unconfigured")).toHaveCount(0)
+  } else {
+    await expect(button).toBeDisabled()
+    await expect(page.getByTestId("auth-unconfigured")).toBeVisible()
+  }
 })
 
-test("Log in with invalid email", async ({ page }) => {
-  await page.goto("/login")
-
-  await fillForm(page, "invalidemail", firstSuperuserPassword)
-  await page.getByRole("button", { name: "Log In" }).click()
-
-  await expect(page.getByText("Invalid email address")).toBeVisible()
-})
-
-test("Log in with invalid password", async ({ page }) => {
-  const password = randomPassword()
+test("Sign-in button starts the redirect to Auth0", async ({ page }) => {
+  test.skip(!auth0Configured, "needs real Auth0 settings in .env")
 
   await page.goto("/login")
-  await fillForm(page, firstSuperuser, password)
-  await page.getByRole("button", { name: "Log In" }).click()
-
-  await expect(page.getByText("Incorrect email or password")).toBeVisible()
-})
-
-test("Successful log out", async ({ page }) => {
-  await page.goto("/login")
-
-  await fillForm(page, firstSuperuser, firstSuperuserPassword)
-  await page.getByRole("button", { name: "Log In" }).click()
-
-  await page.waitForURL("/")
-
-  await expect(
-    page.getByText("Welcome back, nice to see you again!"),
-  ).toBeVisible()
-
-  await page.getByTestId("user-menu").click()
-  await page.getByRole("menuitem", { name: "Log out" }).click()
-  await page.waitForURL("/login")
-})
-
-test("Logged-out user cannot access protected routes", async ({ page }) => {
-  await page.goto("/login")
-
-  await fillForm(page, firstSuperuser, firstSuperuserPassword)
-  await page.getByRole("button", { name: "Log In" }).click()
-
-  await page.waitForURL("/")
-
-  await expect(
-    page.getByText("Welcome back, nice to see you again!"),
-  ).toBeVisible()
-
-  await page.getByTestId("user-menu").click()
-  await page.getByRole("menuitem", { name: "Log out" }).click()
-  await page.waitForURL("/login")
-
-  await page.goto("/settings")
-  await page.waitForURL("/login")
-})
-
-test("Redirects to /login when token is wrong", async ({ page }) => {
-  await page.goto("/settings")
-  await page.evaluate(() => {
-    localStorage.setItem("access_token", "invalid_token")
-  })
-  await page.goto("/settings")
-  await page.waitForURL("/login")
-  await expect(page).toHaveURL("/login")
+  const [request] = await Promise.all([
+    page.waitForRequest((r) => r.url().includes("/authorize?")),
+    page.getByTestId("sign-in-button").click(),
+  ])
+  const url = new URL(request.url())
+  expect(url.searchParams.get("response_type")).toBe("code")
+  expect(url.searchParams.get("code_challenge_method")).toBe("S256")
+  expect(url.searchParams.get("scope")).toContain("openid")
 })

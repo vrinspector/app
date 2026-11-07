@@ -2,6 +2,8 @@
 
 > **Template reference only — not the VR Inspector deployment procedure.**
 > This page came with the open-source starter template. VR Inspector runs on AWS (RDS, S3, Lightsail) behind Auth0, and **no deployment to staging or production happens from this repository until release gate RG-1 evidence is recorded** (PRD v2.63 §8). All deploys are owner actions. The deploy workflows in `.github/workflows/` are manual-only and are not configured.
+>
+> Since increment 02 the application has **no `SECRET_KEY`, `FIRST_SUPERUSER` or `FIRST_SUPERUSER_PASSWORD`**: identity is Auth0 (`AUTH0_DOMAIN`, `AUTH0_API_AUDIENCE` on the backend; `VITE_AUTH0_DOMAIN`, `VITE_AUTH0_CLIENT_ID`, `VITE_AUTH0_AUDIENCE` at frontend build time). The template text below still names the old variables and will be rewritten at RG-3.
 
 Deploy the project to [FastAPI Cloud](https://fastapicloud.com) with the included GitHub Actions workflow.
 

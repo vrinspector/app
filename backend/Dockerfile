@@ -12,6 +12,9 @@ RUN bun install
 COPY ./frontend /app/frontend
 
 ARG VITE_API_URL=
+ARG VITE_AUTH0_DOMAIN=
+ARG VITE_AUTH0_CLIENT_ID=
+ARG VITE_AUTH0_AUDIENCE=
 
 RUN bun run build
 
