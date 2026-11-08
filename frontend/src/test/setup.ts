@@ -1,10 +1,16 @@
 import "@testing-library/jest-dom/vitest"
-import { cleanup } from "@testing-library/react"
+import { cleanup, configure } from "@testing-library/react"
 import { afterEach, vi } from "vitest"
 
 afterEach(() => {
   cleanup()
 })
+
+// The first test in a file renders its screen cold (lazy route chunks load
+// on first use), which can take just over Testing Library's 1 s default on
+// shared CI runners. A longer ceiling removes that flake; passing tests
+// still finish as soon as the element appears.
+configure({ asyncUtilTimeout: 5000 })
 
 // jsdom lacks the layout APIs Radix and the sidebar hooks touch.
 if (!window.matchMedia) {
