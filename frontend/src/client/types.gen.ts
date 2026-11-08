@@ -1101,6 +1101,42 @@ export type ValidationError = {
     };
 };
 
+/**
+ * WeatherReading
+ *
+ * The fields the legacy SPA reads, plus where the reading is for.
+ */
+export type WeatherReading = {
+    /**
+     * Description
+     */
+    description: string;
+    /**
+     * Temp F
+     */
+    temp_f: number;
+    /**
+     * Humidity
+     */
+    humidity: number;
+    /**
+     * Wind Mph
+     */
+    wind_mph: number;
+    /**
+     * Weather Code
+     */
+    weather_code: number;
+    /**
+     * Location
+     */
+    location: string;
+    /**
+     * Observed At
+     */
+    observed_at?: string | null;
+};
+
 export type usersReadUserMeData = {
     body?: never;
     path?: never;
@@ -2410,3 +2446,37 @@ export type reportsReadReportResponses = {
 };
 
 export type reportsReadReportResponse = reportsReadReportResponses[keyof reportsReadReportResponses];
+
+export type weatherReadWeatherData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * Inspection Id
+         */
+        inspection_id: number;
+        /**
+         * Location
+         */
+        location?: string | null;
+    };
+    url: '/api/v1/weather';
+};
+
+export type weatherReadWeatherErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type weatherReadWeatherError = weatherReadWeatherErrors[keyof weatherReadWeatherErrors];
+
+export type weatherReadWeatherResponses = {
+    /**
+     * Successful Response
+     */
+    200: WeatherReading;
+};
+
+export type weatherReadWeatherResponse = weatherReadWeatherResponses[keyof weatherReadWeatherResponses];

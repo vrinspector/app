@@ -192,8 +192,8 @@ function Help() {
             </li>
             <li>Create an inspection for the site walk or discipline.</li>
             <li>
-              Use the inspection screen for photos, findings, sign-off and
-              reports.
+              Use the inspection screen for weather context, photos, findings,
+              sign-off and reports.
             </li>
             <li>
               <strong>Sign off</strong> only when the inspection record is ready

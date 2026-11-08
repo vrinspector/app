@@ -193,6 +193,7 @@ on the live database; `DOMAIN_TABLES` adds this one.
 * `voice_notes` (Block 1) — the deployed SPA uses browser speech recognition
   only; no route reads or writes the table. Revisit with Block 10B.
 * Weather — the SPA calls `GET /weather?location&inspection_id`; no stored
-  schema is evidenced. The route is still unported (issue #9); a cache table
-  can follow if the real dump shows one.
+  schema is evidenced. The route is ported in increment 10.5 as a lookup
+  with an in-process cache (`app/core/weather.py`), still with no table; a
+  stored reading per inspection can follow if the real dump shows one.
 * Block 9.5 ITP tables, `inspection_pins.itp_item_id` — increment 12.

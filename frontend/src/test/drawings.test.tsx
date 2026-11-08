@@ -90,6 +90,8 @@ vi.mock("@/client", () => ({
     updatePin: api.updatePin,
     deletePin: api.deletePin,
   },
+  // Weather (increment 10.5) is a silent badge; no reading here.
+  WeatherService: { readWeather: async () => ({ data: undefined }) },
 }))
 
 interface RenderCall {

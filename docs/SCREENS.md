@@ -4,7 +4,7 @@ How the operational screens are built on the shell from increment 06
 (`docs/FRONTEND_SHELL.md`), against the API contract in `docs/API_PORT.md`.
 Owner decisions are numbered on from `docs/API_PORT.md` (1–10): 11–14 in
 increment 07, 15–18 in increment 08, 19–24 in increment 09, 25–30 in
-increment 10.
+increment 10, 31 in increment 10.5.
 The legacy single-file SPA (`vrinspector/frontend` →
 `staging_snapshot_20260716/staging_index_with_help_private.html`) is the
 behavioural spec: same screens, same request bodies, same vocabulary.
@@ -114,7 +114,7 @@ Block 8A defect-repair workflow and the camera-first capture flow.
 | Site photos (N) | photo grid + "📷 Capture Photo" | `PhotosSection`: thumbnail grid (newest first), **Take photo** (rear camera) and **Upload** (library, multi-select), in-flight upload tiles, tap a thumbnail for the full-size viewer |
 | Findings (N) | search box, status select, "+ Log Finding", cards | `FindingsSection`: search + status filter (client-side, like `filterFindings`), **Log finding**, one `FindingCard` per finding |
 | Capture bar | — | phones only (`sm:hidden`): sticky **Take photo** / **Log finding** at the bottom so the capture loop never needs a scroll back to the top |
-| Weather badge | `GET /api/weather` | **not shown yet** — the route is not ported (issue #9); the section slots in above the photos once it is |
+| Weather badge | `GET /api/weather` → conditions, °F, humidity, wind | `WeatherBadge` (increment 10.5): the same four readings plus the resolved place, above the photos; silent while loading and absent on any failure, as the legacy badge was |
 
 ### Photo capture flow
 
@@ -211,9 +211,8 @@ retried; a presign refusal with the API's reason; the phone capture bar.
 17. **Edit and delete exist for findings and photos**, like increment 07's
     decision 11 for projects and inspections; each behind a confirmation
     and hidden once the inspection is signed off.
-18. **The weather badge waits for issue #9.** Nothing on this screen calls
-    `/weather`; when the route is ported the badge slots in above the
-    photos.
+18. **The weather badge waited for issue #9** and arrived in increment 10.5
+    (decision 31 below).
 
 ## Increment 09 — drawings + the Block 8E viewer
 
@@ -465,3 +464,36 @@ the phone.
     describes the rebuilt app; `vrinspector.com/help` still describes the
     legacy one. It is a static file outside this repo and belongs with the
     cutover (increment 11), when the legacy wording stops being true.
+
+## Increment 10.5 — weather badge
+
+The Block 5 badge from the legacy findings screen (issue #9; owner decision
+2026-11-08 to keep the shipped feature for parity), on the route ported in
+`docs/API_PORT.md` → "Weather (increment 10.5)".
+
+| Part | Legacy | Screen |
+|---|---|---|
+| Badge | `weather-badge` above the photos: icon + description, `temp_f °F`, `💧 humidity %`, `🌬 wind mph`; only when the project has a location and the lookup succeeded | `Inspections/WeatherBadge`: the same four readings with lucide icons (sun / cloud / fog / rain / snow / thunderstorm by WMO group) plus the place the geocoder resolved, gold left rule on the off-white token; `role="status"` with a spoken summary |
+| Request | `GET /weather?location=<project location>&inspection_id=N` after the photos and findings had loaded | `weatherQuery(inspectionId)` → `GET /api/v1/weather?inspection_id=N` in parallel with the rest of the screen; the API resolves the project's location |
+| Failure | badge omitted (`try … catch` around the fetch, "weather non-blocking") | badge omitted: `retry: false`, no toast, no error state |
+| Freshness | every screen load | `staleTime` ten minutes, matching the server cache |
+
+### Tests
+
+`src/test/findings.test.tsx` (2 new cases): the badge shows the reading,
+the spoken summary and the resolved place, asks by inspection id only and
+sits above the photos; a 404 leaves no badge and no toast.
+`src/components/Inspections/WeatherBadge.test.ts`: the WMO → icon buckets.
+The other screen suites stub `WeatherService` to "no reading".
+
+### Decisions for the owner (increment 10.5)
+
+31. **The screen asks by inspection id and the API resolves the location.**
+    The legacy SPA sent the project's location text along with the id; the
+    rebuilt route accepts both and falls back to the project's stored
+    location, so the badge needs no project data on the client. Readings
+    are not stored — the badge is live context, as before. If a reading
+    should be stamped on the inspection record (the "auto-log" of Block 5),
+    say so: a nullable `weather_*` set on `inspections` or a small table is
+    one additive migration, and the ITP signature stamp in increment 14
+    will need the same lookup.

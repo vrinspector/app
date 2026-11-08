@@ -66,6 +66,8 @@ vi.mock("@/client", () => ({
   FindingsService: { listFindings: api.listFindings },
   PhotosService: { listPhotos: api.listPhotos },
   ReportsService: { listReports: api.listReports },
+  // Weather (increment 10.5) is a silent badge; no reading here.
+  WeatherService: { readWeather: async () => ({ data: undefined }) },
 }))
 
 const ok = <T,>(data: T) => ({ data })

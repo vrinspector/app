@@ -80,6 +80,14 @@ class Settings(BaseSettings):
     S3_PRESIGN_PUT_SECONDS: int = 600
     S3_PRESIGN_GET_SECONDS: int = 3600
 
+    # --- Weather (Block 5, increment 10.5): Open-Meteo, free, no API key ---
+    WEATHER_GEOCODING_URL: str = "https://geocoding-api.open-meteo.com/v1/search"
+    WEATHER_FORECAST_URL: str = "https://api.open-meteo.com/v1/forecast"
+    WEATHER_TIMEOUT_SECONDS: float = 4.0
+    # Readings are cached in process per location; Open-Meteo updates every
+    # 15 minutes, so ten minutes keeps a crew's repeated opens to one call.
+    WEATHER_CACHE_SECONDS: int = 600
+
     SMTP_TLS: bool = True
     SMTP_SSL: bool = False
     SMTP_PORT: int = 587
