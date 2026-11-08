@@ -15,8 +15,9 @@ import { defineConfig, type Plugin } from "vite"
 /*
  * The static-page host rejects text files that contain raw control bytes,
  * and the minified PDF.js worker has a few hundred inside string literals.
- * Rewriting each as a \\xNN escape is equivalent JavaScript.
+ * Rewriting each as a \xNN escape is equivalent JavaScript.
  */
+// biome-ignore lint/suspicious/noControlCharactersInRegex: matching control bytes is the point
 const CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g
 const escapeControl = (text: string) =>
   text.replace(
