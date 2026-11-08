@@ -30,7 +30,7 @@ the shell or of increment NN as a whole, see `docs/FRONTEND_SHELL.md` /
    at the **same staging database and S3 bucket** (PRD v2.63 §4: "same
    database, same API: no data migration"), so a project created in one shows
    up in the other after a refresh. Where the preview runs is an owner
-   decision — see the increment 11 issue on GitHub.
+   decision — see issue #16.
 2. Sign in to both with the same Auth0 account. Run the checklist once as an
    **owner** of a test project; the rows marked *(viewer)* or *(inspector)*
    need a second sign-in with that role (invite a second address from the
@@ -105,7 +105,7 @@ create, edit and delete things do not touch real inspections.
 | # | Step | Current app | Rebuilt app | Parity | Side-by-side result |
 |---|---|---|---|---|---|
 | 5.1 | Header | Inspection title, ← | Title, ←, details (type, inspector, date, notes), menu (Edit / Delete) | Same | |
-| 5.2 | Weather badge | Conditions, °F, humidity, wind above the photos (when the project has a location) | **Not shown** — the weather route is not ported (issue #9) | Gap | |
+| 5.2 | Weather badge | Conditions, °F, humidity, wind above the photos (when the project has a location) | Ported in increment 10.5 (`GET /api/v1/weather`, same fields); **check the badge shows the same reading in both apps** | Same once 10.5 lands (until then: Gap) | |
 | 5.3 | Site photos grid | "Site Photos (N)", thumbnails with filename, **📷 Capture Photo** | "Site photos (N)", thumbnails newest first, **Take photo** (rear camera) and **Upload** (library, several) | Same | |
 | 5.4 | Take a photo on a phone | Camera opens directly; "Uploading photo…"; toast "Photo uploaded"; grid reloads | Camera opens directly; tile with progress; thumbnail in place before the toast fades; **Retry** on failure | Same | |
 | 5.5 | Photo upload path | Presign → direct PUT to S3 → register (bytes never pass through the API) | The same three steps, same bodies | Same | |
@@ -181,7 +181,7 @@ sheet at every zoom step and after a page change.
 | 10.1 | Brand palette tokens replace stock Bootstrap colours | `index.css` tokens; status badges keep the legacy colours as tokens | Same | |
 | 10.2 | Loading skeletons, empty states, error states throughout | `LoadingState`, `ListSkeleton`, `EmptyState`, `ErrorState`, `QueryState`, `DetailState` on every screen | Same | |
 | 10.3 | Touch targets sized for gloved use | shadcn defaults (36–40 px buttons); capture bar buttons 48 px — **check on a phone with gloves or a stylus** | Verify | |
-| 10.4 | Capture loop: drawing tap → saved finding with photo in under 15 s on a mid-range Android phone | See §11. There is no single tap-to-finding flow yet: a pin links to an **existing** finding; a new finding and its photo are logged on the inspection screen | Gap — see the increment 11 issue | |
+| 10.4 | Capture loop: drawing tap → saved finding with photo in under 15 s on a mid-range Android phone | See §11. There is no single tap-to-finding flow yet: a pin links to an **existing** finding; a new finding and its photo are logged on the inspection screen | Gap — see issue #16 | |
 | 10.5 | Pinch-to-zoom and pan; button zoom retained | Both present (rows 6.4–6.5) | Same | |
 | 10.6 | Device pass: iPhone Safari, Android Chrome, iPad Safari, desktop | See §12 | Owner | |
 
@@ -205,7 +205,7 @@ halves that exist, then the closest end-to-end path:
 
 Median of each triple goes in the sign-off block. If C is over 15 s in the
 rebuilt app, the fix belongs to a short capture-loop UX increment (see the
-increment 11 issue), not to this checklist.
+issue #16), not to this checklist.
 
 ## 12. Device pass
 
