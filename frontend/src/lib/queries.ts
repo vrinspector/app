@@ -1,6 +1,8 @@
 import { queryOptions } from "@tanstack/react-query"
 
 import {
+  type DrawingPublic,
+  DrawingsService,
   type FindingPublic,
   FindingsService,
   type InspectionPublic,
@@ -8,6 +10,7 @@ import {
   type MemberPublic,
   type PhotoPublic,
   PhotosService,
+  type PinPublic,
   type ProjectPublic,
   ProjectsService,
 } from "@/client"
@@ -20,14 +23,19 @@ import {
  *   ["projects", id]                   one project
  *   ["projects", id, "members"]        its members (role lookup, increment 10 panel)
  *   ["projects", id, "inspections"]    its inspections
+ *   ["projects", id, "drawings"]       its drawings (increment 09)
  *   ["inspections", id]                one inspection
  *   ["inspections", id, "findings"]    its findings (increment 08)
  *   ["inspections", id, "photos"]      its photos, each with a presigned view_url
+ *   ["drawings", id]                   one drawing
+ *   ["drawings", id, "view-url"]       its presigned view URL (1 hour)
+ *   ["drawings", id, "pins"]           its pins, every page
  *
  * Invalidating ["projects", id] therefore also refreshes that project's
- * members and inspections — what the legacy SPA did by reloading the screen.
- * Likewise ["inspections", id] covers the inspection, its findings and its
- * photos (the legacy `loadFindingsScreen` re-fetched all three).
+ * members, inspections and drawings — what the legacy SPA did by reloading
+ * the screen. Likewise ["inspections", id] covers the inspection, its
+ * findings and its photos (the legacy `loadFindingsScreen` re-fetched all
+ * three), and ["drawings", id] the drawing with its pins.
  */
 
 export const projectKeys = {
@@ -36,6 +44,13 @@ export const projectKeys = {
   members: (projectId: number) => ["projects", projectId, "members"] as const,
   inspections: (projectId: number) =>
     ["projects", projectId, "inspections"] as const,
+  drawings: (projectId: number) => ["projects", projectId, "drawings"] as const,
+}
+
+export const drawingKeys = {
+  detail: (drawingId: number) => ["drawings", drawingId] as const,
+  viewUrl: (drawingId: number) => ["drawings", drawingId, "view-url"] as const,
+  pins: (drawingId: number) => ["drawings", drawingId, "pins"] as const,
 }
 
 export const inspectionKeys = {
@@ -116,6 +131,54 @@ export const photosQuery = (inspectionId: number) =>
         })
       ).data ?? [],
     staleTime: 0,
+  })
+
+export const drawingsQuery = (projectId: number) =>
+  queryOptions<DrawingPublic[]>({
+    queryKey: projectKeys.drawings(projectId),
+    queryFn: async () =>
+      (
+        await DrawingsService.listDrawings({
+          query: { project_id: projectId },
+        })
+      ).data ?? [],
+  })
+
+export const drawingQuery = (drawingId: number) =>
+  queryOptions<DrawingPublic>({
+    queryKey: drawingKeys.detail(drawingId),
+    queryFn: async () =>
+      (await DrawingsService.readDrawing({ path: { drawing_id: drawingId } }))
+        .data as DrawingPublic,
+  })
+
+/**
+ * The presigned GET for the file itself (`GET /drawings/{id}/view-url`,
+ * one hour). Re-read on every viewer visit, as the legacy `openDrawingViewer`
+ * did, so a link is never used past its expiry; cached for the visit so a
+ * zoom or page change does not mint another.
+ */
+export const drawingViewUrlQuery = (drawingId: number) =>
+  queryOptions<string>({
+    queryKey: drawingKeys.viewUrl(drawingId),
+    queryFn: async () =>
+      (
+        (
+          await DrawingsService.readDrawingViewUrl({
+            path: { drawing_id: drawingId },
+          })
+        ).data as { view_url: string }
+      ).view_url,
+    staleTime: 0,
+    gcTime: 0,
+  })
+
+export const pinsQuery = (drawingId: number) =>
+  queryOptions<PinPublic[]>({
+    queryKey: drawingKeys.pins(drawingId),
+    queryFn: async () =>
+      (await DrawingsService.listPins({ path: { drawing_id: drawingId } }))
+        .data ?? [],
   })
 
 /** Route params arrive as strings; anything that is not a positive integer is a 404. */
