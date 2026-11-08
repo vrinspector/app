@@ -118,6 +118,7 @@ SPA's request/response fields (type and length are the rebuild's assumption);
 | id | SERIAL PK | contract |
 | public_id | UUID | rebuild |
 | inspection_id | INTEGER FK → inspections CASCADE | contract |
+| finding_id | INTEGER NULL FK → findings SET NULL, indexed (migration `d5a1b7c3e902`) | rebuild (increment 11a: a photo taken in the capture loop is filed under its finding; site photos stay NULL) |
 | s3_key | VARCHAR(512) NOT NULL (`photos/…`, S3 only) | contract |
 | filename | VARCHAR(255) | contract |
 | content_type | VARCHAR(100) | rebuild (presign request carries it) |

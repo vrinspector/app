@@ -151,8 +151,12 @@ def upload_photo(
     h: dict[str, str],
     inspection_id: int,
     filename: str = "IMG_0001.jpg",
+    finding_id: int | None = None,
 ) -> dict[str, Any]:
-    """The SPA's three-step flow: presign → PUT to S3 (skipped) → register."""
+    """The SPA's three-step flow: presign → PUT to S3 (skipped) → register.
+
+    ``finding_id`` files the photo under a finding (increment 11a).
+    """
     r = client.post(
         f"{V1}/photos/presign",
         json={
@@ -171,6 +175,7 @@ def upload_photo(
             "s3_key": presign["s3_key"],
             "filename": filename,
             "uploaded_by": "Test Inspector",
+            **({"finding_id": finding_id} if finding_id is not None else {}),
         },
         headers=h,
     )

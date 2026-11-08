@@ -19,6 +19,7 @@ import { ConfirmDialog } from "@/components/Common/ConfirmDialog"
 import { PageHeader } from "@/components/Common/PageHeader"
 import { DetailState, NotFoundState } from "@/components/Common/States"
 import { StatusBadge } from "@/components/Common/StatusBadge"
+import { DrawingPickerMenu } from "@/components/Drawings/DrawingPickerMenu"
 import { FindingsSection } from "@/components/Findings/FindingsSection"
 import { InspectionFormDialog } from "@/components/Inspections/InspectionFormDialog"
 import { WeatherBadge } from "@/components/Inspections/WeatherBadge"
@@ -348,6 +349,7 @@ function InspectionBody({ inspection, project }: InspectionBodyProps) {
       />
 
       <FindingsSection
+        projectId={inspection.project_id}
         inspectionId={inspection.id}
         canWrite={canWrite}
         closed={isClosed}
@@ -366,6 +368,15 @@ function InspectionBody({ inspection, project }: InspectionBodyProps) {
             onTakePhoto={picker.openCamera}
             onLogFinding={() => setLoggingFinding(true)}
             canLogFinding={!isClosed}
+            extra={
+              isClosed ? null : (
+                <DrawingPickerMenu
+                  projectId={inspection.project_id}
+                  inspectionId={inspection.id}
+                  compact
+                />
+              )
+            }
           />
         </>
       ) : null}

@@ -55,6 +55,8 @@ const api = vi.hoisted(() => ({
   registerPhoto: vi.fn(),
   deletePhoto: vi.fn(),
   readWeather: vi.fn(),
+  listDrawings: vi.fn(),
+  readDrawing: vi.fn(),
 }))
 
 vi.mock("@/client", () => ({
@@ -81,6 +83,16 @@ vi.mock("@/client", () => ({
     deletePhoto: api.deletePhoto,
   },
   WeatherService: { readWeather: api.readWeather },
+  // "Pin on drawing" (increment 11a) lists the project's drawings; the
+  // viewer itself is covered in drawings.test.tsx / capture-loop.test.tsx.
+  DrawingsService: {
+    listDrawings: api.listDrawings,
+    readDrawing: api.readDrawing,
+    readDrawingViewUrl: async () => ({
+      data: { view_url: "https://files.example.com/32?sig=1" },
+    }),
+    listPins: async () => ({ data: [] }),
+  },
 }))
 
 const ok = <T,>(data: T) => ({ data })
@@ -215,6 +227,26 @@ const photos = [
   },
 ]
 
+const drawing32 = {
+  id: 32,
+  public_id: "drw_32",
+  project_id: 7,
+  title: "Flare skid layout",
+  drawing_number: "M-201",
+  discipline: "equipment_layout",
+  filename: "flare.png",
+  s3_key: "drawings/projects/7/bbb.png",
+  file_type: "png",
+  file_size: 1,
+  view_url: null,
+  thumbnail_url: null,
+  page_width_pts: null,
+  page_height_pts: null,
+  uploaded_by: null,
+  created_at: "2026-07-03T09:00:00Z",
+  updated_at: "2026-07-03T09:00:00Z",
+}
+
 const weather = {
   description: "Partly cloudy",
   temp_f: 61.3,
@@ -278,6 +310,8 @@ beforeEach(() => {
   api.listFindings.mockResolvedValue(ok(findings))
   api.listPhotos.mockResolvedValue(ok(photos))
   api.readWeather.mockResolvedValue(ok(weather))
+  api.listDrawings.mockResolvedValue(ok([drawing32]))
+  api.readDrawing.mockResolvedValue(ok(drawing32))
   // jsdom has no object URLs; the upload tiles only need a string.
   URL.createObjectURL = vi.fn(() => "blob:preview")
   URL.revokeObjectURL = vi.fn()
@@ -928,6 +962,66 @@ describe("photo capture flow", () => {
 
     await userEvent.click(screen.getByTestId("capture-bar-finding"))
     expect(await screen.findByTestId("finding-form-dialog")).toBeInTheDocument()
+  })
+})
+
+describe("capture loop entry points (increment 11a)", () => {
+  it("shows the photos filed under a finding on its card", async () => {
+    api.listPhotos.mockResolvedValue(
+      ok([
+        { ...photos[0], finding_id: 101 },
+        { ...photos[1], finding_id: null },
+      ]),
+    )
+    renderApp(INSPECTION_URL)
+    const cards = await screen.findAllByTestId("finding-card")
+
+    const strip = await within(cards[0]).findByTestId("finding-photos")
+    expect(strip).toHaveAccessibleName("1 photo for Cracked footing NE corner")
+    const thumb = within(strip).getByTestId("finding-photo")
+    expect(thumb.querySelector("img")).toHaveAttribute(
+      "src",
+      "https://files.example.com/aaa.jpg?sig=1",
+    )
+    expect(
+      within(cards[1]).queryByTestId("finding-photos"),
+    ).not.toBeInTheDocument()
+    // Site photos are still all in the grid; filing takes nothing away.
+    expect(screen.getAllByTestId("photo-thumb")).toHaveLength(2)
+
+    await userEvent.click(thumb)
+    expect(await screen.findByTestId("photo-viewer")).toHaveTextContent(
+      "footing.jpg",
+    )
+  })
+
+  it("'Pin on drawing' opens a drawing with this inspection pre-selected", async () => {
+    const router = renderApp(INSPECTION_URL)
+    await screen.findAllByTestId("finding-card")
+
+    // Header button and the compact one in the phone capture bar.
+    const buttons = screen.getAllByTestId("pin-on-drawing")
+    expect(buttons).toHaveLength(2)
+    await userEvent.click(buttons[0])
+    const item = await screen.findByTestId("pin-on-drawing-item")
+    expect(item).toHaveTextContent("Flare skid layout")
+    expect(item).toHaveTextContent("M-201")
+    await userEvent.click(item)
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe("/projects/7/drawings/32"),
+    )
+    expect(router.state.location.search).toEqual({ inspection: 21 })
+    // Let the drawing screen finish loading before the test tears jsdom
+    // down, or the router's pending transition rejects after unmount.
+    expect(await screen.findByTestId("drawing-viewer")).toBeInTheDocument()
+  })
+
+  it("has no 'Pin on drawing' when the project has no drawings", async () => {
+    api.listDrawings.mockResolvedValue(ok([]))
+    renderApp(INSPECTION_URL)
+    await screen.findAllByTestId("finding-card")
+    expect(screen.queryByTestId("pin-on-drawing")).not.toBeInTheDocument()
   })
 })
 

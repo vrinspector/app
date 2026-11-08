@@ -181,7 +181,7 @@ sheet at every zoom step and after a page change.
 | 10.1 | Brand palette tokens replace stock Bootstrap colours | `index.css` tokens; status badges keep the legacy colours as tokens | Same | |
 | 10.2 | Loading skeletons, empty states, error states throughout | `LoadingState`, `ListSkeleton`, `EmptyState`, `ErrorState`, `QueryState`, `DetailState` on every screen | Same | |
 | 10.3 | Touch targets sized for gloved use | shadcn defaults (36–40 px buttons); capture bar buttons 48 px — **check on a phone with gloves or a stylus** | Verify | |
-| 10.4 | Capture loop: drawing tap → saved finding with photo in under 15 s on a mid-range Android phone | See §11. There is no single tap-to-finding flow yet: a pin links to an **existing** finding; a new finding and its photo are logged on the inspection screen | Gap — see issue #16 | |
+| 10.4 | Capture loop: drawing tap → saved finding with photo in under 15 s on a mid-range Android phone | See §11. Increment 11a added the single flow to the rebuilt app: Add pin → tap → status → finding form opens with Take photo / Dictate → Save → finding with its photo, linked to the pin. The current app has no equivalent (pin links to an **existing** finding only) | New (inc. 11a; decisions 32–34) — **time it, §11 path C** | |
 | 10.5 | Pinch-to-zoom and pan; button zoom retained | Both present (rows 6.4–6.5) | Same | |
 | 10.6 | Device pass: iPhone Safari, Android Chrome, iPad Safari, desktop | See §12 | Owner | |
 
@@ -193,19 +193,19 @@ screen recording) in both apps, three runs each, on a phone on mobile data
 rather than office Wi-Fi. Start the clock on the first tap and stop it when
 the finding card is visible with its photo registered.
 
-Because neither app has a single tap-to-finding flow today, time the two
-halves that exist, then the closest end-to-end path:
+The current app has no single tap-to-finding flow, so time the two halves
+that exist in both apps, then the one-flow path (rebuilt app only):
 
 | Run | Path | Current app | Rebuilt app | Notes |
 |---|---|---|---|---|
 | A1–A3 | Inspection screen → **Take photo** → shutter → thumbnail in the grid | | | upload of a full-size phone photo; see decision 16 on downscaling |
 | B1–B3 | Inspection screen → **Log finding** → title, priority → save → card visible | | | |
-| C1–C3 | Drawing viewer → **Add pin** → tap → status → (back to the inspection) → **Take photo** → **Log finding** → save | | | the nearest end-to-end path to the PRD loop today |
+| C1–C3 | Drawing viewer → **Add pin** → tap → status → **Take photo** → shutter → **Dictate** (or type) → **Save finding** → toast "Finding logged with 1 photo and linked to pin #N" | n/a (no single flow) | | the PRD loop as built in increment 11a; the rebuilt app's own part of it measures ~3 s in the automated walk (`frontend/tests/demo/capture-loop.spec.ts`), so the stopwatch time is dominated by the camera and the spoken sentence |
 | D | Mid-range Android used (model, Android version, network) | | | |
 
 Median of each triple goes in the sign-off block. If C is over 15 s in the
-rebuilt app, the fix belongs to a short capture-loop UX increment (see the
-issue #16), not to this checklist.
+rebuilt app, note where the time went (camera open, upload, dictation,
+save) so the follow-up is specific.
 
 ## 12. Device pass
 

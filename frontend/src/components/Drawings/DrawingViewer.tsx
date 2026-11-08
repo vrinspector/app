@@ -20,6 +20,7 @@ import {
 
 import { type DrawingPublic, DrawingsService, type PinPublic } from "@/client"
 import { ErrorState } from "@/components/Common/States"
+import { CaptureFindingDialog } from "@/components/Findings/CaptureFindingDialog"
 import { Button } from "@/components/ui/button"
 import { type PageSize, usePdfRenderer } from "@/hooks/usePdfRenderer"
 import { useViewerGestures } from "@/hooks/useViewerGestures"
@@ -59,6 +60,10 @@ import { PinStatusDialog } from "./PinStatusDialog"
  * number; the overlay shows the current page's pins only (`pinsOnPage`).
  * Raster drawings have one page, no page controls, and the same zoom, pan
  * and pin behaviour (the legacy image path had neither zoom nor panning).
+ *
+ * Increment 11a: placing a pin can carry straight on to the finding form
+ * (`CaptureFindingDialog`), so one tap on the sheet ends in a saved finding
+ * with its photo linked to the pin — the PRD's capture loop.
  */
 
 interface DrawingViewerProps {
@@ -69,6 +74,8 @@ interface DrawingViewerProps {
   canWrite: boolean
   /** Re-mint the view URL and reload, after a load failure. */
   onRetry: () => void
+  /** The inspection the viewer was opened from, pre-selected for new findings. */
+  inspectionId?: number | null
 }
 
 interface PendingScroll {
@@ -83,6 +90,7 @@ export function DrawingViewer({
   viewUrl,
   canWrite,
   onRetry,
+  inspectionId = null,
 }: DrawingViewerProps) {
   const kind = drawingFileKind(drawing)
   const isPdf = kind === "pdf"
@@ -96,6 +104,7 @@ export function DrawingViewer({
   const [pinMode, setPinMode] = useState(false)
   const [placing, setPlacing] = useState<PointPercent | null>(null)
   const [selectedPin, setSelectedPin] = useState<PinPublic | null>(null)
+  const [capturePin, setCapturePin] = useState<PinPublic | null>(null)
   const [renderedSize, setRenderedSize] = useState<PageSize | null>(null)
   const [naturalSize, setNaturalSize] = useState<PageSize | null>(null)
   const [imageError, setImageError] = useState<Error | null>(null)
@@ -555,6 +564,20 @@ export function DrawingViewer({
         pageNumber={isPdf ? pageNumber : 1}
         isPdf={isPdf}
         onClose={() => setPlacing(null)}
+        onPlaced={(pin, { logFinding }) => {
+          if (logFinding && canWrite) {
+            setPinMode(false)
+            setCapturePin(pin)
+          }
+        }}
+      />
+      <CaptureFindingDialog
+        projectId={projectId}
+        drawing={drawing}
+        isPdf={isPdf}
+        pin={capturePin}
+        preferredInspectionId={inspectionId}
+        onClose={() => setCapturePin(null)}
       />
       <PinDetailDialog
         projectId={projectId}

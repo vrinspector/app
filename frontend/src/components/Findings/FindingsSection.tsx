@@ -2,15 +2,16 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { ClipboardCheck, Plus } from "lucide-react"
 import { useMemo, useState } from "react"
 
-import { type FindingPublic, FindingsService } from "@/client"
+import { type FindingPublic, FindingsService, type PhotoPublic } from "@/client"
 import { ConfirmDialog } from "@/components/Common/ConfirmDialog"
 import { FilterInput } from "@/components/Common/FilterInput"
 import { EmptyState, QueryState } from "@/components/Common/States"
+import { DrawingPickerMenu } from "@/components/Drawings/DrawingPickerMenu"
 import { Button } from "@/components/ui/button"
 import { NativeSelect } from "@/components/ui/native-select"
 import useCustomToast from "@/hooks/useCustomToast"
 import { matchesFilter } from "@/lib/format"
-import { findingsQuery, inspectionKeys } from "@/lib/queries"
+import { findingsQuery, inspectionKeys, photosQuery } from "@/lib/queries"
 import { FINDING_STATUS_OPTIONS } from "@/lib/vocab"
 import { extractErrorMessage } from "@/utils"
 import { FindingCard } from "./FindingCard"
@@ -23,9 +24,14 @@ import { ResolveFindingDialog } from "./ResolveFindingDialog"
  * loaded list, as `filterFindings` was. `canWrite` comes from the project
  * role; `closed` from the inspection's sign-off state — either one hides
  * the write actions, and the API enforces both.
+ *
+ * Increment 11a: "Pin on drawing" opens a drawing with this inspection
+ * pre-selected for the capture loop, and each card shows the photos filed
+ * under its finding (`photos.finding_id`).
  */
 
 interface FindingsSectionProps {
+  projectId: number
   inspectionId: number
   canWrite: boolean
   closed: boolean
@@ -35,6 +41,7 @@ interface FindingsSectionProps {
 }
 
 export function FindingsSection({
+  projectId,
   inspectionId,
   canWrite,
   closed,
@@ -42,6 +49,7 @@ export function FindingsSection({
   onLoggingChange,
 }: FindingsSectionProps) {
   const query = useQuery(findingsQuery(inspectionId))
+  const photos = useQuery(photosQuery(inspectionId))
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
 
@@ -70,11 +78,25 @@ export function FindingsSection({
   })
 
   const logButton = readOnly ? null : (
-    <Button onClick={() => onLoggingChange(true)} data-testid="log-finding">
-      <Plus />
-      Log finding
-    </Button>
+    <div className="flex gap-2">
+      <DrawingPickerMenu projectId={projectId} inspectionId={inspectionId} />
+      <Button onClick={() => onLoggingChange(true)} data-testid="log-finding">
+        <Plus />
+        Log finding
+      </Button>
+    </div>
   )
+
+  const photosByFinding = useMemo(() => {
+    const map = new Map<number, PhotoPublic[]>()
+    for (const photo of photos.data ?? []) {
+      if (photo.finding_id === null || photo.finding_id === undefined) continue
+      const list = map.get(photo.finding_id) ?? []
+      list.push(photo)
+      map.set(photo.finding_id, list)
+    }
+    return map
+  }, [photos.data])
 
   return (
     <section aria-labelledby="findings-heading" className="flex flex-col gap-3">
@@ -111,6 +133,7 @@ export function FindingsSection({
             onStatusFilterChange={setStatusFilter}
             readOnly={readOnly}
             logButton={logButton}
+            photosByFinding={photosByFinding}
             onResolve={setResolving}
             onEdit={setEditing}
             onDelete={setDeleting}
@@ -167,6 +190,7 @@ interface FindingListProps {
   onStatusFilterChange: (value: string) => void
   readOnly: boolean
   logButton: React.ReactNode
+  photosByFinding: Map<number, PhotoPublic[]>
   onResolve: (finding: FindingPublic) => void
   onEdit: (finding: FindingPublic) => void
   onDelete: (finding: FindingPublic) => void
@@ -180,6 +204,7 @@ function FindingList({
   onStatusFilterChange,
   readOnly,
   logButton,
+  photosByFinding,
   onResolve,
   onEdit,
   onDelete,
@@ -270,6 +295,7 @@ function FindingList({
             <FindingCard
               key={finding.id}
               finding={finding}
+              photos={photosByFinding.get(finding.id)}
               readOnly={readOnly}
               onResolve={onResolve}
               onEdit={onEdit}

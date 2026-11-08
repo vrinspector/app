@@ -38,8 +38,8 @@ project-bound S3 keys). Where behaviour had to be inferred it is marked
 | `PATCH /api/findings/{id}/status` `{status}` | same | Block 8A: open / in-progress / resolved |
 | `PATCH /api/findings/{id}/resolve` `{resolution_notes}` | same | stamps `resolved_by/at` |
 | `POST /api/photos/presign` | same under `/api/v1` | `{upload_url, s3_key}`; key bound to the inspection |
-| `POST /api/photos` | same → 201 | key must be under the inspection's prefix (else 404) |
-| `GET /api/photos?inspection_id=N` | same | each row carries a presigned `view_url` |
+| `POST /api/photos` | same → 201 | key must be under the inspection's prefix (else 404); optional `finding_id` (increment 11a) must name a finding of the same inspection, else 404 `Finding not found` |
+| `GET /api/photos?inspection_id=N` | same, plus optional `&finding_id=M` | each row carries a presigned `view_url` and `finding_id` (null for site photos) |
 | — | `GET/DELETE /api/v1/photos/{id}` | DELETE removes the S3 object best-effort |
 
 `GET /api/weather` is ported in increment 10.5 and `POST /api/reports/generate`

@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import {
+  Camera,
   CheckCircle2,
   ChevronDown,
   MapPin,
@@ -11,8 +12,9 @@ import {
 } from "lucide-react"
 import { useState } from "react"
 
-import { type FindingPublic, FindingsService } from "@/client"
+import { type FindingPublic, FindingsService, type PhotoPublic } from "@/client"
 import { StatusBadge } from "@/components/Common/StatusBadge"
+import { PhotoViewerDialog } from "@/components/Photos/PhotoViewerDialog"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -42,6 +44,9 @@ import { extractErrorMessage } from "@/utils"
  * resolution notes (the legacy card's `viewFinding` was never wired up).
  * Write actions are hidden for viewers and while the inspection is signed
  * off; the API also refuses them (403 / 409).
+ *
+ * Increment 11a: photos filed under the finding (`photos.finding_id`, taken
+ * in the capture loop) show as a thumbnail strip and open in the viewer.
  */
 
 export type FindingStatusValue = "open" | "in-progress" | "resolved"
@@ -58,6 +63,8 @@ export function excerpt(text: string | null | undefined): string {
 
 interface FindingCardProps {
   finding: FindingPublic
+  /** Photos filed under this finding, newest first (increment 11a). */
+  photos?: PhotoPublic[]
   /** Hide every write action (viewer, or the inspection is signed off). */
   readOnly: boolean
   onResolve: (finding: FindingPublic) => void
@@ -67,6 +74,7 @@ interface FindingCardProps {
 
 export function FindingCard({
   finding,
+  photos = [],
   readOnly,
   onResolve,
   onEdit,
@@ -75,6 +83,7 @@ export function FindingCard({
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
   const [expanded, setExpanded] = useState(false)
+  const [viewing, setViewing] = useState<number | null>(null)
 
   const status = (finding.status || "open") as FindingStatusValue
   const resolved = status === "resolved"
@@ -215,6 +224,41 @@ export function FindingCard({
         </div>
       ) : null}
 
+      {photos.length > 0 ? (
+        <ul
+          className="mt-3 flex flex-wrap gap-1.5 pl-6"
+          aria-label={`${photos.length} photo${photos.length === 1 ? "" : "s"} for ${finding.title}`}
+          data-testid="finding-photos"
+        >
+          {photos.map((photo, index) => (
+            <li key={photo.id} className="list-none">
+              <button
+                type="button"
+                onClick={() => setViewing(index)}
+                className="block size-14 overflow-hidden rounded-md border bg-muted transition-colors hover:border-vri-gold focus-visible:outline-2 focus-visible:outline-ring"
+                aria-label={`Open ${photo.filename || "photo"}`}
+                data-testid="finding-photo"
+              >
+                {photo.view_url ? (
+                  <img
+                    src={photo.view_url}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    className="size-full object-cover"
+                  />
+                ) : (
+                  <Camera
+                    className="m-auto size-5 text-muted-foreground"
+                    aria-hidden="true"
+                  />
+                )}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
       <div className="mt-3 flex flex-wrap items-center gap-2 pl-6">
         <StatusBadge
           value={finding.priority || "medium"}
@@ -269,6 +313,15 @@ export function FindingCard({
             </Button>
           ) : null}
         </div>
+      ) : null}
+
+      {photos.length > 0 ? (
+        <PhotoViewerDialog
+          photos={photos}
+          index={viewing}
+          onIndexChange={setViewing}
+          canWrite={!readOnly}
+        />
       ) : null}
     </li>
   )

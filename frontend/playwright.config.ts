@@ -3,6 +3,15 @@ import 'dotenv/config'
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:5173'
 
+/*
+ * The clickable demo build (fake signed-in user + in-browser API, see
+ * src/demo/) is where the signed-in flows can be walked end to end without
+ * an Auth0 tenant. It is built and served by this config on its own port;
+ * tests under tests/demo/ run against it (project "demo").
+ */
+const demoPort = Number(process.env.PLAYWRIGHT_DEMO_PORT ?? 4174)
+const demoURL = `http://127.0.0.1:${demoPort}`
+
 /**
  * Read environment variables from file.
  * https://github.com/motdotla/dotenv
@@ -44,17 +53,29 @@ export default defineConfig({
 
   /* Configure projects for major browsers */
   // Sign-in is handled by Auth0's hosted page, so there is no stored
-  // authenticated state here: the suite covers the signed-out experience.
-  // Authenticated end-to-end runs against a real tenant are an owner action
-  // until test-user credentials exist.
+  // authenticated state here: the "chromium" project covers the signed-out
+  // experience against the real stack. Authenticated end-to-end runs against
+  // a real tenant are an owner action until test-user credentials exist; the
+  // "demo" project walks the signed-in screens against the demo build.
   projects: [
     {
       name: 'chromium',
+      testIgnore: /tests[\\/]demo[\\/]/,
       use: {
         ...devices['Desktop Chrome'],
         // Full Chromium (new headless) rather than chrome-headless-shell: the
         // headless shell ignores --unsafely-treat-insecure-origin-as-secure.
         channel: 'chromium',
+      },
+    },
+    {
+      name: 'demo',
+      testMatch: /tests[\\/]demo[\\/].*\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        channel: 'chromium',
+        baseURL: demoURL,
+        launchOptions: { args: [] },
       },
     },
 
@@ -90,11 +111,22 @@ export default defineConfig({
   ],
 
   /* Run your local dev server before starting the tests */
-  webServer: process.env.PLAYWRIGHT_BASE_URL
-    ? undefined
-    : {
-        command: 'bun run dev',
-        url: baseURL,
-        reuseExistingServer: !process.env.CI,
-      },
+  webServer: [
+    ...(process.env.PLAYWRIGHT_BASE_URL
+      ? []
+      : [
+          {
+            command: 'bun run dev',
+            url: baseURL,
+            reuseExistingServer: !process.env.CI,
+          },
+        ]),
+    {
+      // The demo build for the "demo" project (see above).
+      command: `bun run build:demo && bunx vite preview --config vite.demo.config.ts --host 127.0.0.1 --port ${demoPort} --strictPort`,
+      url: `${demoURL}/demo.html`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 180_000,
+    },
+  ],
 });

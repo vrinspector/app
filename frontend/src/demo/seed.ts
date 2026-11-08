@@ -162,12 +162,14 @@ function photo(
   inspectionId: number,
   file: string,
   created: number,
+  findingId: number | null = null,
 ): PhotoPublic {
   const s3Key = `photos/demo/${file}`
   return {
     id,
     public_id: publicId(),
     inspection_id: inspectionId,
+    finding_id: findingId,
     s3_key: s3Key,
     filename: file,
     content_type: "image/jpeg",
@@ -375,8 +377,9 @@ export function createSeed(): DemoDb {
   ]
 
   const photos = [
-    photo(1, 1, "flange-ft104.jpg", 85 * 60 * 1000),
-    photo(2, 1, "valve-xv205.jpg", 75 * 60 * 1000),
+    // Two photos filed under their findings (increment 11a capture loop).
+    photo(1, 1, "flange-ft104.jpg", 85 * 60 * 1000, 1),
+    photo(2, 1, "valve-xv205.jpg", 75 * 60 * 1000, 2),
     photo(3, 1, "compressor-skid.jpg", 65 * 60 * 1000),
     photo(4, 1, "cable-tray.jpg", 55 * 60 * 1000),
     photo(5, 2, "condensate-drain.jpg", 6 * DAY),
