@@ -56,6 +56,12 @@ Mailpit: <http://localhost:8025>
 
 The frontend development server uses the backend at `http://localhost:8000`, as configured in `frontend/.env`.
 
+Frontend checks that need no browser stack or tenant: `bun run typecheck`
+(app and tests), `bun run test:unit` (Vitest component tests, including the
+signed-in shell with Auth0 and the API mocked) and `bun run lint`, all from
+the `frontend` directory. See `docs/FRONTEND_SHELL.md` for the shell's
+conventions (navigation list, state patterns, status tokens).
+
 ### Frontend Served by FastAPI
 
 Build the frontend from the `frontend` directory:

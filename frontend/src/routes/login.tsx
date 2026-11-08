@@ -1,27 +1,23 @@
 import { createFileRoute, redirect } from "@tanstack/react-router"
-import { LogIn, ShieldCheck } from "lucide-react"
+import { Clock, LogIn, ShieldCheck } from "lucide-react"
 import { useState } from "react"
 
 import { AuthLayout } from "@/components/Common/AuthLayout"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { LoadingButton } from "@/components/ui/loading-button"
 import useAuth from "@/hooks/useAuth"
+import { type LoginReason, safeReturnTo } from "@/lib/session"
 
 type LoginSearch = {
   returnTo?: string
-}
-
-// Only ever send people back to a path inside this app.
-const safeReturnTo = (value: unknown): string | undefined => {
-  if (typeof value !== "string") return undefined
-  if (!value.startsWith("/") || value.startsWith("//")) return undefined
-  return value
+  reason?: LoginReason
 }
 
 export const Route = createFileRoute("/login")({
   component: Login,
   validateSearch: (search: Record<string, unknown>): LoginSearch => ({
     returnTo: safeReturnTo(search.returnTo),
+    reason: search.reason === "expired" ? "expired" : undefined,
   }),
   // Already signed in (including the moment we come back from Auth0): go to
   // where the person was heading.
@@ -41,7 +37,7 @@ export const Route = createFileRoute("/login")({
 
 function Login() {
   const { isConfigured, error, login } = useAuth()
-  const { returnTo } = Route.useSearch()
+  const { returnTo, reason } = Route.useSearch()
   const [redirecting, setRedirecting] = useState(false)
 
   const onSignIn = async () => {
@@ -64,6 +60,16 @@ function Login() {
             back.
           </p>
         </div>
+
+        {reason === "expired" ? (
+          <Alert data-testid="session-expired">
+            <Clock />
+            <AlertTitle>Your session ended</AlertTitle>
+            <AlertDescription>
+              Sign in again to pick up where you left off.
+            </AlertDescription>
+          </Alert>
+        ) : null}
 
         {error ? (
           <Alert variant="destructive" data-testid="login-error">

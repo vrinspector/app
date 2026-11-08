@@ -53,3 +53,25 @@ test("Sign-in button starts the redirect to Auth0", async ({ page }) => {
   expect(url.searchParams.get("code_challenge_method")).toBe("S256")
   expect(url.searchParams.get("scope")).toContain("openid")
 })
+
+test("Gate explains an expired session and keeps the return path", async ({
+  page,
+}) => {
+  await page.goto("/login?returnTo=%2Fprojects&reason=expired")
+
+  await expect(page.getByTestId("session-expired")).toBeVisible()
+  await expect(page.getByTestId("session-expired")).toContainText(
+    "Your session ended",
+  )
+  await expect(page).toHaveURL(/returnTo=%2Fprojects/)
+})
+
+test("Gate ignores unknown reasons and unsafe return targets", async ({
+  page,
+}) => {
+  await page.goto("/login?returnTo=https%3A%2F%2Fevil.example&reason=whatever")
+
+  await expect(page.getByTestId("login-gate")).toBeVisible()
+  await expect(page.getByTestId("session-expired")).toHaveCount(0)
+  await expect(page).not.toHaveURL(/evil/)
+})

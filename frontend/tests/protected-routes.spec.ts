@@ -36,3 +36,11 @@ test("Stale local token is ignored (no password-era session)", async ({
   await page.waitForURL(/\/login/)
   await expect(page.getByTestId("login-gate")).toBeVisible()
 })
+
+test("Section routes are protected and remembered", async ({ page }) => {
+  await page.goto("/projects")
+
+  await page.waitForURL(/\/login\?returnTo=%2Fprojects/)
+  await expect(page.getByTestId("login-gate")).toBeVisible()
+  await expect(page.getByTestId("app-sidebar")).toHaveCount(0)
+})

@@ -32,12 +32,13 @@ const useAuth = () => {
   // Round-trip to the API: proves the access token is accepted by the backend
   // and picks up the backend's view of the identity (email from the token or
   // /userinfo fallback, permissions).
-  const { data: apiUser } = useQuery<UserPublic | null, Error>({
+  const apiUserQuery = useQuery<UserPublic | null, Error>({
     queryKey: ["currentUser", idTokenUser?.sub],
     queryFn: async () => (await UsersService.readUserMe()).data,
     enabled: isAuthenticated,
     staleTime: 5 * 60 * 1000,
   })
+  const apiUser = apiUserQuery.data
 
   const user: SessionUser | null = isAuthenticated
     ? {
@@ -71,6 +72,21 @@ const useAuth = () => {
     error,
     user,
     permissions: apiUser?.permissions ?? [],
+    /**
+     * State of the `/users/me` round-trip, for the shell to show whether the
+     * API is reachable: `pending` until it answers, `error` when the server
+     * cannot be reached or rejects the token (a 401 also redirects to
+     * /login), `ok` once the backend has confirmed the identity.
+     */
+    apiSession: {
+      status: apiUserQuery.isPending
+        ? ("pending" as const)
+        : apiUserQuery.isError
+          ? ("error" as const)
+          : ("ok" as const),
+      error: apiUserQuery.error,
+      refetch: apiUserQuery.refetch,
+    },
     login,
     logout,
   }

@@ -20,6 +20,7 @@ import { Toaster } from "./components/ui/sonner"
 import "./index.css"
 import { AUTH0_SCOPE, auth0Config, redirectUri } from "./lib/auth0"
 import type { RouterContext } from "./lib/router-context"
+import { redirectToLogin } from "./lib/session"
 import { routeTree } from "./routeTree.gen"
 
 client.setConfig({
@@ -28,12 +29,34 @@ client.setConfig({
 
 const handleApiError = (error: Error) => {
   // 401 = the access token was missing/expired/rejected by the API. Send the
-  // person back through sign-in. 403/404 are authorization outcomes handled by
-  // the screens themselves (legacy routers hide objects with 404).
+  // person back through sign-in, remembering where they were (lib/session).
+  // 403/404 are authorization outcomes handled by the screens themselves
+  // (legacy routers hide objects with 404).
   if (error instanceof AxiosError && error.response?.status === 401) {
-    window.location.href = "/login"
+    redirectToLogin("expired")
   }
 }
+const TOKEN_TIMEOUT_MS = 10_000
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(
+      () => reject(new Error("Timed out waiting for an access token")),
+      ms,
+    )
+    promise.then(
+      (value) => {
+        window.clearTimeout(timer)
+        resolve(value)
+      },
+      (error) => {
+        window.clearTimeout(timer)
+        reject(error)
+      },
+    )
+  })
+}
+
 const queryClient = new QueryClient({
   queryCache: new QueryCache({
     onError: handleApiError,
@@ -41,11 +64,27 @@ const queryClient = new QueryClient({
   mutationCache: new MutationCache({
     onError: handleApiError,
   }),
+  defaultOptions: {
+    queries: {
+      // A field connection drops and recovers; one quick retry covers a blip
+      // without masking a real outage behind a long spinner.
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
 })
 
 const router = createRouter({
   routeTree,
   context: { auth: { isAuthenticated: false } } satisfies RouterContext,
+  // Shown while a lazily loaded screen's code is fetched (after a short
+  // grace period so fast loads do not flash). Errors fall back to the root
+  // route's errorComponent; screens inside the shell get the in-shell
+  // versions from routes/_layout.tsx.
+  defaultPendingComponent: () => (
+    <FullPageLoader message="Loading…" className="min-h-[40svh]" />
+  ),
+  defaultPendingMs: 300,
 })
 declare module "@tanstack/react-router" {
   interface Register {
@@ -67,7 +106,9 @@ function App() {
     client.setConfig({
       auth: async () => {
         try {
-          return await getAccessTokenSilently()
+          // Bounded: a silent renewal that cannot complete (blocked iframe,
+          // tenant unreachable) must not leave screens on a spinner forever.
+          return await withTimeout(getAccessTokenSilently(), TOKEN_TIMEOUT_MS)
         } catch {
           // No session (or consent/refresh required): send the request without
           // a token and let the API answer 401, which routes back to /login.

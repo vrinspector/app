@@ -1,5 +1,4 @@
 import { Link as RouterLink, useRouterState } from "@tanstack/react-router"
-import type { LucideIcon } from "lucide-react"
 
 import {
   SidebarGroup,
@@ -9,21 +8,17 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-
-export type Item = {
-  icon: LucideIcon
-  title: string
-  path: string
-}
+import { isNavItemActive, type NavItem } from "@/lib/navigation"
 
 interface MainProps {
-  items: Item[]
+  items: NavItem[]
 }
 
 export function Main({ items }: MainProps) {
   const { isMobile, setOpenMobile } = useSidebar()
-  const router = useRouterState()
-  const currentPath = router.location.pathname
+  const currentPath = useRouterState({
+    select: (state) => state.location.pathname,
+  })
 
   const handleMenuClick = () => {
     if (isMobile) {
@@ -34,18 +29,22 @@ export function Main({ items }: MainProps) {
   return (
     <SidebarGroup>
       <SidebarGroupContent>
-        <SidebarMenu>
+        <SidebarMenu data-testid="main-nav">
           {items.map((item) => {
-            const isActive = currentPath === item.path
+            const isActive = isNavItemActive(item, currentPath)
 
             return (
-              <SidebarMenuItem key={item.title}>
+              <SidebarMenuItem key={item.path}>
                 <SidebarMenuButton
                   tooltip={item.title}
                   isActive={isActive}
                   asChild
                 >
-                  <RouterLink to={item.path} onClick={handleMenuClick}>
+                  <RouterLink
+                    to={item.path}
+                    onClick={handleMenuClick}
+                    aria-current={isActive ? "page" : undefined}
+                  >
                     <item.icon />
                     <span>{item.title}</span>
                   </RouterLink>
