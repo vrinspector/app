@@ -14,6 +14,7 @@ This repository is the **Phase 2 rebuild** of the VR Inspector application, per 
 ## How work proceeds
 
 - `REBUILD_PLAN.md` is the single source of truth for increment order and status.
+- `docs/PARITY_CHECKLIST.md` is the side-by-side checklist (legacy staging SPA vs this app) that gates the legacy retirement (increment 11); the result columns are filled in by the owner.
 - One increment per branch (`rebuild/NN-slug`), one PR per increment, reviewed and merged by the owner.
 - **No deployment to staging or production until release gate RG-1 evidence is recorded** (PRD v2.63 §8).
 - API compatibility rule: external prefix stays `/api/v1/`; INTEGER PKs; S3-only file storage (Hard Rules 4–8).
