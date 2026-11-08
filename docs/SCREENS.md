@@ -497,3 +497,80 @@ The other screen suites stub `WeatherService` to "no reading".
     say so: a nullable `weather_*` set on `inspections` or a small table is
     one additive migration, and the ITP signature stamp in increment 14
     will need the same lookup.
+
+## Increment 11a — capture loop: drawing tap → finding with photo
+
+PRD v2.63 §4 acceptance criterion ("drawing tap → saved finding with photo
+in under 15 seconds on a mid-range Android phone"; gap raised in issue #16,
+owner decision 2026-11-08 to build it). One flow, no screen change:
+
+| Step | Before (increments 08–09) | Now |
+|---|---|---|
+| Tap the sheet | Add pin → tap → status → pin saved → "Pin placed" | the same, with **"Then log a finding with a photo"** on the status dialog (`PinStatusDialog`), ticked by default and remembered per device (`localStorage` `vri.capture.pinThenFinding`) |
+| Finding form | separate: back to the inspection → Log finding | `Findings/CaptureFindingDialog` opens as soon as the pin is saved: **Take photo** (rear camera, `capture="environment"`) and **Dictate** as two large buttons, then "What you see", title, inspection, priority, location |
+| Prefill | — | title `Pin #N — <sheet>`, location `<sheet>[, page P] — pin #N`; the first dictated sentence becomes the title unless one was typed (`lib/capture.ts` `titleFromTranscript`) — a photo and a spoken sentence (or nothing) is enough to save |
+| Which inspection | n/a | open inspections of the project, newest first; pre-selected from `?inspection=N` on the drawing route (set by **Pin on drawing** below), else the one last used for the project on this device, else the newest open one. No open inspection → the dialog says so, keeps the pin, links to the project |
+| Photo | uploaded from the inspection screen, filed under the inspection | `hooks/useStagedPhotoUpload`: presign + S3 PUT start the moment the shutter closes and run while the note is dictated; registration waits for the finding so cancelling leaves no rows |
+| Save | — | `POST /findings` → `POST /photos {…, finding_id}` per staged photo → `PUT /pins/{id} {finding_id}`; one toast "Finding logged with 1 photo and linked to pin #N". A failed photo upload never blocks the finding (second toast says to add it from the inspection); a failed link keeps the finding and says to link it from the pin |
+| Keep pin only | — | leaves the pin exactly as placed (the legacy outcome); the pin can be linked later from its detail dialog as before |
+| Entry from an inspection | — | **Pin on drawing** (`Drawings/DrawingPickerMenu`) in the Findings header and as the third button of the phone capture bar: pick a sheet → viewer with `?inspection=N`. Hidden when the project has no drawings |
+| On the inspection | photos in the grid only | photos filed under a finding also show as a thumbnail strip on its card (`FindingCard`, opens the photo viewer); the Site photos grid still carries every photo |
+
+### Components added / changed
+
+| Component | Role |
+|---|---|
+| `Findings/CaptureFindingDialog` | the capture form; owns the staged uploads and the three-step save |
+| `Drawings/PinStatusDialog` | + the "then log a finding" switch; `onPlaced(pin, { logFinding })` |
+| `Drawings/DrawingViewer` | opens the capture dialog after a pin when the switch is on; `inspectionId` prop from the route search |
+| `Drawings/DrawingPickerMenu` | "Pin on drawing" |
+| `hooks/useStagedPhotoUpload` | presign + PUT now, `register(findingId)` later |
+| `lib/capture.ts` | inspection choice, remembered switch, default title/location, title from dictation (pure, unit-tested) |
+| `Photos/PhotoCapture` → `CaptureBar` | `extra` slot for the compact picker |
+| route `drawings/$drawingId` | `validateSearch` for `?inspection=N` (ignored when malformed) |
+| demo (`src/demo/`) | `POST /photos` takes `finding_id`, `GET /photos` filters by it, two seeded photos filed under findings 1 and 2 |
+
+Backend: `photos.finding_id` (nullable FK → findings, SET NULL, indexed;
+migration `d5a1b7c3e902`, additive), `POST /photos` validates the finding
+belongs to the same inspection (404 otherwise), `GET /photos` filters by
+`finding_id`. See `docs/API_PORT.md` and `docs/DATA_MODEL.md`.
+
+### Tests
+
+`src/test/capture-loop.test.tsx` (5 cases through the real route tree):
+the whole loop with the photo registered after the finding and the pin
+linked, "Uploading photo…" while the PUT is still in flight; `?inspection=`
+pre-selection; Keep pin only + the switch off (legacy toast, remembered);
+no open inspection; a failed upload still saves the finding.
+`src/test/findings.test.tsx` (+3): photo strip on the card, Pin on drawing
+navigates with the inspection, hidden without drawings. `src/lib/capture.test.ts`
+(9): the pure choices. `src/test/drawings.test.tsx` runs with the switch
+off so the legacy pin-only behaviour stays covered.
+
+`frontend/tests/demo/capture-loop.spec.ts` — the Playwright walk the
+increment asked for, in a real Chromium at a 412 × 915 viewport against the
+clickable demo build (new Playwright project `demo`, which builds and serves
+`dist-demo` itself; the `chromium` project is unchanged). It records the
+app's own tap → saved time as a test annotation (≈3 s headless) and asserts
+it under 15 s; the stopwatch run on a real phone remains the owner's
+(increment 11, `docs/PARITY_CHECKLIST.md` §11 path C).
+
+### Decisions for the owner (increment 11a)
+
+32. **The status tap goes straight on to the finding form by default.** A
+    pin placed for its own sake (a verified item, say) costs one extra tap
+    ("Keep pin only"), or the switch is unticked once and remembered on the
+    device. The alternative — a separate "Log finding here" mode button —
+    would have added a tap to every capture. Say so if pin-only should be
+    the default instead.
+33. **Photos are now filed under the finding they were taken for**
+    (`photos.finding_id`, additive). The legacy schema had no such link, so
+    "finding with photo" could only mean "a photo somewhere in the same
+    inspection". Site photos taken from the inspection screen are unchanged
+    (NULL). The report still lists photos under the inspection; grouping
+    them under their findings in the PDF is a small follow-up if wanted.
+34. **A finding logged from a drawing goes into the open inspection the
+    inspector came from, or the last one used, or the newest.** The
+    inspection is shown in the form and can be changed. Drawings belong to
+    the project, not to an inspection, so some choice has to be made; if a
+    project usually has one open inspection this is invisible.

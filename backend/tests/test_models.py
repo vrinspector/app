@@ -211,14 +211,19 @@ def test_cascade_deletes_follow_the_legacy_fk_rules(db: Session) -> None:
     db.add(inspection)
     db.flush()
     finding = Finding(inspection_id=inspection.id, title="Open item")
-    photo = Photo(inspection_id=inspection.id, s3_key="photos/x.jpg")
+    db.add(finding)
+    db.flush()
+    # Increment 11a: a photo filed under the finding (capture loop).
+    photo = Photo(
+        inspection_id=inspection.id, finding_id=finding.id, s3_key="photos/x.jpg"
+    )
     drawing = Drawing(
         project_id=project.id,
         title="D",
         filename="d.png",
         s3_key=f"drawings/projects/{project.id}/d.png",
     )
-    db.add_all([finding, photo, drawing])
+    db.add_all([photo, drawing])
     db.flush()
     pin = InspectionPin(
         drawing_id=drawing.id,
@@ -229,13 +234,17 @@ def test_cascade_deletes_follow_the_legacy_fk_rules(db: Session) -> None:
     db.add(pin)
     db.flush()
     pin_id, finding_id, project_id = pin.id, finding.id, project.id
+    photo_id = photo.id
 
-    # Deleting a finding detaches the pin (ON DELETE SET NULL) but keeps it.
+    # Deleting a finding detaches the pin and the photo (ON DELETE SET NULL)
+    # but keeps both.
     db.delete(finding)
     db.flush()
     db.expire_all()
     pin_again = db.get(InspectionPin, pin_id)
     assert pin_again is not None and pin_again.finding_id is None
+    photo_again = db.get(Photo, photo_id)
+    assert photo_again is not None and photo_again.finding_id is None
     assert db.get(Finding, finding_id) is None
 
     # Deleting the project cascades through inspections, photos, drawings, pins.

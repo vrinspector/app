@@ -72,6 +72,8 @@ interface CaptureBarProps {
   onLogFinding: () => void
   /** Sign-off hides "Log finding"; the camera stays available. */
   canLogFinding: boolean
+  /** A third, compact control (increment 11a: "Pin on drawing"). */
+  extra?: React.ReactNode
   className?: string
 }
 
@@ -79,6 +81,7 @@ export function CaptureBar({
   onTakePhoto,
   onLogFinding,
   canLogFinding,
+  extra,
   className,
 }: CaptureBarProps) {
   return (
@@ -110,6 +113,7 @@ export function CaptureBar({
           Log finding
         </Button>
       ) : null}
+      {extra}
     </div>
   )
 }

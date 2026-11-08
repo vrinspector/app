@@ -253,6 +253,7 @@ class Finding(SQLModel, table=True):
 
     inspection: Inspection | None = Relationship(back_populates="findings")
     pins: list[InspectionPin] = Relationship(back_populates="finding")
+    photos: list[Photo] = Relationship(back_populates="finding")
 
 
 class Photo(SQLModel, table=True):
@@ -268,6 +269,14 @@ class Photo(SQLModel, table=True):
             index=True,
         )
     )
+    # Increment 11a (capture loop): the finding this photo documents, when it
+    # was taken for one. NULL for site photos; detached when the finding goes.
+    finding_id: int | None = Field(
+        default=None,
+        sa_column=Column(
+            Integer, ForeignKey("findings.id", ondelete="SET NULL"), index=True
+        ),
+    )
     # S3 object key (bucket `vrinspector-files`, prefix `photos/`); never a path.
     s3_key: str = Field(sa_column=Column(String(512), nullable=False))
     filename: str | None = Field(default=None, sa_column=Column(String(255)))
@@ -276,6 +285,7 @@ class Photo(SQLModel, table=True):
     created_at: datetime | None = Field(default=None, sa_column=_created_at_column())
 
     inspection: Inspection | None = Relationship(back_populates="photos")
+    finding: Finding | None = Relationship(back_populates="photos")
 
 
 class Drawing(SQLModel, table=True):
@@ -629,6 +639,8 @@ class PhotoPresignResponse(SQLModel):
 
 class PhotoCreate(SQLModel):
     inspection_id: int
+    # Increment 11a: a finding of the same inspection this photo documents.
+    finding_id: int | None = None
     s3_key: str = Field(min_length=1, max_length=512)
     filename: str | None = Field(default=None, max_length=255)
     content_type: str | None = Field(default=None, max_length=100)
@@ -640,6 +652,7 @@ class PhotoPublic(SQLModel):
     id: int
     public_id: uuid.UUID
     inspection_id: int
+    finding_id: int | None = None
     s3_key: str
     filename: str | None
     content_type: str | None

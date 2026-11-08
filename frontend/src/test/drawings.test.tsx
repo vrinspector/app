@@ -383,6 +383,10 @@ function stubXhr() {
 }
 
 beforeEach(() => {
+  // The pin-then-finding capture loop (increment 11a) has its own suite
+  // (capture-loop.test.tsx); here the switch is off so a status tap places
+  // the pin on its own, as the legacy SPA did.
+  window.localStorage.setItem("vri.capture.pinThenFinding", "off")
   pdfjs.renders.length = 0
   pdfjs.destroyed = 0
   pdfjs.openPdf.mockImplementation(async () => fakePdf())
@@ -449,6 +453,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
+  window.localStorage.clear()
 })
 
 describe("drawings section", () => {

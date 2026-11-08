@@ -41,7 +41,7 @@ function newUploadId(): string {
   return `upload-${nextUploadId}`
 }
 
-function describeFile(file: File) {
+export function describeFile(file: File) {
   const contentType = file.type || "image/jpeg"
   // Camera captures on some phones arrive as "image.jpg" or with no name at all.
   const fallbackExt = contentType === "image/png" ? ".png" : ".jpg"

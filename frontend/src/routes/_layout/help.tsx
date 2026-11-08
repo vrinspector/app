@@ -250,6 +250,17 @@ function Help() {
               the status. Tap a pin to change its status, add a label or notes,
               link it to a finding, or delete it.
             </li>
+            <li>
+              <strong>Pin to finding in one go:</strong> with "Then log a
+              finding with a photo" ticked (the default), choosing the status
+              opens the finding form straight away — <strong>Take photo</strong>
+              ,<strong>Dictate</strong> a sentence,{" "}
+              <strong>Save finding</strong>. The finding is filed in the
+              inspection shown (change it if needed), its photo stays with it,
+              and the pin links to it. From an inspection,{" "}
+              <strong>Pin on drawing</strong> opens a sheet with that inspection
+              pre-selected. Untick the box to place pins on their own.
+            </li>
           </ol>
           <ul
             className="mt-3 flex flex-wrap gap-2"

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { MoreHorizontal, Pencil, Trash2 } from "lucide-react"
 import { useState } from "react"
+import { z } from "zod"
 
 import { type DrawingPublic, DrawingsService } from "@/client"
 import { ConfirmDialog } from "@/components/Common/ConfirmDialog"
@@ -35,10 +36,20 @@ import {
 import { DRAWING_DISCIPLINE_OPTIONS, optionLabel } from "@/lib/vocab"
 import { extractErrorMessage } from "@/utils"
 
+/**
+ * `?inspection=N` — the inspection the viewer was opened from (increment
+ * 11a): findings logged from a pin are pre-filed into it. Anything else is
+ * ignored rather than rejected.
+ */
+const searchSchema = z.object({
+  inspection: z.coerce.number().int().positive().optional().catch(undefined),
+})
+
 export const Route = createFileRoute(
   "/_layout/projects/$projectId/drawings/$drawingId",
 )({
   component: DrawingScreen,
+  validateSearch: searchSchema,
   head: () => ({
     meta: [
       {
@@ -121,6 +132,7 @@ function DrawingBody({
   drawing: DrawingPublic
 }) {
   const navigate = Route.useNavigate()
+  const { inspection: inspectionId } = Route.useSearch()
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
   const { canWrite } = useProjectRole(projectId)
@@ -219,6 +231,7 @@ function DrawingBody({
           viewUrl={viewUrl.data}
           canWrite={canWrite}
           onRetry={() => viewUrl.refetch()}
+          inspectionId={inspectionId ?? null}
         />
       )}
 

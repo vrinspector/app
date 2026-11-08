@@ -13,6 +13,7 @@ from tests.utils.domain import (
     OWNER,
     V1,
     VIEWER,
+    create_finding,
     create_inspection,
     create_project,
     headers,
@@ -182,3 +183,70 @@ def test_storage_helpers() -> None:
     assert storage.drawing_prefix(7) == "drawings/projects/7/"
     assert storage.photo_prefix(3) == "photos/inspections/3/"
     assert storage.bucket == settings.S3_BUCKET
+
+
+def test_photo_filed_under_a_finding_of_the_same_inspection(
+    client: TestClient, tenant: FakeTenant
+) -> None:
+    """Increment 11a: the capture loop registers the photo with ``finding_id``."""
+    h = headers(tenant)
+    p = create_project(client, h)
+    i = create_inspection(client, h, p["id"])
+    f = create_finding(client, h, i["id"], title="Cracked footing")
+
+    site = upload_photo(client, h, i["id"], filename="site.jpg")
+    assert site["finding_id"] is None
+
+    linked = upload_photo(client, h, i["id"], filename="crack.jpg", finding_id=f["id"])
+    assert linked["finding_id"] == f["id"]
+    assert (
+        client.get(f"{V1}/photos/{linked['id']}", headers=h).json()["finding_id"]
+        == (f["id"])
+    )
+
+    # The inspection list still carries every photo; the finding filter narrows it.
+    every = client.get(f"{V1}/photos", params={"inspection_id": i["id"]}, headers=h)
+    assert [x["filename"] for x in every.json()] == ["crack.jpg", "site.jpg"]
+    mine = client.get(
+        f"{V1}/photos",
+        params={"inspection_id": i["id"], "finding_id": f["id"]},
+        headers=h,
+    )
+    assert [x["filename"] for x in mine.json()] == ["crack.jpg"]
+
+    # Deleting the finding keeps the photo as a site photo (ON DELETE SET NULL).
+    assert client.delete(f"{V1}/findings/{f['id']}", headers=h).status_code == 204
+    kept = client.get(f"{V1}/photos/{linked['id']}", headers=h)
+    assert kept.status_code == 200 and kept.json()["finding_id"] is None
+
+
+def test_photo_cannot_be_filed_under_another_inspections_finding(
+    client: TestClient, tenant: FakeTenant
+) -> None:
+    h = headers(tenant)
+    p = create_project(client, h)
+    i = create_inspection(client, h, p["id"])
+    other = create_inspection(client, h, p["id"], title="Other")
+    elsewhere = create_finding(client, h, other["id"], title="Not here")
+
+    presign = client.post(
+        f"{V1}/photos/presign",
+        json={"inspection_id": i["id"], "filename": "x.jpg"},
+        headers=h,
+    ).json()
+    for bad in (elsewhere["id"], 999_999):
+        r = client.post(
+            f"{V1}/photos",
+            json={
+                "inspection_id": i["id"],
+                "s3_key": presign["s3_key"],
+                "finding_id": bad,
+            },
+            headers=h,
+        )
+        assert r.status_code == 404, bad
+        assert r.json()["detail"] == "Finding not found"
+    assert (
+        client.get(f"{V1}/photos", params={"inspection_id": i["id"]}, headers=h).json()
+        == []
+    )

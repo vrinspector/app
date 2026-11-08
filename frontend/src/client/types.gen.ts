@@ -674,6 +674,10 @@ export type PhotoCreate = {
      */
     inspection_id: number;
     /**
+     * Finding Id
+     */
+    finding_id?: number | null;
+    /**
      * S3 Key
      */
     s3_key: string;
@@ -739,6 +743,10 @@ export type PhotoPublic = {
      * Inspection Id
      */
     inspection_id: number;
+    /**
+     * Finding Id
+     */
+    finding_id?: number | null;
     /**
      * S3 Key
      */
@@ -1847,6 +1855,10 @@ export type photosListPhotosData = {
          * Inspection Id
          */
         inspection_id: number;
+        /**
+         * Finding Id
+         */
+        finding_id?: number | null;
     };
     url: '/api/v1/photos';
 };

@@ -361,6 +361,9 @@ on("DELETE", "/findings/{finding_id}", ({ params }) => {
   find(db.findings, id, "Finding")
   remove(db.findings, (f) => f.id !== id)
   for (const pin of db.pins) if (pin.finding_id === id) pin.finding_id = null
+  for (const photo of db.photos) {
+    if (photo.finding_id === id) photo.finding_id = null
+  }
   return null
 })
 on("PATCH|POST|PUT", "/findings/{finding_id}/status", ({ params, body }) => {
@@ -399,19 +402,31 @@ on("POST", "/photos/presign", ({ body }) => {
 on("GET", "/photos", ({ query }) => {
   const inspectionId = num(query.get("inspection_id") ?? "0")
   find(db.inspections, inspectionId, "Inspection")
+  const findingId = query.get("finding_id")
   return db.photos
     .filter((p) => p.inspection_id === inspectionId)
+    .filter((p) => findingId === null || p.finding_id === num(findingId))
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
     .map(withPhotoUrl)
 })
 on("POST", "/photos", ({ body }) => {
   const inspectionId = Number(body.inspection_id)
   find(db.inspections, inspectionId, "Inspection")
+  // Increment 11a: a photo may be filed under a finding of the same inspection.
+  let findingId: number | null = null
+  if (body.finding_id !== undefined && body.finding_id !== null) {
+    const finding = db.findings.find((f) => f.id === Number(body.finding_id))
+    if (!finding || finding.inspection_id !== inspectionId) {
+      notFound("Finding")
+    }
+    findingId = Number(body.finding_id)
+  }
   const s3Key = String(body.s3_key)
   const created: PhotoPublic = {
     id: nextId(db.photos),
     public_id: nextPublicId(),
     inspection_id: inspectionId,
+    finding_id: findingId,
     s3_key: s3Key,
     filename: (body.filename as string) ?? null,
     content_type: (body.content_type as string) ?? "image/jpeg",

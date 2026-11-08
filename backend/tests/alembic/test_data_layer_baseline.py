@@ -25,7 +25,7 @@ BASELINE_REVISION = "b7d3e9a1c204"
 # The revision before the baseline: downgrading to it removes every domain table.
 PRE_BASELINE_REVISION = "3f1c2d9a8b70"
 # Head of the chain (increment 10 added `inspection_reports` on top of the baseline).
-HEAD_REVISION = "c4e8f2a7b911"
+HEAD_REVISION = "d5a1b7c3e902"
 
 LEGACY_SEED = """
 INSERT INTO projects (name, client, location, status, created_by)
