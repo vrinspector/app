@@ -11,7 +11,7 @@ Single source of truth for rebuild increments. Automated and interactive session
 5. **Never deploy** to staging or production from these sessions. RG-1/RG-2 evidence and all deploys are owner actions.
 6. Porting spec: the legacy SQL and routes are authoritative for behavior. Current staging snapshots live in the July 16, 2026 transfer package (`03_Current_Implementation/`), baseline-committed to the legacy repos.
 7. Hard Rules in force: Auth0 identity (sub as anchor), INTEGER PKs (+ public_id), `/api/v1/` external prefix, S3-only file storage. No secrets in the repo — placeholders only.
-8. If an increment is blocked, open an issue describing the blocker, leave the box unchecked, and stop.
+8. If an increment is blocked, open an issue describing the blocker, leave the box unchecked, and stop. Exception: an increment marked **OWNER-GATED** is skipped, not a stop — take the next unchecked increment after it.
 9. **Deployment is switched off by design.** The `Deploy` and `Deploy with Docker Compose` workflows in this repo, and the legacy `Deploy ... to Staging` workflows in vrinspector/backend and vrinspector/frontend, were disabled on 2026-11-06 after the legacy ones auto-fired (and failed harmlessly) on a merge. Do not re-enable or add any deploy workflow. Deployment is re-established deliberately at release gate RG-3 after RG-1 evidence is recorded (PRD v2.63 §8).
 
 ## Increments
@@ -29,7 +29,8 @@ Single source of truth for rebuild increments. Automated and interactive session
 - [x] 08 — Screens: findings + photo capture (camera-first flow)
 - [x] 09 — Drawing viewer: PDF.js canvas, page nav, pinch-zoom/pan + button fallback, pin overlay parity at all zoom levels, page-aware pins; raster path
 - [x] 10 — Screens: reports, dashboard, member management, Help
-- [ ] 11 — Parity checklist run vs legacy staging (side-by-side), capture-loop timing (<15 s target), device pass notes → results recorded in PR; owner signs off before legacy retirement
+- [ ] 10.5 — Weather badge: port `GET /api/weather` (Open-Meteo, no API key; same response fields the legacy SPA reads: description, temp_f, humidity, wind_mph, weather_code) and show the badge on the inspection screen as the legacy app does. Resolves issue #9. Owner decision 2026-11-08: keep the shipped Block 5 feature for parity.
+- [ ] 11 — Parity checklist run vs legacy staging (side-by-side), capture-loop timing (<15 s target), device pass notes → results recorded in PR; owner signs off before legacy retirement **[OWNER-GATED — sessions skip this increment (leave it unchecked) and continue with 12+; it is scheduled with the owner once a preview environment exists.]**
 
 ### Block 9.5 — ITP / hold points + external sign-off (PRD v2.63 §5)
 
