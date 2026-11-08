@@ -1,8 +1,9 @@
 # Frontend shell (increment 06)
 
 How the signed-in application is put together, and the conventions every
-screen from increment 07 on follows. Read with `REBUILD_PLAN.md` (Block 9)
-and `docs/API_PORT.md` (the route contract the screens call).
+screen from increment 07 on follows. Read with `REBUILD_PLAN.md` (Block 9),
+`docs/API_PORT.md` (the route contract the screens call) and
+`docs/SCREENS.md` (the screens themselves, increment 07 onward).
 
 ## Layout
 
@@ -70,6 +71,8 @@ Adding a section = one entry in `NAV_ITEMS` + one route file.
 | `EmptyState` | the request succeeded and there is nothing to show; takes an icon, title, description and a call to action |
 | `ErrorState` | the request failed; shows the API `detail` (or a plain "could not reach the server" sentence) and a **Try again** button when given `onRetry` |
 | `QueryState` | wires a TanStack Query result to the three above: `<QueryState query={q} empty={…}>{(data) => …}</QueryState>` |
+| `NotFoundState` | the API answered 404 (or the URL id is malformed): "<Noun> not found" with a way back |
+| `DetailState` | `QueryState` for one object: 404 → `NotFoundState`, other failures → `ErrorState` with retry |
 
 Route-level: lazily loaded screens show the router's `defaultPendingComponent`
 after 300 ms; a screen that throws renders `ErrorState` inside the shell with

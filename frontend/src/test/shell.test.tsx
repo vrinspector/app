@@ -37,8 +37,10 @@ vi.mock("@auth0/auth0-react", () => ({
 }))
 
 const readUserMe = vi.hoisted(() => vi.fn())
+const listProjects = vi.hoisted(() => vi.fn(async () => ({ data: [] })))
 vi.mock("@/client", () => ({
   UsersService: { readUserMe },
+  ProjectsService: { listProjects },
 }))
 
 function renderApp(path: string, isAuthenticated = true) {
@@ -132,7 +134,10 @@ describe("application shell", () => {
       await screen.findByRole("heading", { name: "Projects" }),
     ).toBeVisible()
     expect(screen.getByTestId("header-section")).toHaveTextContent("Projects")
-    expect(screen.getByTestId("empty-state")).toBeInTheDocument()
+    // No projects in the mock → the list's empty state.
+    expect(await screen.findByTestId("empty-state")).toHaveTextContent(
+      "No projects yet",
+    )
     expect(
       within(screen.getByTestId("main-nav")).getByRole("link", {
         name: "Projects",

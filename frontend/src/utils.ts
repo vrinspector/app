@@ -23,6 +23,19 @@ export function extractErrorMessage(err: Error): string {
   return "Something went wrong."
 }
 
+/** HTTP status of an API error, if it is one. */
+export function errorStatus(err: unknown): number | undefined {
+  return err instanceof AxiosError ? err.response?.status : undefined
+}
+
+/**
+ * The legacy routers hide objects the caller may not see behind 404, so
+ * "not found" and "not yours" render the same way on the screens.
+ */
+export function isNotFoundError(err: unknown): boolean {
+  return errorStatus(err) === 404
+}
+
 export const handleError = function (this: (msg: string) => void, err: Error) {
   const errorMessage = extractErrorMessage(err)
   this(errorMessage)
