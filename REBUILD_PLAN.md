@@ -13,6 +13,7 @@ Single source of truth for rebuild increments. Automated and interactive session
 7. Hard Rules in force: Auth0 identity (sub as anchor), INTEGER PKs (+ public_id), `/api/v1/` external prefix, S3-only file storage. No secrets in the repo — placeholders only.
 8. If an increment is blocked, open an issue describing the blocker, leave the box unchecked, and stop. Exception: an increment marked **OWNER-GATED** is skipped, not a stop — take the next unchecked increment after it.
 9. **Deployment is switched off by design.** The `Deploy` and `Deploy with Docker Compose` workflows in this repo, and the legacy `Deploy ... to Staging` workflows in vrinspector/backend and vrinspector/frontend, were disabled on 2026-11-06 after the legacy ones auto-fired (and failed harmlessly) on a merge. Do not re-enable or add any deploy workflow. Deployment is re-established deliberately at release gate RG-3 after RG-1 evidence is recorded (PRD v2.63 §8).
+10. **Keep the clickable demo building.** `frontend/src/demo/` is the owner's click-through preview (`bun run build:demo`, sample data, no server). When an increment adds or changes an API route the screens call, add or update its handler in `frontend/src/demo/fakeApi.ts` (and sample rows in `seed.ts` if the screen needs them), and confirm `bun run build:demo` succeeds. Publishing the demo is done from an interactive session, not by automated runs.
 
 ## Increments
 
