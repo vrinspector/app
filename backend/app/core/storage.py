@@ -76,6 +76,11 @@ class Storage:
         # Deployed Block 8D layout: drawings/projects/{project_id}/{uuid}{ext}
         return f"drawings/projects/{int(project_id)}/"
 
+    @staticmethod
+    def report_prefix(inspection_id: int) -> str:
+        # Rebuild (increment 10): reports/inspections/{inspection_id}/v{n}-{uuid}.pdf
+        return f"reports/inspections/{int(inspection_id)}/"
+
     # --- URLs ----------------------------------------------------------------
 
     def presign_put(self, key: str, content_type: str) -> str:
@@ -100,6 +105,27 @@ class Storage:
             logger.warning("S3 delete failed for %s", key, exc_info=True)
             return False
         return True
+
+    # --- objects (server-generated documents only) -------------------------
+    #
+    # User uploads never pass through the API (presigned PUT above). The two
+    # methods below exist for documents the *server* produces — the Block 4
+    # inspection report PDF — and for reading the photos it embeds.
+
+    def put_object(self, key: str, body: bytes, content_type: str) -> None:
+        self.client.put_object(
+            Bucket=self.bucket, Key=key, Body=body, ContentType=content_type
+        )
+
+    def get_object(self, key: str) -> bytes | None:
+        """The object's bytes, or ``None`` if it is missing or unreadable."""
+        try:
+            response = self.client.get_object(Bucket=self.bucket, Key=key)
+        except BotoCoreError, ClientError:
+            logger.warning("S3 read failed for %s", key, exc_info=True)
+            return None
+        data: bytes = response["Body"].read()
+        return data
 
 
 storage = Storage(settings.S3_BUCKET)

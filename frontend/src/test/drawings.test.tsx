@@ -73,6 +73,8 @@ vi.mock("@/client", () => ({
     listMembers: api.listMembers,
   },
   InspectionsService: { listInspections: api.listInspections },
+  // The reports section (increment 10) just needs to load empty here.
+  ReportsService: { listReports: async () => ({ data: [] }) },
   FindingsService: { listFindings: api.listFindings },
   DrawingsService: {
     listDrawings: api.listDrawings,

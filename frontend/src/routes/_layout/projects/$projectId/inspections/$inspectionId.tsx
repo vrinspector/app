@@ -23,6 +23,7 @@ import { FindingsSection } from "@/components/Findings/FindingsSection"
 import { InspectionFormDialog } from "@/components/Inspections/InspectionFormDialog"
 import { CaptureBar, usePhotoPicker } from "@/components/Photos/PhotoCapture"
 import { PhotosSection } from "@/components/Photos/PhotosSection"
+import { ReportsSection } from "@/components/Reports/ReportsSection"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -64,7 +65,8 @@ export const Route = createFileRoute(
  * details, the Block 8B sign-off bar and actions, then the site photos
  * (camera-first capture) and the findings with the Block 8A workflow. On
  * phones a sticky capture bar keeps Take photo / Log finding under the
- * thumb while scrolling.
+ * thumb while scrolling. Reports (the legacy "📄 Report" button, now with
+ * version history) close the screen.
  *
  * The legacy screen also showed a weather badge from `GET /api/weather`;
  * that route is not ported yet (issue #9), so the badge waits for it.
@@ -351,6 +353,8 @@ function InspectionBody({ inspection, project }: InspectionBodyProps) {
         logging={loggingFinding}
         onLoggingChange={setLoggingFinding}
       />
+
+      <ReportsSection inspectionId={inspection.id} />
 
       {picker.inputs}
       {canWrite ? (

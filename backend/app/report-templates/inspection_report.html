@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Inspection report — {{ inspection.title }}</title>
+<style>
+  /* VR Inspector v2.51 palette: forest #2E3D2E, gold #B8960C, parchment #F7F5F0,
+     copper #A07850, charcoal #2B2B2B, brick #7a2020. Letter paper, as the
+     legacy report was read on US job sites. */
+  @page {
+    size: letter;
+    margin: 18mm 16mm 20mm 16mm;
+    @bottom-left {
+      content: "VR Inspector — {{ project.name }} — {{ inspection.title }}";
+      font-size: 8pt; color: #6c6258;
+    }
+    @bottom-right {
+      content: "Page " counter(page) " of " counter(pages);
+      font-size: 8pt; color: #6c6258;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { font-family: "DejaVu Sans", "Liberation Sans", Arial, sans-serif; font-size: 10pt; color: #2B2B2B; line-height: 1.4; margin: 0; }
+  h1, h2, h3 { font-family: "DejaVu Serif", "Liberation Serif", "Book Antiqua", Georgia, serif; color: #2E3D2E; margin: 0; }
+  .band { background: #2E3D2E; color: #F7F5F0; padding: 14px 18px; border-bottom: 4px solid #B8960C; border-radius: 6px 6px 0 0; }
+  .band .kicker { color: #B8960C; text-transform: uppercase; letter-spacing: .14em; font-size: 7.5pt; font-weight: 700; }
+  .band h1 { color: #F7F5F0; font-size: 18pt; margin-top: 2px; }
+  .band .sub { color: #e9e2d2; font-size: 9.5pt; margin-top: 2px; }
+  .band table { width: 100%; margin-top: 10px; font-size: 8.5pt; color: #e9e2d2; border-collapse: collapse; }
+  .band td { padding: 0; vertical-align: top; }
+  .band td.r { text-align: right; }
+  .sheet { border: 1px solid #e4dccf; border-top: 0; border-radius: 0 0 6px 6px; padding: 12px 18px 14px; background: #fff; }
+  dl.details { display: grid; grid-template-columns: 110px 1fr 110px 1fr; gap: 3px 10px; margin: 0; font-size: 9.5pt; }
+  dl.details dt { color: #6c6258; font-weight: 600; }
+  dl.details dd { margin: 0; }
+  .signoff { margin-top: 10px; padding: 7px 10px; border-left: 4px solid #B8960C; background: #F7F5F0; font-size: 9pt; }
+  .signoff.open { border-left-color: #A07850; }
+  .notes { white-space: pre-wrap; }
+  h2 { font-size: 13pt; margin: 18px 0 8px; padding-bottom: 3px; border-bottom: 2px solid #B8960C; }
+  .tiles { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+  .tile { background: #2E3D2E; color: #F7F5F0; border-radius: 6px; padding: 8px 6px; text-align: center; }
+  .tile.alert { background: #7a2020; }
+  .tile .n { font-size: 16pt; font-weight: 700; line-height: 1.1; }
+  .tile .l { font-size: 7pt; text-transform: uppercase; letter-spacing: .05em; opacity: .85; margin-top: 2px; }
+  table.findings { width: 100%; border-collapse: collapse; font-size: 9pt; }
+  table.findings th { background: #2E3D2E; color: #F7F5F0; text-align: left; padding: 6px 7px; font-weight: 600; font-size: 8.5pt; }
+  table.findings td { padding: 6px 7px; border-bottom: 1px solid #e4dccf; vertical-align: top; }
+  table.findings tr:nth-child(even) td { background: #F7F5F0; }
+  table.findings tr { page-break-inside: avoid; }
+  .t { font-weight: 700; }
+  .d { color: #4a443d; margin-top: 2px; white-space: pre-wrap; }
+  .badge { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 7.5pt; font-weight: 700; white-space: nowrap; }
+  .p-high { background: #f8eeee; color: #7a2020; border: 1px solid #e4bcbc; }
+  .p-medium { background: #fff8e6; color: #7a5a00; border: 1px solid #e8cf84; }
+  .p-low { background: #eef4ee; color: #2E3D2E; border: 1px solid #c9d8c9; }
+  .s-open { background: #fff8e6; color: #7a5a00; border: 1px solid #e8cf84; }
+  .s-in-progress { background: #e8f0fa; color: #1f3f6e; border: 1px solid #bcd0ea; }
+  .s-resolved { background: #eef4ee; color: #2E3D2E; border: 1px solid #c9d8c9; }
+  .res { font-size: 8.5pt; color: #4a443d; }
+  .empty { color: #6c6258; font-style: italic; padding: 8px 0; }
+  .photos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .photo { border: 1px solid #e4dccf; border-radius: 6px; overflow: hidden; background: #F7F5F0; page-break-inside: avoid; }
+  .photo img { display: block; width: 100%; height: 50mm; object-fit: cover; }
+  .photo .missing { height: 50mm; display: flex; align-items: center; justify-content: center; color: #6c6258; font-size: 8.5pt; }
+  .photo .cap { padding: 4px 7px; font-size: 7.5pt; color: #4a443d; }
+  .photo .cap .f { font-weight: 600; color: #2B2B2B; word-break: break-all; }
+  .foot { margin-top: 18px; font-size: 8pt; color: #6c6258; border-top: 1px solid #e4dccf; padding-top: 6px; }
+</style>
+</head>
+<body>
+
+<header class="band">
+  <div class="kicker">VR Inspector — Inspection report</div>
+  <h1>{{ inspection.title }}</h1>
+  <div class="sub">{{ project.name }}{% if project.client %} · {{ project.client }}{% endif %}{% if project.location %} · {{ project.location }}{% endif %}</div>
+  <table>
+    <tr>
+      <td>Report version {{ version }} · generated {{ generated_at|dt }} by {{ generated_by }}</td>
+      <td class="r">Inspection #{{ inspection.id }} · Project #{{ project.id }}</td>
+    </tr>
+  </table>
+</header>
+
+<section class="sheet">
+  <dl class="details">
+    <dt>Type</dt><dd>{{ inspection_type_label or "—" }}</dd>
+    <dt>Status</dt><dd>{{ "Signed off" if signed_off else "Open" }}</dd>
+    <dt>Inspector</dt><dd>{{ inspection.inspector or "Unassigned" }}</dd>
+    <dt>Created</dt><dd>{{ inspection.created_at|dt }}</dd>
+  </dl>
+  {% if signed_off %}
+  <div class="signoff">Signed off by <strong>{{ inspection.signed_off_by or "unknown" }}</strong> — {{ inspection.signed_off_at|dt }}. Findings were locked at sign-off.</div>
+  {% else %}
+  <div class="signoff open">This inspection has not been signed off; findings may still change. The report reflects the record at the time it was generated.</div>
+  {% endif %}
+  {% if inspection.notes %}
+  <h3 style="font-size:10pt;margin-top:10px">Notes</h3>
+  <div class="notes">{{ inspection.notes }}</div>
+  {% endif %}
+</section>
+
+<h2>Summary</h2>
+<div class="tiles">
+  <div class="tile"><div class="n">{{ summary.findings }}</div><div class="l">Findings</div></div>
+  <div class="tile{% if summary.open %} alert{% endif %}"><div class="n">{{ summary.open }}</div><div class="l">Open</div></div>
+  <div class="tile"><div class="n">{{ summary.in_progress }}</div><div class="l">In progress</div></div>
+  <div class="tile"><div class="n">{{ summary.resolved }}</div><div class="l">Resolved</div></div>
+  <div class="tile{% if summary.high %} alert{% endif %}"><div class="n">{{ summary.high }}</div><div class="l">High priority</div></div>
+  <div class="tile"><div class="n">{{ summary.photos }}</div><div class="l">Photos</div></div>
+</div>
+
+<h2>Findings ({{ findings|length }})</h2>
+{% if findings %}
+<table class="findings">
+  <thead>
+    <tr>
+      <th style="width:4%">#</th>
+      <th style="width:40%">Finding</th>
+      <th style="width:14%">Location</th>
+      <th style="width:9%">Priority</th>
+      <th style="width:10%">Status</th>
+      <th style="width:23%">Resolution</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for f in findings %}
+    <tr>
+      <td>{{ loop.index }}</td>
+      <td>
+        <div class="t">{{ f.title }}</div>
+        {% if f.description %}<div class="d">{{ f.description }}</div>{% endif %}
+        <div class="res">Logged {{ f.created_at|date }}</div>
+      </td>
+      <td>{{ f.location_ref or "—" }}</td>
+      <td><span class="badge p-{{ f.priority }}">{{ priority_labels.get(f.priority, f.priority) }}</span></td>
+      <td><span class="badge s-{{ f.status }}">{{ status_labels.get(f.status, f.status) }}</span></td>
+      <td class="res">
+        {% if f.status == "resolved" %}
+          Resolved by {{ f.resolved_by or "unknown" }} — {{ f.resolved_at|date }}
+          {% if f.resolution_notes %}<div class="d">{{ f.resolution_notes }}</div>{% endif %}
+        {% else %}
+          —
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="empty">No findings were logged on this inspection.</p>
+{% endif %}
+
+<h2>Site photos ({{ photos|length }})</h2>
+{% if photos %}
+<div class="photos">
+  {% for p in photos %}
+  <figure class="photo" style="margin:0">
+    {% if p.src %}<img src="{{ p.src }}" alt="{{ p.filename }}">{% else %}<div class="missing">Photo unavailable</div>{% endif %}
+    <figcaption class="cap"><div class="f">{{ p.filename }}</div>{{ p.created_at|dt }}{% if p.uploaded_by %} · {{ p.uploaded_by }}{% endif %}</figcaption>
+  </figure>
+  {% endfor %}
+</div>
+{% else %}
+<p class="empty">No photos were captured on this inspection.</p>
+{% endif %}
+
+<div class="foot">Generated by VR Inspector (Field Inspect LLC) on {{ generated_at|dt }} by {{ generated_by }}. Report version {{ version }} of inspection #{{ inspection.id }}; earlier versions remain available in the app.</div>
+
+</body>
+</html>

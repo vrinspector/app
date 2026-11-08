@@ -7,6 +7,7 @@ from app.api.routes import (
     inspections,
     photos,
     projects,
+    reports,
     users,
     utils,
 )
@@ -22,3 +23,5 @@ api_router.include_router(photos.router)
 api_router.include_router(dashboard.router)
 # Increment 05 — Block 8D/8E drawings + pins (authorization hardening carried over)
 api_router.include_router(drawings.router)
+# Increment 10 — Block 4 inspection reports (PDF versions in S3)
+api_router.include_router(reports.router)

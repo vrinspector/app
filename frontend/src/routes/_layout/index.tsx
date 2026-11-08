@@ -1,11 +1,21 @@
+import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { ArrowRight, CheckCircle2, Loader2 } from "lucide-react"
+import { ArrowRight, ClipboardList, FolderKanban } from "lucide-react"
 
+import type { DashboardPublic } from "@/client"
 import { PageHeader } from "@/components/Common/PageHeader"
-import { EmptyState, ErrorState } from "@/components/Common/States"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  EmptyState,
+  ErrorState,
+  ListSkeleton,
+} from "@/components/Common/States"
+import { ProjectHealthTable } from "@/components/Dashboard/ProjectHealthTable"
+import { RecentActivity } from "@/components/Dashboard/RecentActivity"
+import { SummaryTiles } from "@/components/Dashboard/SummaryTiles"
+import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import useAuth from "@/hooks/useAuth"
-import { NAV_ITEMS } from "@/lib/navigation"
+import { dashboardQuery } from "@/lib/queries"
 
 export const Route = createFileRoute("/_layout/")({
   component: Dashboard,
@@ -19,14 +29,15 @@ export const Route = createFileRoute("/_layout/")({
 })
 
 /**
- * Landing screen. The Block 6 roll-up (project health table, recent
- * inspections) is ported in increment 10; until then this is the shell's
- * home: a greeting, the connection check, and shortcuts into each section.
+ * The landing screen (legacy `loadDashboard` → `renderDashboard`): the five
+ * summary tiles, the Project Health table and Recent Activity, from the
+ * Block 6 roll-up at `GET /dashboard`. Re-read on every visit, as the
+ * legacy screen was.
  */
 function Dashboard() {
-  const { user, apiSession } = useAuth()
+  const { user } = useAuth()
   const greeting = user?.name || user?.email || "Inspector"
-  const shortcuts = NAV_ITEMS.filter((item) => item.path !== "/")
+  const query = useQuery(dashboardQuery())
 
   return (
     <>
@@ -36,101 +47,102 @@ function Dashboard() {
             Hi, {greeting} <span aria-hidden="true">👋</span>
           </span>
         }
-        description="Welcome back. Here is where things stand."
-      />
-
-      <ConnectionCard
-        status={apiSession.status}
-        error={apiSession.error}
-        onRetry={() => apiSession.refetch()}
-      />
-
-      <section
-        aria-labelledby="shortcuts-heading"
-        className="flex flex-col gap-3"
-      >
-        <h2 id="shortcuts-heading" className="text-lg font-semibold">
-          Where to next
-        </h2>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {shortcuts.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              className="group rounded-lg border bg-card p-4 transition-colors hover:border-vri-gold focus-visible:outline-2 focus-visible:outline-ring"
-              data-testid={`shortcut-${item.title.toLowerCase()}`}
-            >
-              <div className="flex items-start gap-3">
-                <item.icon
-                  className="mt-0.5 size-5 shrink-0 text-vri-copper"
-                  aria-hidden="true"
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="font-semibold">{item.title}</p>
-                  <p className="text-sm text-muted-foreground">{item.blurb}</p>
-                </div>
-                <ArrowRight
-                  className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5"
-                  aria-hidden="true"
-                />
-              </div>
+        description="Here is where things stand across your projects."
+        actions={
+          <Button asChild variant="outline">
+            <Link to="/projects" data-testid="all-projects">
+              <FolderKanban />
+              All projects
             </Link>
-          ))}
-        </div>
-      </section>
-
-      <EmptyState
-        title="Project health arrives with the dashboard port"
-        description="Totals, the per-project health table and recent activity from the current app are ported in a later increment. Until then, Projects is the place to start."
-        className="py-8"
+          </Button>
+        }
       />
+
+      {query.isPending ? (
+        <DashboardSkeleton />
+      ) : query.isError ? (
+        <ErrorState
+          title="Couldn't load the dashboard"
+          error={query.error}
+          onRetry={() => query.refetch()}
+        />
+      ) : (
+        <DashboardBody data={query.data} />
+      )}
     </>
   )
 }
 
-interface ConnectionCardProps {
-  status: "pending" | "error" | "ok"
-  error: unknown
-  onRetry: () => void
+function DashboardBody({ data }: { data: DashboardPublic }) {
+  return (
+    <>
+      <SummaryTiles summary={data.summary} />
+
+      <section aria-labelledby="health-heading" className="flex flex-col gap-3">
+        <div className="flex items-center justify-between gap-3">
+          <h2 id="health-heading" className="text-lg font-semibold">
+            Project health
+          </h2>
+          <Button asChild variant="ghost" size="sm" className="-mr-2">
+            <Link to="/projects">
+              All projects
+              <ArrowRight />
+            </Link>
+          </Button>
+        </div>
+        {data.projects.length === 0 ? (
+          <EmptyState
+            icon={<FolderKanban />}
+            title="No projects yet"
+            description="Create your first project to start logging inspections."
+            action={
+              <Button asChild>
+                <Link to="/projects">Go to projects</Link>
+              </Button>
+            }
+            className="py-8"
+          />
+        ) : (
+          <ProjectHealthTable projects={data.projects} />
+        )}
+      </section>
+
+      <section
+        aria-labelledby="activity-heading"
+        className="flex flex-col gap-3"
+      >
+        <h2 id="activity-heading" className="text-lg font-semibold">
+          Recent activity
+        </h2>
+        {data.recent_inspections.length === 0 ? (
+          <EmptyState
+            icon={<ClipboardList />}
+            title="No inspections yet"
+            description="The ten most recent inspections across your projects appear here."
+            className="py-8"
+          />
+        ) : (
+          <RecentActivity inspections={data.recent_inspections} />
+        )}
+      </section>
+    </>
+  )
 }
 
-/**
- * The `/users/me` round-trip doubles as the connection check: a real
- * example of the loading / error / success pattern every screen follows.
- */
-function ConnectionCard({ status, error, onRetry }: ConnectionCardProps) {
-  if (status === "error") {
-    return (
-      <ErrorState
-        title="Can't reach the VR Inspector server"
-        error={error}
-        onRetry={onRetry}
-        className="py-6"
-      />
-    )
-  }
-
+function DashboardSkeleton() {
   return (
-    <Card data-testid="connection-card" data-status={status} className="gap-2">
-      <CardHeader>
-        <CardTitle className="text-base">Connection</CardTitle>
-      </CardHeader>
-      <CardContent className="flex items-center gap-2 text-sm text-muted-foreground">
-        {status === "pending" ? (
-          <>
-            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-            <span>Checking the server…</span>
-          </>
-        ) : (
-          <>
-            <CheckCircle2
-              className="size-4 text-status-positive-fg"
-              aria-hidden="true"
-            />
-            <span>Signed in and connected to the VR Inspector server.</span>
-          </>
-        )}
-      </CardContent>
-    </Card>
+    <output
+      aria-busy="true"
+      aria-label="Loading the dashboard"
+      data-testid="dashboard-skeleton"
+      className="flex flex-col gap-6"
+    >
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        {["projects", "inspections", "open", "high", "photos"].map((key) => (
+          <Skeleton key={key} className="h-24 rounded-lg" />
+        ))}
+      </div>
+      <ListSkeleton rows={3} />
+    </output>
   )
 }

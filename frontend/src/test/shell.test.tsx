@@ -38,9 +38,26 @@ vi.mock("@auth0/auth0-react", () => ({
 
 const readUserMe = vi.hoisted(() => vi.fn())
 const listProjects = vi.hoisted(() => vi.fn(async () => ({ data: [] })))
+const readDashboard = vi.hoisted(() =>
+  vi.fn(async () => ({
+    data: {
+      summary: {
+        total_projects: 0,
+        total_inspections: 0,
+        open_findings: 0,
+        high_priority_findings: 0,
+        total_photos: 0,
+      },
+      projects: [],
+      recent_inspections: [],
+    },
+  })),
+)
 vi.mock("@/client", () => ({
   UsersService: { readUserMe },
   ProjectsService: { listProjects },
+  // The dashboard itself (increment 10) is covered in dashboard.test.tsx.
+  DashboardService: { readDashboard },
 }))
 
 function renderApp(path: string, isAuthenticated = true) {
@@ -98,26 +115,23 @@ describe("application shell", () => {
     )
   })
 
-  it("confirms the API connection once /users/me answers", async () => {
+  it("reads /users/me once for the session and renders the home screen", async () => {
     renderApp("/")
 
-    const card = await screen.findByTestId("connection-card")
-    await waitFor(() => expect(card).toHaveAttribute("data-status", "ok"))
-    expect(card).toHaveTextContent(/connected to the VR Inspector server/i)
-    expect(readUserMe).toHaveBeenCalledTimes(1)
+    expect(await screen.findByTestId("summary-tiles")).toBeInTheDocument()
+    await waitFor(() => expect(readUserMe).toHaveBeenCalledTimes(1))
   })
 
-  it("shows a retryable error when the API cannot be reached", async () => {
-    readUserMe.mockRejectedValueOnce(new Error("Network Error"))
+  it("keeps the shell usable when the dashboard roll-up fails", async () => {
+    readDashboard.mockRejectedValueOnce(new Error("Network Error"))
     renderApp("/")
 
     const error = await screen.findByTestId("error-state")
-    expect(error).toHaveTextContent(/can't reach the VR Inspector server/i)
+    expect(error).toHaveTextContent(/couldn't load the dashboard/i)
 
     await userEvent.click(within(error).getByTestId("retry-button"))
-    const card = await screen.findByTestId("connection-card")
-    await waitFor(() => expect(card).toHaveAttribute("data-status", "ok"))
-    // Shortcuts and the navigation stayed usable throughout.
+    expect(await screen.findByTestId("summary-tiles")).toBeInTheDocument()
+    // The navigation stayed usable throughout.
     expect(screen.getByTestId("main-nav")).toBeInTheDocument()
   })
 
@@ -153,10 +167,7 @@ describe("application shell", () => {
     await router.navigate({ to: "/help" })
     expect(await screen.findByRole("heading", { name: "Help" })).toBeVisible()
     expect(screen.queryByTestId("header-help")).not.toBeInTheDocument()
-    expect(screen.getByTestId("public-help-link")).toHaveAttribute(
-      "href",
-      "https://vrinspector.com/help/",
-    )
+    expect(screen.getByTestId("help-guide")).toBeInTheDocument()
   })
 
   it("sends a signed-out visitor to the gate and remembers the destination", async () => {

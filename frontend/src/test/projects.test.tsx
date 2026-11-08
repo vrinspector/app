@@ -78,6 +78,8 @@ vi.mock("@/client", () => ({
   // The inspection screen's findings + photos sections (increment 08) are
   // exercised in findings.test.tsx; here they just need to load empty.
   FindingsService: { listFindings: api.listFindings },
+  // The reports section (increment 10) just needs to load empty here.
+  ReportsService: { listReports: async () => ({ data: [] }) },
   PhotosService: { listPhotos: api.listPhotos },
 }))
 

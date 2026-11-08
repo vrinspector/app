@@ -25,6 +25,10 @@ jobs:
         uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
           version: "latest-known"
+      - name: Install WeasyPrint system libraries (report PDFs)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 fonts-dejavu-core
       - run: docker compose down -v --remove-orphans
       - run: docker compose up -d --wait db mailpit
       - name: Migrate DB

@@ -27,6 +27,7 @@ import {
 import { StatusBadge } from "@/components/Common/StatusBadge"
 import { DrawingsSection } from "@/components/Drawings/DrawingsSection"
 import { InspectionFormDialog } from "@/components/Inspections/InspectionFormDialog"
+import { MembersSection } from "@/components/Members/MembersSection"
 import { ProjectFormDialog } from "@/components/Projects/ProjectFormDialog"
 import { Button } from "@/components/ui/button"
 import {
@@ -64,8 +65,9 @@ export const Route = createFileRoute("/_layout/projects/$projectId/")({
  * One project (legacy `openProject` → `renderInspections`): the project's
  * details, then its inspections with a filter box and "New inspection".
  * Owners can edit or delete the project from the header menu. Drawings
- * (increment 09) follow the inspections, as on the legacy screen; the
- * members panel (increment 10) joins later.
+ * (increment 09) follow the inspections, as on the legacy screen, and the
+ * members panel (the legacy "👥 Members" modal, increment 10) closes the
+ * screen.
  */
 function ProjectScreen() {
   const { projectId: rawId } = Route.useParams()
@@ -207,10 +209,7 @@ function ProjectBody({ project }: { project: ProjectPublic }) {
 
       <DrawingsSection projectId={project.id} canWrite={canWrite} />
 
-      <p className="text-xs text-muted-foreground">
-        The members panel for this project is being rebuilt and will appear
-        here.
-      </p>
+      <MembersSection projectId={project.id} canManage={canManage} />
 
       <ProjectFormDialog
         open={editing}

@@ -213,6 +213,9 @@ class Inspection(SQLModel, table=True):
         back_populates="inspection", cascade_delete=True
     )
     photos: list[Photo] = Relationship(back_populates="inspection", cascade_delete=True)
+    reports: list[InspectionReport] = Relationship(
+        back_populates="inspection", cascade_delete=True
+    )
 
 
 class Finding(SQLModel, table=True):
@@ -377,7 +380,56 @@ class InspectionPin(SQLModel, table=True):
     finding: Finding | None = Relationship(back_populates="pins")
 
 
-DOMAIN_TABLES: tuple[str, ...] = (
+class InspectionReport(SQLModel, table=True):
+    """Block 4 inspection report versions (rebuild increment 10).
+
+    The legacy ``POST /reports/generate`` rendered a PDF to S3 and returned a
+    presigned ``download_url`` without recording anything. The rebuild keeps
+    every generated PDF as a numbered **version** of the inspection's report
+    (ADR-009: "versions kept in S3"), so the screen can list and re-download
+    earlier reports and the audit trail survives. The table holds S3 keys
+    only — never file bytes (Hard Rule 8).
+    """
+
+    __tablename__ = "inspection_reports"
+    __table_args__ = (
+        UniqueConstraint(
+            "inspection_id", "version", name="uq_inspection_reports_version"
+        ),
+    )
+
+    id: int | None = Field(default=None, sa_column=_pk_column())
+    public_id: uuid.UUID | None = Field(default=None, sa_column=_public_id_column())
+    inspection_id: int = Field(
+        sa_column=Column(
+            Integer,
+            ForeignKey("inspections.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        )
+    )
+    # 1, 2, 3 … per inspection; the newest version is the current report.
+    version: int = Field(sa_column=Column(Integer, nullable=False))
+    # S3 object key: reports/inspections/{inspection_id}/v{version}-{uuid}.pdf
+    s3_key: str = Field(sa_column=Column(String(512), nullable=False))
+    filename: str = Field(sa_column=Column(String(255), nullable=False))
+    file_size: int | None = Field(default=None, sa_column=Column(BigInteger))
+    # Snapshot of what the PDF covers, so the list can say "4 findings, 12
+    # photos" without opening it.
+    finding_count: int = Field(
+        default=0, sa_column=Column(Integer, nullable=False, server_default=text("0"))
+    )
+    photo_count: int = Field(
+        default=0, sa_column=Column(Integer, nullable=False, server_default=text("0"))
+    )
+    generated_by: str | None = Field(default=None, sa_column=Column(String(255)))
+    created_at: datetime | None = Field(default=None, sa_column=_created_at_column())
+
+    inspection: Inspection | None = Relationship(back_populates="reports")
+
+
+# The seven tables that exist on the live (pre-rebuild) staging database.
+LEGACY_TABLES: tuple[str, ...] = (
     "projects",
     "project_members",
     "inspections",
@@ -386,6 +438,9 @@ DOMAIN_TABLES: tuple[str, ...] = (
     "drawings",
     "inspection_pins",
 )
+
+# Every domain table the rebuild owns (legacy tables + rebuild additions).
+DOMAIN_TABLES: tuple[str, ...] = (*LEGACY_TABLES, "inspection_reports")
 
 
 # --- API-only schemas -------------------------------------------------------
@@ -762,3 +817,29 @@ class DashboardPublic(SQLModel):
     summary: DashboardSummary
     projects: list[DashboardProject]
     recent_inspections: list[DashboardInspection]
+
+
+# --- Increment 10: Block 4 inspection reports ---------------------------------
+
+
+class ReportGenerateRequest(SQLModel):
+    # The SPA's ``generateReport`` body: ``{inspection_id}``.
+    inspection_id: int
+
+
+class ReportPublic(SQLModel):
+    id: int
+    public_id: uuid.UUID
+    inspection_id: int
+    version: int
+    s3_key: str
+    filename: str
+    file_size: int | None
+    finding_count: int
+    photo_count: int
+    generated_by: str | None
+    created_at: datetime
+    # Presigned S3 GET URL, generated per response (never stored). The SPA
+    # read ``download_url`` from the generate response; every report row
+    # carries one so earlier versions can be re-downloaded.
+    download_url: str | None = None
