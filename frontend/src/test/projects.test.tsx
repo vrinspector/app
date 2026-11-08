@@ -52,6 +52,8 @@ const api = vi.hoisted(() => ({
   deleteInspection: vi.fn(),
   signoffInspection: vi.fn(),
   reopenInspection: vi.fn(),
+  listFindings: vi.fn(),
+  listPhotos: vi.fn(),
 }))
 
 vi.mock("@/client", () => ({
@@ -73,6 +75,10 @@ vi.mock("@/client", () => ({
     signoffInspection: api.signoffInspection,
     reopenInspection: api.reopenInspection,
   },
+  // The inspection screen's findings + photos sections (increment 08) are
+  // exercised in findings.test.tsx; here they just need to load empty.
+  FindingsService: { listFindings: api.listFindings },
+  PhotosService: { listPhotos: api.listPhotos },
 }))
 
 const ok = <T,>(data: T) => ({ data })
@@ -202,6 +208,8 @@ beforeEach(() => {
   })
   api.listMembers.mockResolvedValue(ok(members("owner")))
   api.listInspections.mockResolvedValue(ok(inspections))
+  api.listFindings.mockResolvedValue(ok([]))
+  api.listPhotos.mockResolvedValue(ok([]))
   api.readInspection.mockImplementation(async ({ path }) => {
     const inspection = inspections.find((i) => i.id === path.inspection_id)
     if (!inspection) throw notFound("Inspection not found")

@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import {
-  Camera,
   CheckCircle2,
   Lock,
   MoreHorizontal,
@@ -18,13 +17,12 @@ import {
 } from "@/client"
 import { ConfirmDialog } from "@/components/Common/ConfirmDialog"
 import { PageHeader } from "@/components/Common/PageHeader"
-import {
-  DetailState,
-  EmptyState,
-  NotFoundState,
-} from "@/components/Common/States"
+import { DetailState, NotFoundState } from "@/components/Common/States"
 import { StatusBadge } from "@/components/Common/StatusBadge"
+import { FindingsSection } from "@/components/Findings/FindingsSection"
 import { InspectionFormDialog } from "@/components/Inspections/InspectionFormDialog"
+import { CaptureBar, usePhotoPicker } from "@/components/Photos/PhotoCapture"
+import { PhotosSection } from "@/components/Photos/PhotosSection"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -35,6 +33,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { LoadingButton } from "@/components/ui/loading-button"
 import useCustomToast from "@/hooks/useCustomToast"
+import { usePhotoUpload } from "@/hooks/usePhotoUpload"
 import { useProjectRole } from "@/hooks/useProjectRole"
 import { formatDate, formatDateTime } from "@/lib/format"
 import {
@@ -61,10 +60,14 @@ export const Route = createFileRoute(
 })
 
 /**
- * One inspection (legacy `openInspection` → `renderFindingsScreen`'s frame):
- * the details, the Block 8B sign-off bar, and the actions. The findings
- * list and photo capture that fill the body arrive in increment 08; the
- * section below marks their place so the route and navigation are final.
+ * One inspection (legacy `openInspection` → `renderFindingsScreen`): the
+ * details, the Block 8B sign-off bar and actions, then the site photos
+ * (camera-first capture) and the findings with the Block 8A workflow. On
+ * phones a sticky capture bar keeps Take photo / Log finding under the
+ * thumb while scrolling.
+ *
+ * The legacy screen also showed a weather badge from `GET /api/weather`;
+ * that route is not ported yet (issue #9), so the badge waits for it.
  */
 function InspectionScreen() {
   const { projectId: rawProjectId, inspectionId: rawInspectionId } =
@@ -132,6 +135,10 @@ function InspectionBody({ inspection, project }: InspectionBodyProps) {
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [signingOff, setSigningOff] = useState(false)
+  const [loggingFinding, setLoggingFinding] = useState(false)
+
+  const photoUpload = usePhotoUpload(inspection.id)
+  const picker = usePhotoPicker(photoUpload.addFiles)
 
   const isClosed = inspection.inspection_status === "closed"
   const type = inspection.inspection_type ?? inspection.type
@@ -301,7 +308,8 @@ function InspectionBody({ inspection, project }: InspectionBodyProps) {
               : ""}
           </span>
           <span className="text-white/70">
-            Findings can no longer be added or changed.
+            Findings can no longer be added or changed. Photos can still be
+            added.
           </span>
         </div>
       ) : null}
@@ -326,20 +334,36 @@ function InspectionBody({ inspection, project }: InspectionBodyProps) {
         </dd>
       </dl>
 
-      <section
-        aria-labelledby="capture-heading"
-        className="flex flex-col gap-3"
-      >
-        <h2 id="capture-heading" className="text-lg font-semibold">
-          Findings and photos
-        </h2>
-        <EmptyState
-          icon={<Camera />}
-          title="Photo capture and findings are being rebuilt"
-          description="Capturing site photos and logging findings for this inspection are ported next. Until then, keep using the current app for field capture."
-          className="py-8"
-        />
-      </section>
+      <PhotosSection
+        inspectionId={inspection.id}
+        canWrite={canWrite}
+        uploads={photoUpload.uploads}
+        onTakePhoto={picker.openCamera}
+        onChoosePhotos={picker.openLibrary}
+        onRetryUpload={photoUpload.retry}
+        onDismissUpload={photoUpload.dismiss}
+      />
+
+      <FindingsSection
+        inspectionId={inspection.id}
+        canWrite={canWrite}
+        closed={isClosed}
+        logging={loggingFinding}
+        onLoggingChange={setLoggingFinding}
+      />
+
+      {picker.inputs}
+      {canWrite ? (
+        <>
+          {/* Room for the capture bar so the last card is never hidden under it. */}
+          <div className="h-16 sm:hidden" aria-hidden="true" />
+          <CaptureBar
+            onTakePhoto={picker.openCamera}
+            onLogFinding={() => setLoggingFinding(true)}
+            canLogFinding={!isClosed}
+          />
+        </>
+      ) : null}
 
       <InspectionFormDialog
         open={editing}

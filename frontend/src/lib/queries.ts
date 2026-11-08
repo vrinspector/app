@@ -1,9 +1,13 @@
 import { queryOptions } from "@tanstack/react-query"
 
 import {
+  type FindingPublic,
+  FindingsService,
   type InspectionPublic,
   InspectionsService,
   type MemberPublic,
+  type PhotoPublic,
+  PhotosService,
   type ProjectPublic,
   ProjectsService,
 } from "@/client"
@@ -17,9 +21,13 @@ import {
  *   ["projects", id, "members"]        its members (role lookup, increment 10 panel)
  *   ["projects", id, "inspections"]    its inspections
  *   ["inspections", id]                one inspection
+ *   ["inspections", id, "findings"]    its findings (increment 08)
+ *   ["inspections", id, "photos"]      its photos, each with a presigned view_url
  *
  * Invalidating ["projects", id] therefore also refreshes that project's
  * members and inspections — what the legacy SPA did by reloading the screen.
+ * Likewise ["inspections", id] covers the inspection, its findings and its
+ * photos (the legacy `loadFindingsScreen` re-fetched all three).
  */
 
 export const projectKeys = {
@@ -32,6 +40,10 @@ export const projectKeys = {
 
 export const inspectionKeys = {
   detail: (inspectionId: number) => ["inspections", inspectionId] as const,
+  findings: (inspectionId: number) =>
+    ["inspections", inspectionId, "findings"] as const,
+  photos: (inspectionId: number) =>
+    ["inspections", inspectionId, "photos"] as const,
 }
 
 export const projectsQuery = () =>
@@ -76,6 +88,34 @@ export const inspectionQuery = (inspectionId: number) =>
           path: { inspection_id: inspectionId },
         })
       ).data as InspectionPublic,
+  })
+
+export const findingsQuery = (inspectionId: number) =>
+  queryOptions<FindingPublic[]>({
+    queryKey: inspectionKeys.findings(inspectionId),
+    queryFn: async () =>
+      (
+        await FindingsService.listFindings({
+          query: { inspection_id: inspectionId },
+        })
+      ).data ?? [],
+  })
+
+/**
+ * Photos carry a presigned `view_url` minted per response; the API's URLs
+ * outlive a screen visit comfortably, but the list is still re-read on every
+ * mount so a thumbnail never points at an expired link.
+ */
+export const photosQuery = (inspectionId: number) =>
+  queryOptions<PhotoPublic[]>({
+    queryKey: inspectionKeys.photos(inspectionId),
+    queryFn: async () =>
+      (
+        await PhotosService.listPhotos({
+          query: { inspection_id: inspectionId },
+        })
+      ).data ?? [],
+    staleTime: 0,
   })
 
 /** Route params arrive as strings; anything that is not a positive integer is a 404. */
