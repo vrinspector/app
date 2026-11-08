@@ -56,6 +56,7 @@ const api = vi.hoisted(() => ({
   deletePhoto: vi.fn(),
   readWeather: vi.fn(),
   listDrawings: vi.fn(),
+  readDrawing: vi.fn(),
 }))
 
 vi.mock("@/client", () => ({
@@ -86,8 +87,10 @@ vi.mock("@/client", () => ({
   // viewer itself is covered in drawings.test.tsx / capture-loop.test.tsx.
   DrawingsService: {
     listDrawings: api.listDrawings,
-    readDrawing: async () => ({ data: undefined }),
-    readDrawingViewUrl: async () => ({ data: undefined }),
+    readDrawing: api.readDrawing,
+    readDrawingViewUrl: async () => ({
+      data: { view_url: "https://files.example.com/32?sig=1" },
+    }),
     listPins: async () => ({ data: [] }),
   },
 }))
@@ -224,6 +227,26 @@ const photos = [
   },
 ]
 
+const drawing32 = {
+  id: 32,
+  public_id: "drw_32",
+  project_id: 7,
+  title: "Flare skid layout",
+  drawing_number: "M-201",
+  discipline: "equipment_layout",
+  filename: "flare.png",
+  s3_key: "drawings/projects/7/bbb.png",
+  file_type: "png",
+  file_size: 1,
+  view_url: null,
+  thumbnail_url: null,
+  page_width_pts: null,
+  page_height_pts: null,
+  uploaded_by: null,
+  created_at: "2026-07-03T09:00:00Z",
+  updated_at: "2026-07-03T09:00:00Z",
+}
+
 const weather = {
   description: "Partly cloudy",
   temp_f: 61.3,
@@ -287,29 +310,8 @@ beforeEach(() => {
   api.listFindings.mockResolvedValue(ok(findings))
   api.listPhotos.mockResolvedValue(ok(photos))
   api.readWeather.mockResolvedValue(ok(weather))
-  api.listDrawings.mockResolvedValue(
-    ok([
-      {
-        id: 32,
-        public_id: "drw_32",
-        project_id: 7,
-        title: "Flare skid layout",
-        drawing_number: "M-201",
-        discipline: "equipment_layout",
-        filename: "flare.png",
-        s3_key: "drawings/projects/7/bbb.png",
-        file_type: "png",
-        file_size: 1,
-        view_url: null,
-        thumbnail_url: null,
-        page_width_pts: null,
-        page_height_pts: null,
-        uploaded_by: null,
-        created_at: "2026-07-03T09:00:00Z",
-        updated_at: "2026-07-03T09:00:00Z",
-      },
-    ]),
-  )
+  api.listDrawings.mockResolvedValue(ok([drawing32]))
+  api.readDrawing.mockResolvedValue(ok(drawing32))
   // jsdom has no object URLs; the upload tiles only need a string.
   URL.createObjectURL = vi.fn(() => "blob:preview")
   URL.revokeObjectURL = vi.fn()
@@ -1010,6 +1012,9 @@ describe("capture loop entry points (increment 11a)", () => {
       expect(router.state.location.pathname).toBe("/projects/7/drawings/32"),
     )
     expect(router.state.location.search).toEqual({ inspection: 21 })
+    // Let the drawing screen finish loading before the test tears jsdom
+    // down, or the router's pending transition rejects after unmount.
+    expect(await screen.findByTestId("drawing-viewer")).toBeInTheDocument()
   })
 
   it("has no 'Pin on drawing' when the project has no drawings", async () => {

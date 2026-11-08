@@ -301,9 +301,10 @@ beforeEach(() => {
   photoStore = []
   api.listPins.mockImplementation(async () => ok(pinStore))
   api.createPin.mockImplementation(async ({ path, body }) => {
+    const id = 903 + pinStore.length
     const created = {
-      id: 903,
-      public_id: "pin_903",
+      id,
+      public_id: `pin_${id}`,
       drawing_id: path.drawing_id,
       finding_id: null,
       tag_number: null,
