@@ -34,9 +34,10 @@ Single source of truth for rebuild increments. Automated and interactive session
 
 ### Block 9.5 — ITP / hold points + external sign-off (PRD v2.63 §5)
 
-- [ ] 12 — ITP data model + migrations (itp_templates, project_itps, itp_items, signoff_roles, itp_signatures, external_sign_tokens; pins.itp_item_id FK)
-- [ ] 13 — ITP UI: template JSON (SurveyJS) render, frozen-copy import, item status/hold-point blocking, pin linkage both directions
-- [ ] 14 — External sign-off: magic-link tokens (≥128-bit, single-use, 14-day expiry, revocable), signature_pad capture, time/GPS/weather stamp, pack PDF regenerate-on-change (WeasyPrint), versions in S3
+- [ ] 12 — ITP data model + migrations (itp_templates, project_itps, itp_items, signoff_roles, itp_signatures, external_sign_tokens; pins.itp_item_id FK). **Areas (owner decision 2026-11-08):** add `project_areas` (project_id, name, area_type: level / lot / stage / chainage / other, sort_order, optional parent area) and `project_itps.area_id`; a project ITP belongs to at most one area; deleting an area that has signed ITPs is refused
+- [ ] 13 — ITP UI: template JSON (SurveyJS) render, frozen-copy import, item status/hold-point blocking, pin linkage both directions. **Areas:** manage a project's areas (add, rename, reorder; bulk-add a numbered series such as Level 1–12 or Lot 1–40); **bulk apply** one template to many selected areas in a single action, creating one frozen copy per area; an area view listing its ITPs with completion and hold-point status
+- [ ] 13.5 — Email delivery (pulls deferred Block 7.1 forward; owner decision 2026-11-08): one outbound-email service on the template's SMTP settings, production-ready for AWS SES SMTP via environment placeholders only (SES domain verification and credentials are owner actions at RG-3 — never touch AWS); Mailcatcher in local dev and tests; branded HTML templates; send log table (recipient, type, status, timestamps); first use: member-invite emails
+- [ ] 14 — External sign-off: magic-link tokens (≥128-bit, single-use, 14-day expiry, revocable), signature_pad capture, time/GPS/weather stamp, pack PDF regenerate-on-change (WeasyPrint), versions in S3. **Emails** (via 13.5): send the signing link to each required external signer, reminders, and witness-point notifications to the notified party. **Area sign-off packs:** one combined PDF and one email per area covering all of that area's ITPs, so a signer reviews and signs a whole floor or lot in one visit
 
 ### Block 10 — AI capture (PRD v2.63 §6)
 
