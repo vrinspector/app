@@ -33,7 +33,7 @@ def _jpeg(width: int = 1600, height: int = 1200) -> bytes:
 
 
 def _pdf_text(pdf: bytes) -> str:
-    """The PDF with its Flate streams inflated, so object dictionaries that
+    """The PDF with its zlib-compressed streams inflated, so object dictionaries that
     WeasyPrint packs into object streams (pages, fonts) can be asserted on."""
     import re
     import zlib
