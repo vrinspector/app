@@ -25,6 +25,7 @@ import {
   QueryState,
 } from "@/components/Common/States"
 import { StatusBadge } from "@/components/Common/StatusBadge"
+import { DrawingsSection } from "@/components/Drawings/DrawingsSection"
 import { InspectionFormDialog } from "@/components/Inspections/InspectionFormDialog"
 import { ProjectFormDialog } from "@/components/Projects/ProjectFormDialog"
 import { Button } from "@/components/ui/button"
@@ -63,8 +64,8 @@ export const Route = createFileRoute("/_layout/projects/$projectId/")({
  * One project (legacy `openProject` → `renderInspections`): the project's
  * details, then its inspections with a filter box and "New inspection".
  * Owners can edit or delete the project from the header menu. Drawings
- * (increment 09) and the members panel (increment 10) join this screen
- * later; the legacy SPA showed both here.
+ * (increment 09) follow the inspections, as on the legacy screen; the
+ * members panel (increment 10) joins later.
  */
 function ProjectScreen() {
   const { projectId: rawId } = Route.useParams()
@@ -204,9 +205,11 @@ function ProjectBody({ project }: { project: ProjectPublic }) {
         newInspectionButton={newInspectionButton}
       />
 
+      <DrawingsSection projectId={project.id} canWrite={canWrite} />
+
       <p className="text-xs text-muted-foreground">
-        Drawings with inspection pins and the members panel for this project are
-        being rebuilt and will appear here.
+        The members panel for this project is being rebuilt and will appear
+        here.
       </p>
 
       <ProjectFormDialog

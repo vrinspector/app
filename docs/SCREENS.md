@@ -3,7 +3,7 @@
 How the operational screens are built on the shell from increment 06
 (`docs/FRONTEND_SHELL.md`), against the API contract in `docs/API_PORT.md`.
 Owner decisions are numbered on from `docs/API_PORT.md` (1–10): 11–14 in
-increment 07, 15–18 in increment 08.
+increment 07, 15–18 in increment 08, 19–24 in increment 09.
 The legacy single-file SPA (`vrinspector/frontend` →
 `staging_snapshot_20260716/staging_index_with_help_private.html`) is the
 behavioural spec: same screens, same request bodies, same vocabulary.
@@ -214,8 +214,138 @@ retried; a presign refusal with the API's reason; the phone capture bar.
     `/weather`; when the route is ported the badge slots in above the
     photos.
 
+## Increment 09 — drawings + the Block 8E viewer
+
+Adds **Drawings (N)** to `/projects/$projectId` (legacy
+`renderDrawingsSection`) and the viewer as a screen of its own,
+`/projects/$projectId/drawings/$drawingId` (legacy `#modal-drawing-viewer`),
+so the phone's back button and a shared link both work.
+
+### Drawings section
+
+| Part | Legacy | Screen |
+|---|---|---|
+| Drawings (N) | thumbnail grid + "📄 Upload Drawing" | `DrawingsSection`: one card per drawing (title, drawing number, discipline badge, PDF badge, date; raster thumbnail when the row has a `thumbnail_url`/`view_url`), filter box once there are more than three, **Upload drawing** (inspectors and owners) |
+| Upload | one file, "Uploading…" line | several files at once; each upload is a card at the front of the grid with progress and **Retry** / discard, like the photo tiles |
+
+`useDrawingUpload` runs the legacy three steps per file and never sends the
+bytes through the API (Hard Rule 8): `POST /drawings/presign {project_id,
+filename, content_type}` → `PUT` to the presigned URL → `POST /drawings
+{project_id, s3_key, filename, title, discipline: "general", file_type,
+file_size, uploaded_by}` (title is the file name without its extension, as
+the SPA sent). The SPA's guard that the returned key starts with
+`drawings/projects/{project_id}/` is kept. Files are checked before any
+request: PDF, PNG, JPG/JPEG or SVG, 50 MB or less (the limits the Help page
+documents).
+
+### Viewer
+
+| Part | Legacy | Screen |
+|---|---|---|
+| Toolbar | Prev · "Page n of N" · Next, − zoom % + (PDF only) | PDFs: Prev · Page n of N · Next; all drawings: − zoom % + and **Fit to width**; pin count for the page; **Add pin / Cancel** |
+| Stage | canvas or `<img>` in a scrolling box | the same, inside a pinch-zoomable, pannable stage (`useViewerGestures`); keyboard: ← → pages, + − zoom, 0 fit, Esc leaves pin mode |
+| Pin layer | `#pin-markers` sized to the rendered page | `PinOverlay`, sized to the drawing box: markers at `left: x%; top: y%`, 24 px tall regardless of zoom, so they sit on the same spot at every zoom level and on every page |
+| Pin placement | "+ Add Pin" → click → status picker | the same: `PinStatusDialog` offers the five statuses; `POST /drawings/{id}/pins {x_pct, y_pct, status, page_number}` |
+| Pin detail | number, page, status, notes, Delete | `PinDetailDialog`: the same, plus status change, label, notes and a **Linked finding** select (findings across the project's inspections) via `PUT /pins/{id}`; Delete confirmed |
+| Legend | Help page only | the five statuses in their fixed colours under the stage |
+| Header menu | — | **Edit drawing** (title, drawing number, discipline via `PUT /drawings/{id}`) and **Delete drawing** (confirmed; pins cascade) for inspectors and owners |
+
+**PDF path** (`usePdfRenderer`, `lib/pdfjs.ts`): `pdfjs-dist` is bundled
+and imported the first time a PDF is opened (its own ~440 kB chunk plus the
+worker, served from our origin — the legacy SPA pulled pdf.js 3.11 from a
+CDN at start-up because of its literal-URL rule). One page renders into one
+canvas at the requested zoom; the legacy Block 8E pipeline is ported as is:
+the previous render is cancelled and its `RenderingCancelledException`
+ignored, a request id drops stale renders, the backing store is released
+before the next allocation, and the device pixel ratio is capped by
+`safeRenderDpr` — the Samsung Chrome memory hotfix (≤ 12 M RGBA pixels on
+phones, 8 M on ≤ 4 GB devices, 64 M on desktop; longest edge 4096 / 8192;
+DPR ≤ 1.25 / 2.0). The first render of page 1 of a PDF without stored
+dimensions sends `PATCH /drawings/{id}/dimensions {page_width_pts,
+page_height_pts}` (Block 8E R6), once.
+
+**Raster path**: PNG, JPG and SVG render in an `<img>` sized to natural ×
+zoom. The legacy image path had neither zoom nor panning; here it shares
+the stage, so the same pinch, buttons and pins work on a photo overlay.
+
+**Zoom** is a scale on the page's unit viewport (1.0 = one PDF point per CSS
+pixel, the legacy 100 %). Buttons step through `ZOOM_LEVELS` (the legacy
+0.5–2.0 plus 0.25 and 3.0); pinch and ctrl/⌘ + wheel move continuously
+between 25 % and 300 %; the viewer opens at **fit to width**, so a D-size
+sheet appears whole on a phone (≈ 26 %) instead of its top-left corner at
+100 %. During a pinch the drawing box is scaled live (the canvas stretched
+by CSS); on release the zoom is committed and the page re-rendered sharp.
+Scroll offsets are corrected so the point under the fingers or the cursor
+stays put (`scrollForZoom`). The stage has `touch-action: none` and
+`contain: inline-size`, so the browser never zooms the page underneath and
+a wide sheet never widens the shell.
+
+### Components added
+
+| Component | Use |
+|---|---|
+| `Drawings/DrawingsSection` | the project-screen section with upload cards |
+| `Drawings/DrawingViewer`, `PinOverlay`, `PinStatusDialog`, `PinDetailDialog`, `DrawingFormDialog` | the viewer screen |
+| `hooks/useDrawingUpload`, `usePdfRenderer`, `useViewerGestures`, `useProjectFindings` | upload queue; PDF.js pipeline; pinch / pan / wheel; findings across a project for the link select |
+| `lib/drawings.ts` | the pure viewer maths (file kind, zoom steps, fit, render limits, point → percent, page filter, scroll correction) |
+| `lib/pdfjs.ts` | lazy PDF.js loader and the small typed surface the viewer uses |
+| `lib/queries.ts` → `drawingsQuery`, `drawingQuery`, `drawingViewUrlQuery`, `pinsQuery`, `projectKeys.drawings`, `drawingKeys` | keys shared by the section, viewer and mutations |
+| `lib/vocab.ts` → `DRAWING_DISCIPLINE_OPTIONS`, `DRAWING_FILE_TYPES`, `PIN_STATUS_OPTIONS` (with the legacy `PIN_COLORS`) | vocabularies |
+
+### Tests
+
+`src/lib/drawings.test.ts` (11 cases) covers the maths: file kind, zoom
+steps and clamping, fit-to-width, the render limits and DPR reduction,
+point → percent, the page filter and the scroll correction.
+`src/test/drawings.test.tsx` (21 cases) renders the real route tree with
+the client and PDF.js stubbed: the section with badges, empty and viewer
+states; the presign → PUT (stubbed `XMLHttpRequest`) → register sequence
+and its body; refused file types and an out-of-project key; the PDF viewer
+opening from the view URL, page 1 pins, dimension capture (and not when
+stored), page navigation with per-page pins and the keyboard, zoom
+re-rendering at the new scale with the box tracking it, pin placement with
+the legacy body on page 2, pin status / notes update, finding link and
+delete, the viewer role, edit and delete drawing, a PDF open failure with
+retry, not-found for a hidden drawing and a cross-project URL; the raster
+viewer without page controls, with zoom and a pin placed on page 1.
+
+Checked in Chromium against a real three-page 17 × 11 in PDF with PDF.js
+rendering at desktop (1280 px) and iPhone 13 widths: fit-to-width opens
+the whole sheet on the phone (26 %), a synthetic two-finger pinch commits a
+new zoom (26 % → 79 %) with the focal point kept, buttons re-render sharp at
+125 %, a wide sheet scrolls inside the stage, pins stay on their spots, and
+the dimension capture fires once with 1224 × 792 pt.
+
+### Decisions for the owner (increment 09)
+
+19. **PDF.js is bundled (`pdfjs-dist` 6.x) rather than loaded from a CDN or
+    wrapped by react-pdf.** The decision brief lists "PDF.js (keep) via
+    react-pdf wrapper"; the wrapper hides the render task, which is exactly
+    what the Block 8E memory hotfix (cancel, release, DPR cap) needs to
+    control, so the ~60 lines of legacy pipeline are ported directly on
+    `pdfjs-dist` instead. Same renderer, no runtime dependency on cdnjs.
+20. **The viewer opens at fit-to-width and zooms 25–300 %** (the legacy
+    opened at 100 % and clamped 50–200 %). Memory is bounded by the DPR cap,
+    not the zoom range, so the Samsung guidance still holds; if 300 % proves
+    too soft on large sheets the top step is one constant.
+21. **Raster drawings zoom and pan too.** The legacy image path showed the
+    picture at its natural size with no controls (and the Help page said
+    so). Sharing the stage costs nothing and makes a photo overlay usable on
+    a phone. Help copy will need the one sentence updated in increment 10.
+22. **Pins can be edited** (status, label, notes, linked finding) from the
+    detail dialog using the `PUT /pins/{id}` route added in increment 05
+    (decision 10). The legacy dialog offered only Delete. The finding list
+    offered is every finding across the project's inspections; a pin may
+    only link within its project (decision 8).
+23. **Drawings can be renamed and deleted** from the viewer's header menu,
+    like decisions 11 and 17 for the other objects. The file itself cannot
+    be replaced — pins are tied to its page geometry — so a revised sheet
+    is a new upload. Delete is confirmed and removes the pins with it.
+24. **Several drawings can be uploaded at once** (the legacy input took
+    one). A P&ID set is usually a folder of sheets; each still goes through
+    presign → PUT → register on its own, so a failed sheet is retried alone.
+
 ## Later increments
 
-- 09 — drawings section + viewer join the project screen.
 - 10 — members panel joins the project screen; reports, dashboard roll-up,
-  in-app Help.
+  in-app Help (with the drawing-viewer copy updated for decisions 20–21).
