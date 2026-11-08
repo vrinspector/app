@@ -3,7 +3,8 @@
 How the operational screens are built on the shell from increment 06
 (`docs/FRONTEND_SHELL.md`), against the API contract in `docs/API_PORT.md`.
 Owner decisions are numbered on from `docs/API_PORT.md` (1–10): 11–14 in
-increment 07, 15–18 in increment 08, 19–24 in increment 09.
+increment 07, 15–18 in increment 08, 19–24 in increment 09, 25–30 in
+increment 10.
 The legacy single-file SPA (`vrinspector/frontend` →
 `staging_snapshot_20260716/staging_index_with_help_private.html`) is the
 behavioural spec: same screens, same request bodies, same vocabulary.
@@ -345,7 +346,122 @@ the dimension capture fires once with 1224 × 792 pt.
     one). A P&ID set is usually a folder of sheets; each still goes through
     presign → PUT → register on its own, so a failed sheet is retried alone.
 
-## Later increments
+## Increment 10 — reports, dashboard, members, Help
 
-- 10 — members panel joins the project screen; reports, dashboard roll-up,
-  in-app Help (with the drawing-viewer copy updated for decisions 20–21).
+The last four pieces of the legacy SPA: the Block 6 dashboard (landing
+screen), the Block 4 report button, the "👥 Members" modal and the Help
+overlay. Reports needed the one legacy route that had no increment (issue
+#9); it is ported here as a backend task, see `docs/API_PORT.md` →
+"Reports (increment 10)".
+
+### Dashboard — `/`
+
+| Part | Legacy | Screen |
+|---|---|---|
+| Tiles | five `dashCard`s | `SummaryTiles`: Projects, Inspections, Open findings, High priority, Photos; a tile turns brick (`--color-vri-brick`, the legacy `#7a2020`) when its count is above zero and asks for attention (open, high) |
+| Project Health | table with Inspect buttons | `ProjectHealthTable`: the same seven columns on tablets and desktops (open count in copper, high in red when above zero, "Never" when a project has no inspection), **Inspect** → `/projects/$projectId`; on phones one card per project with the four counts, the whole card tappable |
+| Recent Activity | ten cards, not tappable | `RecentActivity`: the same ten, each a `ListCard` that opens the inspection (the API returns `project_id`), with the finding-count badge |
+| Header | "All Projects" button | **All projects** in the page header and above the table |
+
+`dashboardQuery` (`["dashboard"]`, `staleTime: 0`) re-reads the roll-up on
+every visit, as `loadDashboard` did, instead of every mutation invalidating
+it. Loading shows five tile skeletons and a list skeleton; a failure shows
+`ErrorState` with retry while the shell and navigation stay usable. The
+increment 06 connection card is retired: `/dashboard` is the connection
+check now.
+
+### Members — bottom of `/projects/$projectId`
+
+| Part | Legacy | Screen |
+|---|---|---|
+| List | modal rows: role pill, email, ✕ | `MembersSection`: one row per member — role badge (owner in forest green, others copper), email with "(you)" on the caller's own row, "Signed in" / "Invited — has not signed in yet" from `user_sub`, invite date and inviter; **Remove** (✕) on non-owner rows for owners |
+| Invite | email + Inspector/Viewer select + "Send Invite" | the same inline form (`react-hook-form` + zod, `noValidate`), `POST /projects/{id}/members {email, role}`; the role stays selected for the next invite |
+| Remove | `confirm()` | `ConfirmDialog`, `DELETE /projects/{id}/members/{member_id}` |
+
+The form and the remove buttons are shown to owners (`useProjectRole`
+`canManage`); the API's 403 / 409 (already a member) / 400 (owner) are
+explained by the toast. Invalidating `["projects", id, "members"]` also
+refreshes the role lookup.
+
+### Reports — bottom of `/projects/$projectId/inspections/$inspectionId`
+
+| Part | Legacy | Screen |
+|---|---|---|
+| Generate | "📄 Report" in the findings header → `window.open(download_url)` | **Generate report** (`ReportsSection`), `POST /reports/generate {inspection_id}` → the new version is placed at the top of the list with a toast |
+| Versions | — | `GET /reports?inspection_id=N`: every version newest first, "Latest" on the first, date, who, "4 findings, 12 photos", size, **Download PDF** (`download_url`, `download` attribute with the server's filename, new tab) |
+
+Any member can generate (the API allows viewers; see decision 27). The
+list is re-read on every mount like the photos so a presigned link is
+never stale.
+
+### Help — `/help`
+
+The legacy overlay's six sections (getting started, device split, core
+workflows, field-to-office hand-off, access, troubleshooting) with the hero,
+topic pills and footer actions, rewritten for the rebuilt screens: button
+names (Take photo / Upload, Log finding, Upload drawing, Generate report),
+the viewer that opens fit-to-width and zooms 25–300 % on PDFs and raster
+drawings alike (decisions 20–21), editable pins, the members section, report
+versions, photo retry. The pin legend is rendered from `PIN_STATUS_OPTIONS`.
+The public guide at vrinspector.com/help stays linked from the header for
+people who are not signed in; it is static HTML in the legacy repo and is
+not changed here (decision 30).
+
+### Components added
+
+| Component | Use |
+|---|---|
+| `Dashboard/SummaryTiles`, `ProjectHealthTable`, `RecentActivity` | the dashboard |
+| `Members/MembersSection` | list, remove, invite form |
+| `Reports/ReportsSection` | versions list + generate |
+| `lib/queries.ts` → `dashboardQuery`, `dashboardKeys`, `reportsQuery`, `inspectionKeys.reports` | keys shared by screens and mutations |
+| `index.css` → `--color-vri-brick` | the legacy attention red as a token |
+
+### Tests
+
+`src/test/dashboard.test.tsx` (10 cases): tiles and their attention
+colouring, the health table's cells and Inspect links, recent activity
+cards, navigation into a project, the empty and error states, the
+per-visit re-read; the Help guide's sections, topic navigation, pin legend,
+rebuilt wording (and no legacy wording), footer shortcuts.
+`src/test/members-reports.test.tsx` (10 cases): member rows, badges,
+self-marking and remove buttons; invite body and refresh; email validation
+and a 409; remove after confirmation with the legacy path; the inspector's
+read-only view; the empty list; report versions with details and download
+links; generate with the legacy body and the new version at the top; the
+empty state and a failure; a viewer generating. Shell tests updated for the
+real dashboard. 131 total.
+
+Checked in Chromium at desktop (1280 px) and iPhone 13 widths against a
+stubbed API: dashboard, project screen with members, inspection screen
+with reports, Help — no console errors; the health table becomes cards on
+the phone.
+
+### Decisions for the owner (increment 10)
+
+25. **Reports are ported as part of this increment** (issue #9, option 2):
+    `POST /api/v1/reports/generate` with the SPA's body and
+    `download_url`, plus list/read routes. The legacy route's source did
+    not survive, so the PDF is rebuilt from what the inspection screen
+    shows (details, sign-off, summary tiles, findings with resolution,
+    photos). If the old report had a section this one lacks, say which.
+26. **Every report is a kept version.** The legacy route overwrote nothing
+    because it recorded nothing; the rebuild numbers versions per
+    inspection and keeps each PDF in S3 under `reports/inspections/{id}/`
+    (ADR-009). Generation is on demand and synchronous as before;
+    regenerate-on-change as a background task is scheduled with the ITP
+    pack (increment 14).
+27. **Viewers can generate reports.** A report is a read-out of the record
+    and the office reviewer is often a viewer. The route is one role check
+    away from inspectors-and-owners only.
+28. **The PDF does not open automatically.** The legacy `window.open`
+    after a network round-trip is blocked by iOS Safari and Android
+    Chrome; the new version appears at the top of the list with a
+    Download button and a toast instead.
+29. **Photos in the report are downscaled** to 1000 px JPEG thumbnails so
+    a report with 30 phone photos is a few MB, not 150. Originals stay in
+    S3 untouched (decision 16).
+30. **The public help page is not regenerated.** The in-app guide now
+    describes the rebuilt app; `vrinspector.com/help` still describes the
+    legacy one. It is a static file outside this repo and belongs with the
+    cutover (increment 11), when the legacy wording stops being true.

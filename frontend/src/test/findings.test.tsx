@@ -71,6 +71,8 @@ vi.mock("@/client", () => ({
     setFindingStatus: api.setFindingStatus,
     resolveFinding: api.resolveFinding,
   },
+  // The reports section (increment 10) just needs to load empty here.
+  ReportsService: { listReports: async () => ({ data: [] }) },
   PhotosService: {
     listPhotos: api.listPhotos,
     presignPhotoUpload: api.presignPhotoUpload,

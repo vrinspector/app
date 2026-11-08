@@ -1,6 +1,8 @@
 import { queryOptions } from "@tanstack/react-query"
 
 import {
+  type DashboardPublic,
+  DashboardService,
   type DrawingPublic,
   DrawingsService,
   type FindingPublic,
@@ -13,20 +15,24 @@ import {
   type PinPublic,
   type ProjectPublic,
   ProjectsService,
+  type ReportPublic,
+  ReportsService,
 } from "@/client"
 
 /*
  * Query keys and options for the project → inspection hierarchy, in one
  * place so screens, dialogs and mutations invalidate the same keys.
  *
+ *   ["dashboard"]                      the Block 6 roll-up (increment 10)
  *   ["projects"]                       the caller's project list
  *   ["projects", id]                   one project
- *   ["projects", id, "members"]        its members (role lookup, increment 10 panel)
+ *   ["projects", id, "members"]        its members (role lookup + the members panel)
  *   ["projects", id, "inspections"]    its inspections
  *   ["projects", id, "drawings"]       its drawings (increment 09)
  *   ["inspections", id]                one inspection
  *   ["inspections", id, "findings"]    its findings (increment 08)
  *   ["inspections", id, "photos"]      its photos, each with a presigned view_url
+ *   ["inspections", id, "reports"]     its report versions (increment 10)
  *   ["drawings", id]                   one drawing
  *   ["drawings", id, "view-url"]       its presigned view URL (1 hour)
  *   ["drawings", id, "pins"]           its pins, every page
@@ -35,8 +41,14 @@ import {
  * members, inspections and drawings — what the legacy SPA did by reloading
  * the screen. Likewise ["inspections", id] covers the inspection, its
  * findings and its photos (the legacy `loadFindingsScreen` re-fetched all
- * three), and ["drawings", id] the drawing with its pins.
+ * three), and ["drawings", id] the drawing with its pins. The dashboard is
+ * re-read on every visit (as the legacy `loadDashboard` did) rather than
+ * invalidated by each mutation that moves a count.
  */
+
+export const dashboardKeys = {
+  all: ["dashboard"] as const,
+}
 
 export const projectKeys = {
   all: ["projects"] as const,
@@ -59,7 +71,17 @@ export const inspectionKeys = {
     ["inspections", inspectionId, "findings"] as const,
   photos: (inspectionId: number) =>
     ["inspections", inspectionId, "photos"] as const,
+  reports: (inspectionId: number) =>
+    ["inspections", inspectionId, "reports"] as const,
 }
+
+export const dashboardQuery = () =>
+  queryOptions<DashboardPublic>({
+    queryKey: dashboardKeys.all,
+    queryFn: async () =>
+      (await DashboardService.readDashboard()).data as DashboardPublic,
+    staleTime: 0,
+  })
 
 export const projectsQuery = () =>
   queryOptions<ProjectPublic[]>({
@@ -127,6 +149,22 @@ export const photosQuery = (inspectionId: number) =>
     queryFn: async () =>
       (
         await PhotosService.listPhotos({
+          query: { inspection_id: inspectionId },
+        })
+      ).data ?? [],
+    staleTime: 0,
+  })
+
+/**
+ * Report versions, newest first, each with a presigned `download_url` (one
+ * hour). Re-read on every mount like the photos so a link is never stale.
+ */
+export const reportsQuery = (inspectionId: number) =>
+  queryOptions<ReportPublic[]>({
+    queryKey: inspectionKeys.reports(inspectionId),
+    queryFn: async () =>
+      (
+        await ReportsService.listReports({
           query: { inspection_id: inspectionId },
         })
       ).data ?? [],

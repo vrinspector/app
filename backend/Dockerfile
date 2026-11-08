@@ -23,6 +23,13 @@ FROM python:3.14
 
 ENV PYTHONUNBUFFERED=1
 
+# WeasyPrint (Block 4 inspection report PDFs) needs Pango for text layout;
+# DejaVu provides the report's fonts so the PDF renders the same everywhere.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 fonts-dejavu-core \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install uv
 # Ref: https://docs.astral.sh/uv/guides/integration/docker/#installing-uv
 COPY --from=ghcr.io/astral-sh/uv:0.9.26 /uv /uvx /bin/

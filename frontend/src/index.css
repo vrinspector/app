@@ -73,6 +73,7 @@
   --color-vri-charcoal: #2b2b2b; /* Charcoal — body text, text on gold */
   --color-vri-offwhite: #f7f5f0; /* Warm Off-White — page background */
   --color-vri-white: #ffffff; /* White — content areas */
+  --color-vri-brick: #7a2020; /* Brick — the legacy dashboard's "needs attention" tile */
 
   /* Body: Calibri. Headings/logo: Book Antiqua. Open fallbacks follow each. */
   --font-sans:

@@ -164,11 +164,35 @@ not a stored column.
 | created_by | VARCHAR(255) | verified |
 | created_at | TIMESTAMPTZ | verified |
 
+### inspection_reports (rebuild, increment 10 — migration `c4e8f2a7b911`)
+
+Not a legacy table: the deployed `POST /reports/generate` wrote a PDF to S3
+and returned a presigned URL without recording it. The rebuild keeps every
+generated report as a numbered version (ADR-009 "versions kept in S3").
+Purely additive; the migration skips the table if it already exists and the
+downgrade refuses to drop it while it holds rows.
+
+| Column | Type | Source |
+|---|---|---|
+| id | SERIAL PK | rebuild |
+| public_id | UUID | rebuild |
+| inspection_id | INTEGER FK → inspections CASCADE, indexed | rebuild |
+| version | INTEGER NOT NULL; unique (inspection_id, version) | rebuild — 1, 2, 3 … per inspection |
+| s3_key | VARCHAR(512) NOT NULL (`reports/inspections/{inspection_id}/v{n}-{uuid}.pdf`) | rebuild |
+| filename | VARCHAR(255) NOT NULL (download name) | rebuild |
+| file_size | BIGINT | rebuild |
+| finding_count, photo_count | INTEGER NOT NULL default 0 (what the PDF covers) | rebuild |
+| generated_by | VARCHAR(255) (verified Auth0 email) | rebuild |
+| created_at | TIMESTAMPTZ | rebuild |
+
+`LEGACY_TABLES` in `app/models.py` names the seven tables above that exist
+on the live database; `DOMAIN_TABLES` adds this one.
+
 ## Not ported (by design)
 
 * `voice_notes` (Block 1) — the deployed SPA uses browser speech recognition
   only; no route reads or writes the table. Revisit with Block 10B.
 * Weather — the SPA calls `GET /weather?location&inspection_id`; no stored
-  schema is evidenced. Increment 04 ports the route; a cache table can follow
-  if the real dump shows one.
+  schema is evidenced. The route is still unported (issue #9); a cache table
+  can follow if the real dump shows one.
 * Block 9.5 ITP tables, `inspection_pins.itp_item_id` — increment 12.

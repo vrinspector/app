@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { dashboardReadDashboardData, dashboardReadDashboardResponses, drawingsCreateDrawingData, drawingsCreateDrawingErrors, drawingsCreateDrawingResponses, drawingsCreatePinData, drawingsCreatePinErrors, drawingsCreatePinResponses, drawingsDeleteDrawingData, drawingsDeleteDrawingErrors, drawingsDeleteDrawingResponses, drawingsDeletePinData, drawingsDeletePinErrors, drawingsDeletePinResponses, drawingsListDrawingsData, drawingsListDrawingsErrors, drawingsListDrawingsResponses, drawingsListPinsData, drawingsListPinsErrors, drawingsListPinsResponses, drawingsPresignDrawingUploadData, drawingsPresignDrawingUploadErrors, drawingsPresignDrawingUploadResponses, drawingsReadDrawingData, drawingsReadDrawingErrors, drawingsReadDrawingResponses, drawingsReadDrawingViewUrlData, drawingsReadDrawingViewUrlErrors, drawingsReadDrawingViewUrlResponses, drawingsReadPinData, drawingsReadPinErrors, drawingsReadPinResponses, drawingsUpdateDrawingData, drawingsUpdateDrawingDimensionsData, drawingsUpdateDrawingDimensionsErrors, drawingsUpdateDrawingDimensionsResponses, drawingsUpdateDrawingErrors, drawingsUpdateDrawingResponses, drawingsUpdatePinData, drawingsUpdatePinErrors, drawingsUpdatePinResponses, findingsCreateFindingData, findingsCreateFindingErrors, findingsCreateFindingResponses, findingsDeleteFindingData, findingsDeleteFindingErrors, findingsDeleteFindingResponses, findingsListFindingsData, findingsListFindingsErrors, findingsListFindingsResponses, findingsReadFindingData, findingsReadFindingErrors, findingsReadFindingResponses, findingsResolveFindingData, findingsResolveFindingErrors, findingsResolveFindingResponses, findingsSetFindingStatusData, findingsSetFindingStatusErrors, findingsSetFindingStatusResponses, findingsUpdateFindingData, findingsUpdateFindingErrors, findingsUpdateFindingResponses, inspectionsCreateInspectionData, inspectionsCreateInspectionErrors, inspectionsCreateInspectionResponses, inspectionsDeleteInspectionData, inspectionsDeleteInspectionErrors, inspectionsDeleteInspectionResponses, inspectionsListInspectionsData, inspectionsListInspectionsErrors, inspectionsListInspectionsResponses, inspectionsReadInspectionData, inspectionsReadInspectionErrors, inspectionsReadInspectionResponses, inspectionsReopenInspectionData, inspectionsReopenInspectionErrors, inspectionsReopenInspectionResponses, inspectionsSignoffInspectionData, inspectionsSignoffInspectionErrors, inspectionsSignoffInspectionResponses, inspectionsUpdateInspectionData, inspectionsUpdateInspectionErrors, inspectionsUpdateInspectionResponses, photosDeletePhotoData, photosDeletePhotoErrors, photosDeletePhotoResponses, photosListPhotosData, photosListPhotosErrors, photosListPhotosResponses, photosPresignPhotoUploadData, photosPresignPhotoUploadErrors, photosPresignPhotoUploadResponses, photosReadPhotoData, photosReadPhotoErrors, photosReadPhotoResponses, photosRegisterPhotoData, photosRegisterPhotoErrors, photosRegisterPhotoResponses, projectsCreateProjectData, projectsCreateProjectErrors, projectsCreateProjectResponses, projectsDeleteProjectData, projectsDeleteProjectErrors, projectsDeleteProjectResponses, projectsInviteMemberData, projectsInviteMemberErrors, projectsInviteMemberResponses, projectsListMembersData, projectsListMembersErrors, projectsListMembersResponses, projectsListProjectsData, projectsListProjectsResponses, projectsReadProjectData, projectsReadProjectErrors, projectsReadProjectResponses, projectsRemoveMemberData, projectsRemoveMemberErrors, projectsRemoveMemberResponses, projectsUpdateProjectData, projectsUpdateProjectErrors, projectsUpdateProjectResponses, usersReadUserMeData, usersReadUserMeResponses, utilsHealthCheckData, utilsHealthCheckResponses } from './types.gen';
+import type { dashboardReadDashboardData, dashboardReadDashboardResponses, drawingsCreateDrawingData, drawingsCreateDrawingErrors, drawingsCreateDrawingResponses, drawingsCreatePinData, drawingsCreatePinErrors, drawingsCreatePinResponses, drawingsDeleteDrawingData, drawingsDeleteDrawingErrors, drawingsDeleteDrawingResponses, drawingsDeletePinData, drawingsDeletePinErrors, drawingsDeletePinResponses, drawingsListDrawingsData, drawingsListDrawingsErrors, drawingsListDrawingsResponses, drawingsListPinsData, drawingsListPinsErrors, drawingsListPinsResponses, drawingsPresignDrawingUploadData, drawingsPresignDrawingUploadErrors, drawingsPresignDrawingUploadResponses, drawingsReadDrawingData, drawingsReadDrawingErrors, drawingsReadDrawingResponses, drawingsReadDrawingViewUrlData, drawingsReadDrawingViewUrlErrors, drawingsReadDrawingViewUrlResponses, drawingsReadPinData, drawingsReadPinErrors, drawingsReadPinResponses, drawingsUpdateDrawingData, drawingsUpdateDrawingDimensionsData, drawingsUpdateDrawingDimensionsErrors, drawingsUpdateDrawingDimensionsResponses, drawingsUpdateDrawingErrors, drawingsUpdateDrawingResponses, drawingsUpdatePinData, drawingsUpdatePinErrors, drawingsUpdatePinResponses, findingsCreateFindingData, findingsCreateFindingErrors, findingsCreateFindingResponses, findingsDeleteFindingData, findingsDeleteFindingErrors, findingsDeleteFindingResponses, findingsListFindingsData, findingsListFindingsErrors, findingsListFindingsResponses, findingsReadFindingData, findingsReadFindingErrors, findingsReadFindingResponses, findingsResolveFindingData, findingsResolveFindingErrors, findingsResolveFindingResponses, findingsSetFindingStatusData, findingsSetFindingStatusErrors, findingsSetFindingStatusResponses, findingsUpdateFindingData, findingsUpdateFindingErrors, findingsUpdateFindingResponses, inspectionsCreateInspectionData, inspectionsCreateInspectionErrors, inspectionsCreateInspectionResponses, inspectionsDeleteInspectionData, inspectionsDeleteInspectionErrors, inspectionsDeleteInspectionResponses, inspectionsListInspectionsData, inspectionsListInspectionsErrors, inspectionsListInspectionsResponses, inspectionsReadInspectionData, inspectionsReadInspectionErrors, inspectionsReadInspectionResponses, inspectionsReopenInspectionData, inspectionsReopenInspectionErrors, inspectionsReopenInspectionResponses, inspectionsSignoffInspectionData, inspectionsSignoffInspectionErrors, inspectionsSignoffInspectionResponses, inspectionsUpdateInspectionData, inspectionsUpdateInspectionErrors, inspectionsUpdateInspectionResponses, photosDeletePhotoData, photosDeletePhotoErrors, photosDeletePhotoResponses, photosListPhotosData, photosListPhotosErrors, photosListPhotosResponses, photosPresignPhotoUploadData, photosPresignPhotoUploadErrors, photosPresignPhotoUploadResponses, photosReadPhotoData, photosReadPhotoErrors, photosReadPhotoResponses, photosRegisterPhotoData, photosRegisterPhotoErrors, photosRegisterPhotoResponses, projectsCreateProjectData, projectsCreateProjectErrors, projectsCreateProjectResponses, projectsDeleteProjectData, projectsDeleteProjectErrors, projectsDeleteProjectResponses, projectsInviteMemberData, projectsInviteMemberErrors, projectsInviteMemberResponses, projectsListMembersData, projectsListMembersErrors, projectsListMembersResponses, projectsListProjectsData, projectsListProjectsResponses, projectsReadProjectData, projectsReadProjectErrors, projectsReadProjectResponses, projectsRemoveMemberData, projectsRemoveMemberErrors, projectsRemoveMemberResponses, projectsUpdateProjectData, projectsUpdateProjectErrors, projectsUpdateProjectResponses, reportsGenerateReportData, reportsGenerateReportErrors, reportsGenerateReportResponses, reportsListReportsData, reportsListReportsErrors, reportsListReportsResponses, reportsReadReportData, reportsReadReportErrors, reportsReadReportResponses, usersReadUserMeData, usersReadUserMeResponses, utilsHealthCheckData, utilsHealthCheckResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -629,6 +629,48 @@ export class DrawingsService {
                 'Content-Type': 'application/json',
                 ...options.headers
             }
+        });
+    }
+}
+
+export class ReportsService {
+    /**
+     * Generate Report
+     */
+    public static generateReport<ThrowOnError extends boolean = true>(options: Options<reportsGenerateReportData, ThrowOnError>) {
+        return (options.client ?? client).post<reportsGenerateReportResponses, reportsGenerateReportErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/reports/generate',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * List Reports
+     */
+    public static listReports<ThrowOnError extends boolean = true>(options: Options<reportsListReportsData, ThrowOnError>) {
+        return (options.client ?? client).get<reportsListReportsResponses, reportsListReportsErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/reports',
+            ...options
+        });
+    }
+    
+    /**
+     * Read Report
+     */
+    public static readReport<ThrowOnError extends boolean = true>(options: Options<reportsReadReportData, ThrowOnError>) {
+        return (options.client ?? client).get<reportsReadReportResponses, reportsReadReportErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/reports/{report_id}',
+            ...options
         });
     }
 }

@@ -13,7 +13,7 @@ from alembic.migration import MigrationContext
 from sqlalchemy import create_engine, inspect, text
 
 from app.core.config import settings
-from app.models import DOMAIN_TABLES, SQLModel
+from app.models import DOMAIN_TABLES, LEGACY_TABLES, SQLModel
 from tests.utils.db import (
     LEGACY_SCHEMA_SQL,
     load_sql_file,
@@ -22,6 +22,10 @@ from tests.utils.db import (
 )
 
 BASELINE_REVISION = "b7d3e9a1c204"
+# The revision before the baseline: downgrading to it removes every domain table.
+PRE_BASELINE_REVISION = "3f1c2d9a8b70"
+# Head of the chain (increment 10 added `inspection_reports` on top of the baseline).
+HEAD_REVISION = "c4e8f2a7b911"
 
 LEGACY_SEED = """
 INSERT INTO projects (name, client, location, status, created_by)
@@ -127,11 +131,11 @@ def legacy_db() -> Iterator[str]:
         yield url
 
 
-def test_migration_chain_ends_at_baseline() -> None:
+def test_migration_chain_has_one_head() -> None:
     # `alembic heads` needs no database; it reads the versions directory.
     result = run_alembic(str(settings.DATABASE_URL), "heads")
     assert result.returncode == 0, result.stderr
-    assert BASELINE_REVISION in result.stdout
+    assert HEAD_REVISION in result.stdout
     assert "(head)" in result.stdout and result.stdout.count("(head)") == 1
 
 
@@ -150,8 +154,8 @@ def test_fresh_database_upgrade_matches_models(fresh_db: str) -> None:
 
     assert _material_diffs(fresh_db) == []
 
-    # Round trip: downgrade the (empty) baseline and come back.
-    result = run_alembic(fresh_db, "downgrade", "-1")
+    # Round trip: downgrade the (empty) domain tables and come back.
+    result = run_alembic(fresh_db, "downgrade", PRE_BASELINE_REVISION)
     assert result.returncode == 0, result.stderr
     engine = create_engine(fresh_db)
     try:
@@ -165,9 +169,11 @@ def test_fresh_database_upgrade_matches_models(fresh_db: str) -> None:
 
 
 def test_legacy_database_upgrade_is_additive(legacy_db: str) -> None:
+    # Only the legacy tables exist before the upgrade; the rebuild's own
+    # tables (inspection_reports) are created by it.
     before = {
         table: _scalar(legacy_db, f"SELECT count(*) FROM {table}")
-        for table in DOMAIN_TABLES
+        for table in LEGACY_TABLES
     }
     assert before["inspection_pins"] == 2
 
@@ -177,7 +183,7 @@ def test_legacy_database_upgrade_is_additive(legacy_db: str) -> None:
     # No rows lost, legacy integer ids untouched.
     after = {
         table: _scalar(legacy_db, f"SELECT count(*) FROM {table}")
-        for table in DOMAIN_TABLES
+        for table in LEGACY_TABLES
     }
     assert after == before
     assert _scalar(legacy_db, "SELECT id FROM projects") == 1
@@ -190,7 +196,7 @@ def test_legacy_database_upgrade_is_additive(legacy_db: str) -> None:
         nulls = _scalar(legacy_db, f"SELECT count(*) FROM {table} WHERE public_id IS NULL")
         assert nulls == 0, table
         distinct = _scalar(legacy_db, f"SELECT count(DISTINCT public_id) FROM {table}")
-        assert distinct == after[table], table
+        assert distinct == after.get(table, 0), table
     pin_public_id = _scalar(legacy_db, "SELECT public_id FROM inspection_pins WHERE id = 1")
     assert isinstance(pin_public_id, uuid.UUID)
     assert _scalar(legacy_db, "SELECT min(page_number) FROM inspection_pins") == 1
@@ -226,12 +232,14 @@ def test_legacy_database_upgrade_is_additive(legacy_db: str) -> None:
 def test_downgrade_refuses_to_drop_populated_tables(legacy_db: str) -> None:
     assert run_alembic(legacy_db, "upgrade", "head").returncode == 0
 
-    result = run_alembic(legacy_db, "downgrade", "-1")
+    result = run_alembic(legacy_db, "downgrade", PRE_BASELINE_REVISION)
     assert result.returncode != 0
     assert "Refusing to downgrade" in (result.stderr + result.stdout)
-    # Nothing was dropped.
+    # Nothing was dropped: the refusal rolls the whole downgrade back, so even
+    # the (empty) reports table is still there and the version is unchanged.
     assert _scalar(legacy_db, "SELECT count(*) FROM inspection_pins") == 2
-    assert _scalar(legacy_db, "SELECT version_num FROM alembic_version") == BASELINE_REVISION
+    assert _scalar(legacy_db, "SELECT version_num FROM alembic_version") == HEAD_REVISION
+    assert _scalar(legacy_db, "SELECT count(*) FROM inspection_reports") == 0
 
     # After a deliberate truncate the downgrade proceeds.
     engine = create_engine(legacy_db, isolation_level="AUTOCOMMIT")
@@ -240,7 +248,7 @@ def test_downgrade_refuses_to_drop_populated_tables(legacy_db: str) -> None:
             conn.execute(text("TRUNCATE " + ", ".join(DOMAIN_TABLES) + " CASCADE"))
     finally:
         engine.dispose()
-    result = run_alembic(legacy_db, "downgrade", "-1")
+    result = run_alembic(legacy_db, "downgrade", PRE_BASELINE_REVISION)
     assert result.returncode == 0, result.stderr
     engine = create_engine(legacy_db)
     try:
