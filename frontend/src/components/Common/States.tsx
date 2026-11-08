@@ -1,10 +1,11 @@
-import { AlertTriangle, Loader2, RefreshCw } from "lucide-react"
+import { Link, type LinkProps } from "@tanstack/react-router"
+import { AlertTriangle, Loader2, RefreshCw, SearchX } from "lucide-react"
 import type { ReactNode } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
-import { extractErrorMessage } from "@/utils"
+import { extractErrorMessage, isNotFoundError } from "@/utils"
 
 /*
  * Shared loading / empty / error patterns.
@@ -70,7 +71,7 @@ export function ListSkeleton({ rows = 3, className }: ListSkeletonProps) {
   )
 }
 
-interface EmptyStateProps {
+interface EmptyStateProps extends Omit<React.ComponentProps<"div">, "title"> {
   icon?: ReactNode
   title: string
   description?: ReactNode
@@ -85,6 +86,7 @@ export function EmptyState({
   description,
   action,
   className,
+  ...props
 }: EmptyStateProps) {
   return (
     <div
@@ -93,6 +95,7 @@ export function EmptyState({
         "flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed px-4 py-12 text-center",
         className,
       )}
+      {...props}
     >
       {icon ? (
         <div
@@ -165,6 +168,46 @@ export function ErrorState({
   )
 }
 
+interface NotFoundStateProps {
+  /** What was looked for, e.g. "project" or "inspection". */
+  noun?: string
+  /** Where "Back" goes; defaults to the dashboard. */
+  backTo?: LinkProps["to"]
+  backParams?: LinkProps["params"]
+  backLabel?: string
+  className?: string
+}
+
+/**
+ * The API answered 404: the object does not exist or the caller is not a
+ * member of its project (the legacy routers hide both the same way). Also
+ * used for malformed ids in the URL.
+ */
+export function NotFoundState({
+  noun = "item",
+  backTo = "/",
+  backParams,
+  backLabel = "Back to dashboard",
+  className,
+}: NotFoundStateProps) {
+  return (
+    <EmptyState
+      icon={<SearchX />}
+      title={`${noun.charAt(0).toUpperCase()}${noun.slice(1)} not found`}
+      description={`This ${noun} does not exist or you no longer have access to it.`}
+      action={
+        <Button asChild variant="outline">
+          <Link to={backTo} params={backParams}>
+            {backLabel}
+          </Link>
+        </Button>
+      }
+      className={className}
+      data-testid="not-found-state"
+    />
+  )
+}
+
 /**
  * The subset of a TanStack Query result the pattern needs. Typed structurally
  * so screens can pass `useQuery(...)` straight in.
@@ -211,4 +254,53 @@ export function QueryState<T>({
   const data = query.data as T
   if (isEmpty(data)) return <>{empty}</>
   return <>{children(data)}</>
+}
+
+interface DetailStateProps<T> {
+  query: QueryLike<T>
+  /** For the not-found copy, e.g. "project". */
+  noun: string
+  backTo?: LinkProps["to"]
+  backParams?: LinkProps["params"]
+  backLabel?: string
+  loading?: ReactNode
+  errorTitle?: string
+  children: (data: T) => ReactNode
+}
+
+/**
+ * `QueryState` for a single object: a 404 renders `NotFoundState` instead of
+ * an error (there is nothing to retry), other failures keep the retry.
+ */
+export function DetailState<T>({
+  query,
+  noun,
+  backTo,
+  backParams,
+  backLabel,
+  loading = <LoadingState />,
+  errorTitle,
+  children,
+}: DetailStateProps<T>) {
+  if (query.isPending) return <>{loading}</>
+  if (query.isError) {
+    if (isNotFoundError(query.error)) {
+      return (
+        <NotFoundState
+          noun={noun}
+          backTo={backTo}
+          backParams={backParams}
+          backLabel={backLabel}
+        />
+      )
+    }
+    return (
+      <ErrorState
+        title={errorTitle}
+        error={query.error}
+        onRetry={() => query.refetch()}
+      />
+    )
+  }
+  return <>{children(query.data as T)}</>
 }

@@ -16,6 +16,8 @@ interface PageHeaderProps {
    * rebuild keeps that affordance for phone use alongside the sidebar.
    */
   backTo?: LinkProps["to"]
+  /** Route params for `backTo` when it has `$segments`. */
+  backParams?: LinkProps["params"]
   backLabel?: string
   /** Right-aligned actions (buttons, menus). Wraps under the title on phones. */
   actions?: ReactNode
@@ -27,6 +29,7 @@ export function PageHeader({
   description,
   eyebrow,
   backTo,
+  backParams,
   backLabel = "Back",
   actions,
   className,
@@ -48,7 +51,7 @@ export function PageHeader({
             className="-ml-2 shrink-0 text-vri-gold hover:text-vri-gold"
             data-testid="back-link"
           >
-            <Link to={backTo} aria-label={backLabel}>
+            <Link to={backTo} params={backParams} aria-label={backLabel}>
               <ArrowLeft className="size-5" />
             </Link>
           </Button>
