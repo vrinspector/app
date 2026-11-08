@@ -42,9 +42,8 @@ project-bound S3 keys). Where behaviour had to be inferred it is marked
 | `GET /api/photos?inspection_id=N` | same | each row carries a presigned `view_url` |
 | — | `GET/DELETE /api/v1/photos/{id}` | DELETE removes the S3 object best-effort |
 
-Not ported yet: `GET /api/weather` (Open-Meteo lookup). It has no increment
-in `REBUILD_PLAN.md`; see the tracking issue opened with the increment 04 PR
-(#9). `POST /api/reports/generate` is ported in increment 10 (below).
+`GET /api/weather` is ported in increment 10.5 and `POST /api/reports/generate`
+in increment 10 (both below).
 
 ## Drawings and pins (increment 05)
 
@@ -135,6 +134,42 @@ found` / `Report not found`.
 (Dockerfile) and `test-backend.yml` installs the same on the runner. No
 network access is needed to render.
 
+## Weather (increment 10.5)
+
+The Block 5 weather badge, the last route the deployed SPA called that had
+no increment (issue #9; owner decision 2026-11-08: keep the shipped feature
+for parity). The SPA's `loadFindingsScreen` is the contract: it asked for
+the project's location text and read five fields, and treated any failure
+as "no badge". The legacy route's source did not survive; the provider the
+plan names is Open-Meteo (free, no API key).
+
+| Legacy call (SPA) | Rebuild | Notes |
+|---|---|---|
+| `GET /api/weather?location=<text>&inspection_id=N` → `{description, temp_f, humidity, wind_mph, weather_code}` | `GET /api/v1/weather?inspection_id=N[&location=<text>]` → the same five fields plus `location` (the place the geocoder resolved) and `observed_at` | `inspection_id` is required and authorized like every object (non-member → 404 `Inspection not found`); `location` defaults to the project's stored location |
+
+**Lookup.** `app/core/weather.py`: Open-Meteo geocoding
+(`geocoding-api.open-meteo.com/v1/search`, first match) → forecast
+(`api.open-meteo.com/v1/forecast`, `current=temperature_2m,
+relative_humidity_2m,wind_speed_10m,weather_code`, °F and mph). The WMO
+`weather_code` is translated to text server-side (`WMO_DESCRIPTIONS`) so
+every client shows the same words. Readings are cached in process per
+normalised location for `WEATHER_CACHE_SECONDS` (600; Open-Meteo refreshes
+every 15 minutes), so a crew opening the same inspection repeatedly costs
+one upstream call per worker. Timeouts are `WEATHER_TIMEOUT_SECONDS` (4 s).
+Nothing is stored (`docs/DATA_MODEL.md`).
+
+**Errors.** No location on the project and none passed → 404 `Project has
+no location`; the geocoder finds nothing → 404 `Location not found: …`; the
+provider down, slow or erroring → 503 `Weather service unavailable`. A
+failure is never cached. The screen hides the badge on any error, as the
+SPA did (`WeatherBadge`, `retry: false`, no toast).
+
+**Configuration.** `WEATHER_GEOCODING_URL`, `WEATHER_FORECAST_URL`,
+`WEATHER_TIMEOUT_SECONDS`, `WEATHER_CACHE_SECONDS` — plain settings with
+working defaults; there is no key to configure. The test suite injects an
+`httpx.MockTransport` (`weather.use_transport`) and never reaches the
+network, the same seam as `Storage.use_client`.
+
 ## Authorization (carried over from the July 2026 hardening)
 
 * Every object is reached through its project; non-members get **404** with
@@ -179,9 +214,9 @@ can already see the project).
 5. **Deleting a project / inspection** removes rows via FK cascades but
    leaves S3 objects to the bucket lifecycle policy (as the legacy app did).
    Deleting a single photo does delete its object.
-6. **Weather** is not ported yet — see the tracking issue (#9). Report
-   generation was ported in increment 10 (decisions 25–29 in
-   `docs/SCREENS.md`).
+6. **Weather** was ported in increment 10.5 (above; decision 31 in
+   `docs/SCREENS.md`). Report generation was ported in increment 10
+   (decisions 25–29 in `docs/SCREENS.md`).
 
 ## Configuration
 

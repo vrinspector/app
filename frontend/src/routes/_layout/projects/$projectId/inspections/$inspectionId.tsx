@@ -21,6 +21,7 @@ import { DetailState, NotFoundState } from "@/components/Common/States"
 import { StatusBadge } from "@/components/Common/StatusBadge"
 import { FindingsSection } from "@/components/Findings/FindingsSection"
 import { InspectionFormDialog } from "@/components/Inspections/InspectionFormDialog"
+import { WeatherBadge } from "@/components/Inspections/WeatherBadge"
 import { CaptureBar, usePhotoPicker } from "@/components/Photos/PhotoCapture"
 import { PhotosSection } from "@/components/Photos/PhotosSection"
 import { ReportsSection } from "@/components/Reports/ReportsSection"
@@ -66,10 +67,8 @@ export const Route = createFileRoute(
  * (camera-first capture) and the findings with the Block 8A workflow. On
  * phones a sticky capture bar keeps Take photo / Log finding under the
  * thumb while scrolling. Reports (the legacy "📄 Report" button, now with
- * version history) close the screen.
- *
- * The legacy screen also showed a weather badge from `GET /api/weather`;
- * that route is not ported yet (issue #9), so the badge waits for it.
+ * version history) close the screen. The Block 5 weather badge sits above
+ * the photos as it did on the legacy screen (increment 10.5).
  */
 function InspectionScreen() {
   const { projectId: rawProjectId, inspectionId: rawInspectionId } =
@@ -335,6 +334,8 @@ function InspectionBody({ inspection, project }: InspectionBodyProps) {
           {inspection.notes || <Muted>No notes</Muted>}
         </dd>
       </dl>
+
+      <WeatherBadge inspectionId={inspection.id} />
 
       <PhotosSection
         inspectionId={inspection.id}

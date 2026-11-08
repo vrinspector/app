@@ -10,6 +10,7 @@ from app.api.routes import (
     reports,
     users,
     utils,
+    weather,
 )
 
 api_router = APIRouter()
@@ -25,3 +26,5 @@ api_router.include_router(dashboard.router)
 api_router.include_router(drawings.router)
 # Increment 10 — Block 4 inspection reports (PDF versions in S3)
 api_router.include_router(reports.router)
+# Increment 10.5 — Block 5 weather badge (Open-Meteo lookup, no key)
+api_router.include_router(weather.router)

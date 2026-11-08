@@ -54,6 +54,7 @@ const api = vi.hoisted(() => ({
   presignPhotoUpload: vi.fn(),
   registerPhoto: vi.fn(),
   deletePhoto: vi.fn(),
+  readWeather: vi.fn(),
 }))
 
 vi.mock("@/client", () => ({
@@ -79,6 +80,7 @@ vi.mock("@/client", () => ({
     registerPhoto: api.registerPhoto,
     deletePhoto: api.deletePhoto,
   },
+  WeatherService: { readWeather: api.readWeather },
 }))
 
 const ok = <T,>(data: T) => ({ data })
@@ -213,6 +215,16 @@ const photos = [
   },
 ]
 
+const weather = {
+  description: "Partly cloudy",
+  temp_f: 61.3,
+  humidity: 72,
+  wind_mph: 6.8,
+  weather_code: 2,
+  location: "Richmond, Virginia, US",
+  observed_at: "2026-11-08T09:15",
+}
+
 const members = (role: string) => [
   {
     id: 1,
@@ -265,6 +277,7 @@ beforeEach(() => {
   )
   api.listFindings.mockResolvedValue(ok(findings))
   api.listPhotos.mockResolvedValue(ok(photos))
+  api.readWeather.mockResolvedValue(ok(weather))
   // jsdom has no object URLs; the upload tiles only need a string.
   URL.createObjectURL = vi.fn(() => "blob:preview")
   URL.revokeObjectURL = vi.fn()
@@ -915,5 +928,42 @@ describe("photo capture flow", () => {
 
     await userEvent.click(screen.getByTestId("capture-bar-finding"))
     expect(await screen.findByTestId("finding-form-dialog")).toBeInTheDocument()
+  })
+})
+
+describe("weather badge (increment 10.5)", () => {
+  it("shows the reading above the photos, asked for by inspection id", async () => {
+    renderApp(INSPECTION_URL)
+
+    const badge = await screen.findByTestId("weather-badge")
+    expect(badge).toHaveTextContent("Partly cloudy")
+    expect(badge).toHaveTextContent("61°F")
+    expect(badge).toHaveTextContent("72%")
+    expect(badge).toHaveTextContent("7 mph")
+    expect(badge).toHaveTextContent("Richmond, Virginia, US")
+    expect(badge).toHaveAccessibleName(
+      "Weather at Richmond, Virginia, US: Partly cloudy, 61 degrees Fahrenheit, 72 percent humidity, wind 7 miles per hour",
+    )
+    // The API resolves the project's location itself; the screen sends
+    // only the inspection id (the legacy SPA passed the text along).
+    expect(api.readWeather).toHaveBeenCalledWith({
+      query: { inspection_id: 21 },
+    })
+    // Badge first, photos next — the legacy order.
+    const photosHeading = screen.getByTestId("photos-count")
+    expect(
+      badge.compareDocumentPosition(photosHeading) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+  })
+
+  it("is silent when the lookup fails and never toasts", async () => {
+    api.readWeather.mockRejectedValue(apiError(404, "Project has no location"))
+    renderApp(INSPECTION_URL)
+
+    await screen.findAllByTestId("finding-card")
+    await waitFor(() => expect(api.readWeather).toHaveBeenCalled())
+    expect(screen.queryByTestId("weather-badge")).toBeNull()
+    expect(screen.queryByText("Project has no location")).toBeNull()
   })
 })

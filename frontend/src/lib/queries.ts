@@ -17,6 +17,8 @@ import {
   ProjectsService,
   type ReportPublic,
   ReportsService,
+  type WeatherReading,
+  WeatherService,
 } from "@/client"
 
 /*
@@ -73,6 +75,8 @@ export const inspectionKeys = {
     ["inspections", inspectionId, "photos"] as const,
   reports: (inspectionId: number) =>
     ["inspections", inspectionId, "reports"] as const,
+  weather: (inspectionId: number) =>
+    ["inspections", inspectionId, "weather"] as const,
 }
 
 export const dashboardQuery = () =>
@@ -169,6 +173,26 @@ export const reportsQuery = (inspectionId: number) =>
         })
       ).data ?? [],
     staleTime: 0,
+  })
+
+/**
+ * The Block 5 weather badge (legacy `GET /weather?location&inspection_id`).
+ * The API resolves the project's location itself when none is passed; the
+ * reading is cached server-side for ten minutes, so the same staleTime here
+ * keeps a crew's repeated opens to one request. Never retried and never a
+ * toast: the legacy SPA treated weather as non-blocking.
+ */
+export const weatherQuery = (inspectionId: number) =>
+  queryOptions<WeatherReading>({
+    queryKey: inspectionKeys.weather(inspectionId),
+    queryFn: async () =>
+      (
+        await WeatherService.readWeather({
+          query: { inspection_id: inspectionId },
+        })
+      ).data as WeatherReading,
+    staleTime: 10 * 60 * 1000,
+    retry: false,
   })
 
 export const drawingsQuery = (projectId: number) =>

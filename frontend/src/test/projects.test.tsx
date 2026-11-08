@@ -81,6 +81,8 @@ vi.mock("@/client", () => ({
   // The reports section (increment 10) just needs to load empty here.
   ReportsService: { listReports: async () => ({ data: [] }) },
   PhotosService: { listPhotos: api.listPhotos },
+  // Weather (increment 10.5) is a silent badge; no reading here.
+  WeatherService: { readWeather: async () => ({ data: undefined }) },
 }))
 
 const ok = <T,>(data: T) => ({ data })
