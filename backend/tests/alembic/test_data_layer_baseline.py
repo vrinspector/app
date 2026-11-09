@@ -24,8 +24,8 @@ from tests.utils.db import (
 BASELINE_REVISION = "b7d3e9a1c204"
 # The revision before the baseline: downgrading to it removes every domain table.
 PRE_BASELINE_REVISION = "3f1c2d9a8b70"
-# Head of the chain (increment 10 added `inspection_reports` on top of the baseline).
-HEAD_REVISION = "d5a1b7c3e902"
+# Head of the chain (later increments add tables on top of the baseline).
+HEAD_REVISION = "e7c2a9f4b613"
 
 LEGACY_SEED = """
 INSERT INTO projects (name, client, location, status, created_by)
@@ -82,9 +82,7 @@ def _material_diffs(url: str) -> list[object]:
                 constraint.table.name,
                 tuple(c.name for c in constraint.columns),
             )
-            (removed_unique if kind == "remove_constraint" else added_unique).add(
-                key
-            )
+            (removed_unique if kind == "remove_constraint" else added_unique).add(key)
             continue
         material.append(diff)
     # A rename shows up as remove+add of the same column set: not material.
@@ -193,15 +191,24 @@ def test_legacy_database_upgrade_is_additive(legacy_db: str) -> None:
         cols = _columns(legacy_db, table)
         assert "public_id" in cols, table
         assert cols["public_id"]["nullable"] is False
-        nulls = _scalar(legacy_db, f"SELECT count(*) FROM {table} WHERE public_id IS NULL")
+        nulls = _scalar(
+            legacy_db, f"SELECT count(*) FROM {table} WHERE public_id IS NULL"
+        )
         assert nulls == 0, table
         distinct = _scalar(legacy_db, f"SELECT count(DISTINCT public_id) FROM {table}")
         assert distinct == after.get(table, 0), table
-    pin_public_id = _scalar(legacy_db, "SELECT public_id FROM inspection_pins WHERE id = 1")
+    pin_public_id = _scalar(
+        legacy_db, "SELECT public_id FROM inspection_pins WHERE id = 1"
+    )
     assert isinstance(pin_public_id, uuid.UUID)
     assert _scalar(legacy_db, "SELECT min(page_number) FROM inspection_pins") == 1
     assert "user_sub" in _columns(legacy_db, "project_members")
-    assert _scalar(legacy_db, "SELECT count(*) FROM project_members WHERE user_sub IS NULL") == 2
+    assert (
+        _scalar(
+            legacy_db, "SELECT count(*) FROM project_members WHERE user_sub IS NULL"
+        )
+        == 2
+    )
 
     # Legacy FK semantics intact: deleting a finding detaches its pin,
     # deleting a project cascades through everything.
@@ -229,6 +236,51 @@ def test_legacy_database_upgrade_is_additive(legacy_db: str) -> None:
     assert result.returncode == 0, result.stderr
 
 
+def test_itp_migration_is_additive_and_refuses_to_lose_itp_data(legacy_db: str) -> None:
+    assert run_alembic(legacy_db, "upgrade", "head").returncode == 0
+
+    # Existing pins are untouched and start unlinked.
+    pins = _columns(legacy_db, "inspection_pins")
+    assert pins["itp_item_id"]["nullable"] is True
+    assert (
+        _scalar(
+            legacy_db, "SELECT count(*) FROM inspection_pins WHERE itp_item_id IS NULL"
+        )
+        == 2
+    )
+
+    engine = create_engine(legacy_db, isolation_level="AUTOCOMMIT")
+    try:
+        with engine.connect() as conn:
+            conn.exec_driver_sql(
+                """INSERT INTO project_itps (project_id, title, body)
+                       VALUES (1, 'Concrete pour', '{}');
+                   INSERT INTO itp_items (project_itp_id, requirement, classification)
+                       VALUES (1, 'Rebar checked', 'hold');
+                   UPDATE inspection_pins SET itp_item_id = 1 WHERE id = 1;"""
+            )
+            result = run_alembic(legacy_db, "downgrade", "-1")
+            assert result.returncode != 0
+            assert "Refusing to downgrade" in (result.stderr + result.stdout)
+            assert _scalar(legacy_db, "SELECT count(*) FROM project_itps") == 1
+
+            # Once the link and the rows are cleared deliberately, the downgrade
+            # goes through and removes the guards too.
+            conn.execute(text("UPDATE inspection_pins SET itp_item_id = NULL"))
+            conn.execute(text("DELETE FROM project_itps"))
+    finally:
+        engine.dispose()
+    result = run_alembic(legacy_db, "downgrade", "-1")
+    assert result.returncode == 0, result.stderr
+    assert "itp_item_id" not in _columns(legacy_db, "inspection_pins")
+    assert (
+        _scalar(
+            legacy_db, "SELECT count(*) FROM pg_proc WHERE proname LIKE 'vri_guard_%'"
+        )
+        == 0
+    )
+
+
 def test_downgrade_refuses_to_drop_populated_tables(legacy_db: str) -> None:
     assert run_alembic(legacy_db, "upgrade", "head").returncode == 0
 
@@ -238,7 +290,9 @@ def test_downgrade_refuses_to_drop_populated_tables(legacy_db: str) -> None:
     # Nothing was dropped: the refusal rolls the whole downgrade back, so even
     # the (empty) reports table is still there and the version is unchanged.
     assert _scalar(legacy_db, "SELECT count(*) FROM inspection_pins") == 2
-    assert _scalar(legacy_db, "SELECT version_num FROM alembic_version") == HEAD_REVISION
+    assert (
+        _scalar(legacy_db, "SELECT version_num FROM alembic_version") == HEAD_REVISION
+    )
     assert _scalar(legacy_db, "SELECT count(*) FROM inspection_reports") == 0
 
     # After a deliberate truncate the downgrade proceeds.

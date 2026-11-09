@@ -27,6 +27,8 @@ from typing import Any, Literal
 from pydantic import EmailStr
 from sqlalchemy import (
     BigInteger,
+    Boolean,
+    CheckConstraint,
     Column,
     DateTime,
     ForeignKey,
@@ -103,6 +105,14 @@ DRAWING_DISCIPLINES = (
 )
 DRAWING_FILE_TYPES = ("pdf", "png", "jpg", "jpeg", "svg")
 PIN_STATUSES = ("verified", "in_progress", "punch_item", "not_installed", "not_started")
+# Block 9.5 ITP vocabularies (PRD v2.63 §5; enforced in the API layer as above).
+AREA_TYPES = ("level", "lot", "stage", "chainage", "other")
+ITP_TEMPLATE_STATUSES = ("draft", "published", "archived")
+PROJECT_ITP_STATUSES = ("not_started", "in_progress", "complete", "voided")
+ITP_ITEM_CLASSIFICATIONS = ("hold", "witness", "surveillance", "record")
+ITP_ITEM_STATUSES = ("pending", "pass", "fail", "na")
+SIGNOFF_PARTIES = ("contractor", "client", "engineer")
+ITP_SIGNATURE_METHODS = ("in_app", "external_link")
 
 # Byte-exact column comment from the Block 8E migration applied to RDS.
 PAGE_NUMBER_COMMENT = (
@@ -385,6 +395,14 @@ class InspectionPin(SQLModel, table=True):
     )
     created_by: str | None = Field(default=None, sa_column=Column(String(255)))
     created_at: datetime | None = Field(default=None, sa_column=_created_at_column())
+    # Block 9.5: the ITP item this pin marks on the drawing (the drawing-anchored
+    # hold point). Detached, not deleted, when the item goes.
+    itp_item_id: int | None = Field(
+        default=None,
+        sa_column=Column(
+            Integer, ForeignKey("itp_items.id", ondelete="SET NULL"), index=True
+        ),
+    )
 
     drawing: Drawing | None = Relationship(back_populates="pins")
     finding: Finding | None = Relationship(back_populates="pins")
@@ -438,6 +456,353 @@ class InspectionReport(SQLModel, table=True):
     inspection: Inspection | None = Relationship(back_populates="reports")
 
 
+# --- Increment 12: Block 9.5 ITP / hold points + Areas (PRD v2.63 §5) -----------
+#
+# Deliberately no ``Relationship`` attributes on these tables: deletes must go
+# through the database's own cascades so the signed-evidence guards in migration
+# ``e7c2a9f4b613`` can tell "this row is being deleted on its own" (refused when
+# signed) from "the whole project is going" (allowed). An ORM cascade would
+# delete the children first, while the parent still exists, and trip the guard.
+# ``docs/DATA_MODEL.md`` records the rules; same-project checks (an ITP's area, a
+# pin's item, an area's parent) live in the API layer, like ``photos.finding_id``.
+
+
+class ProjectArea(SQLModel, table=True):
+    """A level / lot / stage / chainage of a project; ITPs are applied per area."""
+
+    __tablename__ = "project_areas"
+
+    id: int | None = Field(default=None, sa_column=_pk_column())
+    public_id: uuid.UUID | None = Field(default=None, sa_column=_public_id_column())
+    project_id: int = Field(
+        sa_column=Column(
+            Integer,
+            ForeignKey("projects.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        )
+    )
+    # Optional nesting (Building A → Level 3). Children move to the top level
+    # when their parent is deleted.
+    parent_area_id: int | None = Field(
+        default=None,
+        sa_column=Column(
+            Integer, ForeignKey("project_areas.id", ondelete="SET NULL"), index=True
+        ),
+    )
+    name: str = Field(sa_column=Column(String(255), nullable=False))
+    area_type: str = Field(
+        default="other",
+        sa_column=Column(String(20), nullable=False, server_default=text("'other'")),
+    )
+    sort_order: int = Field(
+        default=0, sa_column=Column(Integer, nullable=False, server_default=text("0"))
+    )
+    created_by: str | None = Field(default=None, sa_column=Column(String(255)))
+    created_at: datetime | None = Field(default=None, sa_column=_created_at_column())
+    updated_at: datetime | None = Field(default=None, sa_column=_updated_at_column())
+
+
+class ItpTemplate(SQLModel, table=True):
+    """A master ITP, one row per version.
+
+    Every version of one template shares a ``template_key``; editing a master
+    adds the next ``version`` rather than changing a row a project imported.
+    There is no company table yet, so a master belongs to the account that
+    created it (``created_by`` / ``created_by_sub``).
+    """
+
+    __tablename__ = "itp_templates"
+    __table_args__ = (
+        UniqueConstraint("template_key", "version", name="uq_itp_templates_version"),
+    )
+
+    id: int | None = Field(default=None, sa_column=_pk_column())
+    public_id: uuid.UUID | None = Field(default=None, sa_column=_public_id_column())
+    template_key: uuid.UUID | None = Field(
+        default=None,
+        sa_column=Column(
+            UUID(as_uuid=True),
+            nullable=False,
+            server_default=text("gen_random_uuid()"),
+            index=True,
+        ),
+    )
+    version: int = Field(
+        default=1, sa_column=Column(Integer, nullable=False, server_default=text("1"))
+    )
+    name: str = Field(sa_column=Column(String(255), nullable=False))
+    description: str | None = Field(default=None, sa_column=Column(Text))
+    status: str = Field(
+        default="draft",
+        sa_column=Column(String(20), nullable=False, server_default=text("'draft'")),
+    )
+    # SurveyJS-compatible form JSON (sections, items, classifications, roles).
+    body: dict[str, Any] = Field(sa_column=Column(JSONB, nullable=False))
+    created_by: str | None = Field(default=None, sa_column=Column(String(255)))
+    created_by_sub: str | None = Field(default=None, sa_column=Column(String(255)))
+    created_at: datetime | None = Field(default=None, sa_column=_created_at_column())
+    updated_at: datetime | None = Field(default=None, sa_column=_updated_at_column())
+
+
+class ProjectItp(SQLModel, table=True):
+    """A project's frozen copy of a master template (optionally for one area).
+
+    ``body`` is copied at import, so nothing done to the master reaches it.
+    The single nullable ``area_id`` is what makes "at most one area" true.
+    """
+
+    __tablename__ = "project_itps"
+
+    id: int | None = Field(default=None, sa_column=_pk_column())
+    public_id: uuid.UUID | None = Field(default=None, sa_column=_public_id_column())
+    project_id: int = Field(
+        sa_column=Column(
+            Integer,
+            ForeignKey("projects.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        )
+    )
+    # NULL = applies to the whole project. An unsigned ITP becomes project-level
+    # if its area is deleted; an area with a signed ITP cannot be deleted.
+    area_id: int | None = Field(
+        default=None,
+        sa_column=Column(
+            Integer, ForeignKey("project_areas.id", ondelete="SET NULL"), index=True
+        ),
+    )
+    # Provenance only. The master may later be deleted; the copy stands alone.
+    template_id: int | None = Field(
+        default=None,
+        sa_column=Column(
+            Integer, ForeignKey("itp_templates.id", ondelete="SET NULL"), index=True
+        ),
+    )
+    template_version: int | None = Field(default=None, sa_column=Column(Integer))
+    title: str = Field(sa_column=Column(String(255), nullable=False))
+    status: str = Field(
+        default="not_started",
+        sa_column=Column(
+            String(20), nullable=False, server_default=text("'not_started'")
+        ),
+    )
+    body: dict[str, Any] = Field(sa_column=Column(JSONB, nullable=False))
+    # Latest generated sign-off pack (increment 14); S3 key only, never bytes.
+    pack_s3_key: str | None = Field(default=None, sa_column=Column(String(512)))
+    pack_version: int | None = Field(default=None, sa_column=Column(Integer))
+    created_by: str | None = Field(default=None, sa_column=Column(String(255)))
+    created_at: datetime | None = Field(default=None, sa_column=_created_at_column())
+    updated_at: datetime | None = Field(default=None, sa_column=_updated_at_column())
+
+
+class ItpItem(SQLModel, table=True):
+    """One checklist line of a project ITP."""
+
+    __tablename__ = "itp_items"
+
+    id: int | None = Field(default=None, sa_column=_pk_column())
+    public_id: uuid.UUID | None = Field(default=None, sa_column=_public_id_column())
+    project_itp_id: int = Field(
+        sa_column=Column(
+            Integer,
+            ForeignKey("project_itps.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        )
+    )
+    section: str | None = Field(default=None, sa_column=Column(String(255)))
+    # The SurveyJS element this row was materialised from, in ``body``.
+    element_name: str | None = Field(default=None, sa_column=Column(String(255)))
+    requirement: str = Field(sa_column=Column(Text, nullable=False))
+    # hold | witness | surveillance | record. No default on purpose: a line that
+    # lost its classification must fail, not quietly stop being a hold point.
+    classification: str = Field(sa_column=Column(String(20), nullable=False))
+    status: str = Field(
+        default="pending",
+        sa_column=Column(String(20), nullable=False, server_default=text("'pending'")),
+    )
+    notes: str | None = Field(default=None, sa_column=Column(Text))
+    sort_order: int = Field(
+        default=0, sa_column=Column(Integer, nullable=False, server_default=text("0"))
+    )
+    created_at: datetime | None = Field(default=None, sa_column=_created_at_column())
+    updated_at: datetime | None = Field(default=None, sa_column=_updated_at_column())
+
+
+class SignoffRole(SQLModel, table=True):
+    """A sign-off role on a project, shared by all of that project's ITPs."""
+
+    __tablename__ = "signoff_roles"
+    __table_args__ = (
+        UniqueConstraint("project_id", "role_name", name="uq_signoff_roles_name"),
+    )
+
+    id: int | None = Field(default=None, sa_column=_pk_column())
+    public_id: uuid.UUID | None = Field(default=None, sa_column=_public_id_column())
+    project_id: int = Field(
+        sa_column=Column(
+            Integer,
+            ForeignKey("projects.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        )
+    )
+    role_name: str = Field(sa_column=Column(String(255), nullable=False))
+    # contractor | client | engineer
+    party: str = Field(sa_column=Column(String(20), nullable=False))
+    signer_email: str | None = Field(default=None, sa_column=Column(String(255)))
+    created_at: datetime | None = Field(default=None, sa_column=_created_at_column())
+
+
+class ItpItemRequiredRole(SQLModel, table=True):
+    """Which sign-off roles an ITP item needs (many-to-many)."""
+
+    __tablename__ = "itp_item_required_roles"
+    __table_args__ = (
+        UniqueConstraint(
+            "itp_item_id", "signoff_role_id", name="uq_itp_item_required_role"
+        ),
+    )
+
+    id: int | None = Field(default=None, sa_column=_pk_column())
+    public_id: uuid.UUID | None = Field(default=None, sa_column=_public_id_column())
+    itp_item_id: int = Field(
+        sa_column=Column(
+            Integer,
+            ForeignKey("itp_items.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        )
+    )
+    signoff_role_id: int = Field(
+        sa_column=Column(
+            Integer,
+            ForeignKey("signoff_roles.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        )
+    )
+
+
+class ExternalSignToken(SQLModel, table=True):
+    """A no-account signing link; only the SHA-256 of the token is stored.
+
+    A link opens one ITP's pack, or one area's combined pack: exactly one of
+    ``project_itp_id`` / ``area_id`` is set.
+    """
+
+    __tablename__ = "external_sign_tokens"
+    __table_args__ = (
+        CheckConstraint(
+            "num_nonnulls(project_itp_id, area_id) = 1",
+            name="ck_external_sign_tokens_one_document",
+        ),
+        CheckConstraint(
+            "char_length(token_hash) = 64",
+            name="ck_external_sign_tokens_hash_length",
+        ),
+    )
+
+    id: int | None = Field(default=None, sa_column=_pk_column())
+    public_id: uuid.UUID | None = Field(default=None, sa_column=_public_id_column())
+    token_hash: str = Field(sa_column=Column(String(64), nullable=False, unique=True))
+    project_itp_id: int | None = Field(
+        default=None,
+        sa_column=Column(
+            Integer, ForeignKey("project_itps.id", ondelete="CASCADE"), index=True
+        ),
+    )
+    area_id: int | None = Field(
+        default=None,
+        sa_column=Column(
+            Integer, ForeignKey("project_areas.id", ondelete="CASCADE"), index=True
+        ),
+    )
+    signoff_role_id: int = Field(
+        sa_column=Column(
+            Integer,
+            ForeignKey("signoff_roles.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        )
+    )
+    signer_email: str = Field(sa_column=Column(String(255), nullable=False))
+    expires_at: datetime | None = Field(
+        default=None,
+        sa_column=Column(
+            DateTime(timezone=True),
+            nullable=False,
+            server_default=text("now() + interval '14 days'"),
+        ),
+    )
+    used_at: datetime | None = Field(
+        default=None, sa_column=Column(DateTime(timezone=True))
+    )
+    revoked: bool = Field(
+        default=False,
+        sa_column=Column(Boolean, nullable=False, server_default=text("false")),
+    )
+    created_by: str | None = Field(default=None, sa_column=Column(String(255)))
+    created_at: datetime | None = Field(default=None, sa_column=_created_at_column())
+
+
+class ItpSignature(SQLModel, table=True):
+    """One signature, with its time / GPS / weather stamp.
+
+    ``itp_item_id`` NULL means the signature is on the whole pack. An area pack
+    signature writes one row per ITP it covers, so every signature names an ITP.
+    Role name and party are copied in so the record survives the role's deletion.
+    """
+
+    __tablename__ = "itp_signatures"
+
+    id: int | None = Field(default=None, sa_column=_pk_column())
+    public_id: uuid.UUID | None = Field(default=None, sa_column=_public_id_column())
+    project_itp_id: int = Field(
+        sa_column=Column(
+            Integer,
+            ForeignKey("project_itps.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        )
+    )
+    itp_item_id: int | None = Field(
+        default=None,
+        sa_column=Column(
+            Integer, ForeignKey("itp_items.id", ondelete="CASCADE"), index=True
+        ),
+    )
+    signoff_role_id: int | None = Field(
+        default=None,
+        sa_column=Column(
+            Integer, ForeignKey("signoff_roles.id", ondelete="SET NULL"), index=True
+        ),
+    )
+    external_token_id: int | None = Field(
+        default=None,
+        sa_column=Column(
+            Integer,
+            ForeignKey("external_sign_tokens.id", ondelete="SET NULL"),
+            index=True,
+        ),
+    )
+    role_name: str = Field(sa_column=Column(String(255), nullable=False))
+    party: str = Field(sa_column=Column(String(20), nullable=False))
+    signer_name: str | None = Field(default=None, sa_column=Column(String(255)))
+    signer_email: str = Field(sa_column=Column(String(255), nullable=False))
+    # Auth0 `sub` for in-app signatures; NULL for external links.
+    signer_sub: str | None = Field(default=None, sa_column=Column(String(255)))
+    # in_app | external_link
+    method: str = Field(sa_column=Column(String(20), nullable=False))
+    signed_at: datetime | None = Field(default=None, sa_column=_created_at_column())
+    gps_lat: Decimal | None = Field(default=None, sa_column=Column(Numeric(9, 6)))
+    gps_lng: Decimal | None = Field(default=None, sa_column=Column(Numeric(9, 6)))
+    weather: dict[str, Any] | None = Field(default=None, sa_column=Column(JSONB))
+    # S3 object key of the drawn signature image; never file bytes.
+    signature_s3_key: str | None = Field(default=None, sa_column=Column(String(512)))
+
+
 # The seven tables that exist on the live (pre-rebuild) staging database.
 LEGACY_TABLES: tuple[str, ...] = (
     "projects",
@@ -450,7 +815,18 @@ LEGACY_TABLES: tuple[str, ...] = (
 )
 
 # Every domain table the rebuild owns (legacy tables + rebuild additions).
-DOMAIN_TABLES: tuple[str, ...] = (*LEGACY_TABLES, "inspection_reports")
+DOMAIN_TABLES: tuple[str, ...] = (
+    *LEGACY_TABLES,
+    "inspection_reports",
+    "project_areas",
+    "itp_templates",
+    "project_itps",
+    "itp_items",
+    "signoff_roles",
+    "itp_item_required_roles",
+    "external_sign_tokens",
+    "itp_signatures",
+)
 
 
 # --- API-only schemas -------------------------------------------------------
