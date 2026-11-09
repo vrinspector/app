@@ -164,6 +164,7 @@ not a stored column.
 | page_number | INTEGER NOT NULL default 1 (+ byte-exact column comment) | **verified** — Block 8E migration |
 | created_by | VARCHAR(255) | verified |
 | created_at | TIMESTAMPTZ | verified |
+| itp_item_id | INTEGER FK → itp_items SET NULL, indexed | rebuild — increment 12, the drawing-anchored hold point |
 
 ### inspection_reports (rebuild, increment 10 — migration `c4e8f2a7b911`)
 
@@ -187,7 +188,64 @@ downgrade refuses to drop it while it holds rows.
 | created_at | TIMESTAMPTZ | rebuild |
 
 `LEGACY_TABLES` in `app/models.py` names the seven tables above that exist
-on the live database; `DOMAIN_TABLES` adds this one.
+on the live database; `DOMAIN_TABLES` adds this one and the ITP tables below.
+
+## Block 9.5 — ITP / hold points and Areas (increment 12, migration `e7c2a9f4b613`)
+
+Eight new tables (PRD v2.63 §5, owner decision 2026-11-08 for Areas) and one
+new nullable column on `inspection_pins`. Purely additive on the live database.
+No routes or screens yet: increment 13 builds them. `id` (SERIAL PK) and
+`public_id` (UUID) are on every table and omitted below.
+
+| Table | Purpose | Columns |
+|---|---|---|
+| `project_areas` | Level / lot / stage / chainage of a project | `project_id` (CASCADE), `parent_area_id` (self, SET NULL), `name`, `area_type` (level, lot, stage, chainage, other), `sort_order`, `created_by`, timestamps |
+| `itp_templates` | Master ITP, one row per version | `template_key` (groups the versions), `version` (unique per key), `name`, `description`, `status` (draft, published, archived), `body` (SurveyJS JSON), `created_by`, `created_by_sub`, timestamps |
+| `project_itps` | Frozen copy for a project, optionally one area | `project_id` (CASCADE), `area_id` (SET NULL), `template_id` (SET NULL), `template_version`, `title`, `status` (not_started, in_progress, complete, voided), `body` (copied at import), `pack_s3_key`, `pack_version`, `created_by`, timestamps |
+| `itp_items` | One checklist line | `project_itp_id` (CASCADE), `section`, `element_name` (SurveyJS element in `body`), `requirement`, `classification` (hold, witness, surveillance, record; required, no default), `status` (pending, pass, fail, na), `notes`, `sort_order`, timestamps |
+| `signoff_roles` | Role on a project | `project_id` (CASCADE), `role_name` (unique per project), `party` (contractor, client, engineer), `signer_email`, `created_at` |
+| `itp_item_required_roles` | Which roles an item needs | `itp_item_id` (CASCADE), `signoff_role_id` (CASCADE), unique together |
+| `external_sign_tokens` | No-account signing link | `token_hash` (SHA-256 hex, unique, must be 64 characters), `project_itp_id` / `area_id` (CASCADE; exactly one set), `signoff_role_id` (CASCADE), `signer_email`, `expires_at` (default 14 days), `used_at`, `revoked`, `created_by`, `created_at` |
+| `itp_signatures` | One stamped signature | `project_itp_id` (CASCADE), `itp_item_id` (CASCADE; NULL = whole pack), `signoff_role_id` and `external_token_id` (SET NULL), `role_name` and `party` (copied), `signer_name`, `signer_email`, `signer_sub`, `method` (in_app, external_link), `signed_at`, `gps_lat`, `gps_lng`, `weather` (JSONB), `signature_s3_key` |
+
+`itp_item_required_roles` is not named in the plan's list: PRD §5 gives an item
+"required sign-off roles", and a link table lets "every required role has
+signed" be an ordinary query with real foreign keys.
+
+Rules the database enforces:
+
+* **Frozen copies.** `project_itps.body` is its own JSON, so editing or deleting
+  a master cannot reach it. Editing a master adds the next `version`.
+* **At most one area.** `project_itps.area_id` is a single nullable column.
+* **Signed evidence cannot be deleted piecemeal.** `BEFORE DELETE` triggers
+  (`vri_guard_area_delete`, `vri_guard_project_itp_delete`,
+  `vri_guard_itp_item_delete`) refuse with `restrict_violation` (IntegrityError)
+  to delete an area with a signed ITP, an ITP with any signature, or an item with
+  a signature. Deleting the whole **project** still cascades: each guard first
+  checks that the parent still exists, and in a cascade it no longer does.
+  This is why the ITP tables have no ORM `Relationship`s: an ORM cascade deletes
+  children while the parent still exists and would trip the guard.
+* **Tokens are stored only as a hash**, and every token opens exactly one ITP or
+  one area.
+
+Left for the API layer in increments 13–14, like `photos.finding_id` and the
+value vocabularies: an ITP's area, an area's parent, a role and a pin's item
+must belong to the same project; no parent-area cycles; a role that items still
+require cannot be deleted (it would quietly clear the hold point); a hold point
+blocks completion until every required role has signed.
+
+Decisions for the owner (non-blocking; say if any should change):
+
+35. **Masters belong to the account that created them.** PRD §5 says
+    "company-level", but the app has no company record, so the template list in
+    increment 13 is per account until one exists.
+36. **Sign-off roles are per project**, not per ITP, so "Client engineer" and
+    their email are entered once and reused across all 40 lots.
+37. **Deleting an area with only unsigned ITPs keeps them** as whole-project
+    ITPs rather than deleting them. Child areas move to the top level.
+38. **Deleting a whole project still deletes its signed ITPs**, as it deletes
+    everything else today. If signed records should stop a project being
+    deleted, that is a small change to the guards.
 
 ## Not ported (by design)
 
@@ -197,4 +255,3 @@ on the live database; `DOMAIN_TABLES` adds this one.
   schema is evidenced. The route is ported in increment 10.5 as a lookup
   with an in-process cache (`app/core/weather.py`), still with no table; a
   stored reading per inspection can follow if the real dump shows one.
-* Block 9.5 ITP tables, `inspection_pins.itp_item_id` — increment 12.
