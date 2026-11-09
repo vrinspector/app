@@ -160,12 +160,14 @@ on("GET", "/users/me", () => ({
 on("GET", "/utils/health-check", () => true)
 on("GET", "/dashboard", () => dashboard())
 // Weather badge (increment 10.5): a fixed, plausible reading for the demo.
-on("GET", "/weather", () => ({
+on("GET", "/weather", ({ query }) => ({
   description: "Partly cloudy",
   temp_f: 61,
   humidity: 58,
   wind_mph: 7,
   weather_code: 2,
+  location: query.get("location") ?? "Sample County, NC",
+  observed_at: stamp(),
 }))
 
 // --- Projects & members ----------------------------------------------------
