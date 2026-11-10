@@ -31,7 +31,7 @@ export function ListCard({
   "data-testid": testId = "list-card",
 }: ListCardProps) {
   return (
-    <li className="list-none">
+    <li className="min-w-0 list-none">
       <Link
         to={to}
         params={params}

@@ -1,6 +1,6 @@
 /*
- * Block 9.5 ITPs (increment 13): vocabularies, the starter template, and a
- * reader for SurveyJS template bodies.
+ * Block 9.5 ITPs (increment 13): vocabularies and a reader for SurveyJS
+ * template bodies. The starter library (increment 13.7) is in `itpLibrary.ts`.
  *
  * `parseTemplateBody` is a line-for-line port of the API's
  * `app/core/itp.py::parse_template_body`, so the template editor can show
@@ -468,86 +468,4 @@ export function checkTemplateText(
       error: error instanceof Error ? error.message : String(error),
     }
   }
-}
-
-/**
- * The template a new master starts from: a short concrete-pour ITP that
- * shows every feature (pages as sections, all four H / W / R / I
- * classifications, a hold point two roles release with a required photo,
- * acceptance criteria / reference / record, and measured values in US
- * customary units). Increment 13.7 replaces it with the starter library.
- */
-export const STARTER_TEMPLATE = {
-  title: "Concrete pour",
-  signoffRoles: [
-    { name: "Contractor", party: "contractor" },
-    { name: "Owner's representative", party: "client" },
-  ],
-  pages: [
-    {
-      name: "pre-pour",
-      title: "Pre-pour",
-      elements: [
-        {
-          type: "radiogroup",
-          name: "formwork",
-          title: "Formwork set out and checked against drawings",
-          choices: ["Pass", "Fail", "N/A"],
-          classification: "information",
-          acceptanceCriteria:
-            "Project-specific value required — verify before issue",
-          reference: "Formwork drawings",
-        },
-        {
-          type: "radiogroup",
-          name: "rebar",
-          title: "Reinforcement inspected before pour",
-          choices: ["Pass", "Fail", "N/A"],
-          classification: "hold",
-          signoffRoles: ["Contractor", "Owner's representative"],
-          acceptanceCriteria:
-            "Bar size, spacing, laps and supports match the approved shop drawings",
-          reference: "ACI 301 §3.3; approved shop drawings",
-          recordRequired: "Photos of the mat with a tape in view",
-          photoRequired: true,
-        },
-        {
-          type: "text",
-          name: "cover",
-          title: "Clear cover to reinforcement",
-          inputType: "number",
-          classification: "review",
-          unit: "in",
-          min: 1.5,
-          acceptanceCriteria:
-            "Project-specific value required — verify before issue",
-          reference: "ACI 318 Table 20.5.1.3.1",
-        },
-      ],
-    },
-    {
-      name: "pour",
-      title: "Pour",
-      elements: [
-        {
-          type: "radiogroup",
-          name: "pour",
-          title: "Pour witnessed",
-          choices: ["Pass", "Fail", "N/A"],
-          classification: "witness",
-          signoffRoles: ["Owner's representative"],
-        },
-        {
-          type: "text",
-          name: "cylinders",
-          title: "Test cylinders cast (count)",
-          inputType: "number",
-          classification: "review",
-          min: 1,
-          reference: "ASTM C31",
-          recordRequired: "Cylinder set IDs",
-        },
-      ],
-    },
-  ],
 }

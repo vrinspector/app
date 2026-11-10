@@ -178,7 +178,9 @@ Block 9.5 (PRD v2.63 §5) — new routes with no legacy counterpart, in
 reader `app/core/itp.py` (mirrored in `frontend/src/lib/itp.ts` for the
 editor and the demo).
 
-    GET    /itp-templates[?include_archived]   caller's masters, latest version each
+    GET    /itp-templates[?include_archived]   caller's masters, latest version each; an account
+                                               with no master is first given the four starters
+                                               (13.7, app/itp-library.json, published v1, once)
     POST   /itp-templates                      201, version 1 (body validated → 422 with a reason)
     GET    /itp-templates/{id}                 one version + body + version list
     PUT    /itp-templates/{id}                 201, the next version (409 unless editing the latest)

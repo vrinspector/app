@@ -1,0 +1,851 @@
+{
+  "version": 1,
+  "templates": [
+    {
+      "key": "cast-in-place-concrete",
+      "name": "Cast-in-place concrete",
+      "description": "Footings, slabs, walls and equipment pads: submittals, formwork and embeds, rebar hold points, pre-pour release, field tests, cylinders, curing and 28-day results. ACI 301 / 318 and ASTM test methods; US customary units.",
+      "body": {
+        "title": "Cast-in-place concrete",
+        "libraryKey": "cast-in-place-concrete",
+        "libraryVersion": 1,
+        "signoffRoles": [
+          {
+            "name": "Contractor",
+            "party": "contractor"
+          },
+          {
+            "name": "Owner's representative",
+            "party": "client"
+          },
+          {
+            "name": "Third-party inspector",
+            "party": "engineer"
+          }
+        ],
+        "pages": [
+          {
+            "name": "before-work",
+            "title": "1 Before work",
+            "elements": [
+              {
+                "type": "radiogroup",
+                "choices": ["Pass", "Fail", "N/A"],
+                "name": "mix-design",
+                "title": "Concrete mix design accepted",
+                "classification": "review",
+                "signoffRoles": ["Owner's representative"],
+                "acceptanceCriteria": "An accepted mix design is on file for every class of concrete in this placement, stating specified compressive strength (f′c), maximum water-cementitious materials ratio, nominal maximum aggregate size, target slump and air content, and admixtures; supported by field strength records or trial batches. Specified values: Project-specific value required — verify before issue.",
+                "reference": "ACI 301 Section 4; ACI 318 §26.4",
+                "recordRequired": "Accepted mix submittal with reviewer's stamp and date"
+              },
+              {
+                "type": "radiogroup",
+                "choices": ["Pass", "Fail", "N/A"],
+                "name": "rebar-submittals",
+                "title": "Rebar shop drawings and mill certificates accepted",
+                "classification": "review",
+                "signoffRoles": ["Owner's representative"],
+                "acceptanceCriteria": "Shop drawings accepted for this placement (latest revision on site); mill certificates on file for every bar size and grade delivered, with heat numbers matching the bundle tags.",
+                "reference": "ACI 301 Section 3; ASTM A615 / A706",
+                "recordRequired": "Accepted shop drawings (revision noted) and mill certificates"
+              },
+              {
+                "type": "radiogroup",
+                "choices": ["Pass", "Fail", "N/A"],
+                "name": "subgrade",
+                "title": "Subgrade / compacted base accepted",
+                "classification": "witness",
+                "signoffRoles": ["Owner's representative"],
+                "acceptanceCriteria": "Subgrade or base is firm, unyielding and free of standing water, frost and loose material; field density at or above the specified percentage of laboratory maximum dry density. Specified percentage: Project-specific value required — verify before issue.",
+                "reference": "Geotechnical report; ASTM D1557 or D698; ASTM D6938",
+                "recordRequired": "Field density test report covering this footprint"
+              }
+            ]
+          },
+          {
+            "name": "formwork",
+            "title": "2 Formwork and embeds",
+            "elements": [
+              {
+                "type": "radiogroup",
+                "choices": ["Pass", "Fail", "N/A"],
+                "name": "form-dimensions",
+                "title": "Forms: dimensions, line and level",
+                "classification": "witness",
+                "signoffRoles": ["Owner's representative"],
+                "acceptanceCriteria": "Formed dimensions, line, level and plumb match the drawings within the tolerances in the contract documents (ACI 117 where adopted). Tolerances: Project-specific value required — verify before issue.",
+                "reference": "Structural drawings; ACI 117; ACI 301 Section 2",
+                "recordRequired": "Survey or tape check of key dimensions and top-of-concrete elevations"
+              },
+              {
+                "type": "radiogroup",
+                "choices": ["Pass", "Fail", "N/A"],
+                "name": "anchor-bolts",
+                "title": "Anchor-bolt template surveyed before pour",
+                "classification": "witness",
+                "signoffRoles": ["Owner's representative"],
+                "acceptanceCriteria": "Anchor-bolt templates are rigidly fixed and surveyed before the pour: bolt diameter, projection, pattern and position against the setting plan. Position and projection tolerances: Project-specific value required — verify before issue.",
+                "reference": "Anchor-bolt setting plan; ACI 117",
+                "recordRequired": "Pre-pour anchor-bolt survey (coordinates and projections)",
+                "photoRequired": true
+              },
+              {
+                "type": "radiogroup",
+                "choices": ["Pass", "Fail", "N/A"],
+                "name": "embeds",
+                "title": "Embeds, sleeves and penetrations",
+                "classification": "witness",
+                "signoffRoles": ["Owner's representative"],
+                "acceptanceCriteria": "Every embed plate, sleeve, blockout and penetration shown on the drawings (structural, mechanical, electrical, plumbing) is present, the right size, located as dimensioned and secured against movement during placement.",
+                "reference": "Structural and trade drawings",
+                "recordRequired": "Marked-up embed / sleeve checklist",
+                "photoRequired": true
+              },
+              {
+                "type": "radiogroup",
+                "choices": ["Pass", "Fail", "N/A"],
+                "name": "grounding",
+                "title": "Cast-in grounding",
+                "classification": "witness",
+                "signoffRoles": ["Owner's representative"],
+                "acceptanceCriteria": "Grounding conductors and connections that will be cast in are installed, connected to the reinforcement or electrode as detailed, and their stub-ups are at the locations and lengths shown. Conductor size and connection type: Project-specific value required — verify before issue.",
+                "reference": "Grounding drawings; NFPA 70 (NEC) Article 250",
+                "recordRequired": "Photos of connections before they are covered",
+                "photoRequired": true
+              }
+            ]
+          },
+          {
+            "name": "rebar",
+            "title": "3 Rebar inspection",
+            "elements": [
+              {
+                "type": "radiogroup",
+                "choices": ["Pass", "Fail", "N/A"],
+                "name": "bar-size-grade",
+                "title": "Bar size and grade",
+                "classification": "hold",
+                "signoffRoles": ["Third-party inspector"],
+                "acceptanceCriteria": "Every bar's rolled-in size and grade marks match the accepted shop drawings and mill certificates; no substitutions without written approval.",
+                "reference": "ACI 301 Section 3; ASTM A615 / A706; IBC 1705.3 where special inspection applies",
+                "recordRequired": "Photo of bar marks with a tag or tape for scale",
+                "photoRequired": true
+              },
+              {
+                "type": "radiogroup",
+                "choices": ["Pass", "Fail", "N/A"],
+                "name": "bar-spacing",
+                "title": "Bar spacing",
+                "classification": "hold",
+                "signoffRoles": ["Third-party inspector"],
+                "acceptanceCriteria": "Bar spacing matches the shop drawings within the specified tolerance, and clear spacing between parallel bars is not less than the largest of 1 in, one bar diameter, and 4/3 of the nominal maximum aggregate size. Spacing tolerance: Project-specific value required — verify before issue.",
+                "reference": "ACI 318 §25.2; ACI 117",
+                "recordRequired": "Photo with a tape across the mat",
+                "photoRequired": true
+              },
+              {
+                "type": "radiogroup",
+                "choices": ["Pass", "Fail", "N/A"],
+                "name": "lap-lengths",
+                "title": "Lap lengths",
+                "classification": "hold",
+                "signoffRoles": ["Third-party inspector"],
+                "acceptanceCriteria": "Every lap splice is at least the length scheduled on the accepted shop drawings for that bar size, at the locations shown; laps are staggered where detailed.",
+                "reference": "ACI 318 §25.5; accepted shop drawings",
+                "recordRequired": "Photo of a representative lap with a tape in view",
+                "photoRequired": true
+              },
+              {
+                "type": "radiogroup",
+                "choices": ["Pass", "Fail", "N/A"],
+                "name": "ties",
+                "title": "Ties",
+                "classification": "hold",
+                "signoffRoles": ["Third-party inspector"],
+                "acceptanceCriteria": "Bars are tied so the cage or mat does not move during placement and vibration; tie-wire ends are turned away from the formed face so they do not intrude into the cover.",
+                "reference": "ACI 301 Section 3; CRSI Manual of Standard Practice",
+                "recordRequired": "Photo of the tied mat",
+                "photoRequired": true
+              },
+              {
+                "type": "radiogroup",
+                "choices": ["Pass", "Fail", "N/A"],
+                "name": "supports",
+                "title": "Chairs and supports",
+                "classification": "hold",
+                "signoffRoles": ["Third-party inspector"],
+                "acceptanceCriteria": "Chairs, bolsters and side-form spacers hold the reinforcement at the detailed height and cover under foot traffic; spacing close enough that the mat does not sag between supports; support type suits the exposure (plastic-protected, epoxy-coated, stainless or precast concrete where the surface is exposed).",
+                "reference": "ACI 301 Section 3; CRSI Manual of Standard Practice",
+                "recordRequired": "Photo of supports along a bar run",
+                "photoRequired": true
+              },
+              {
+                "type": "text",
+                "inputType": "number",
+                "name": "clear-cover",
+                "title": "Clear cover (smallest measured)",
+                "classification": "hold",
+                "signoffRoles": ["Third-party inspector"],
+                "acceptanceCriteria": "Smallest clear cover measured is not less than the specified cover less the allowed tolerance (−3/8 in for members 12 in deep or less, −1/2 in for deeper members, and never more than one-third of the specified cover). Specified cover: Project-specific value required — verify before issue.",
+                "reference": "ACI 318 §20.5.1.3; ACI 117",
+                "recordRequired": "Cover readings at the locations checked, with photos of the tape",
+                "photoRequired": true,
+                "unit": "in"
+              },
+              {
+                "type": "radiogroup",
+                "choices": ["Pass", "Fail", "N/A"],
+                "name": "cleanliness",
+                "title": "Reinforcement cleanliness",
+                "classification": "hold",
+                "signoffRoles": ["Third-party inspector"],
+                "acceptanceCriteria": "Reinforcement is free of mud, oil, form-release agent, ice and other coatings that reduce bond; light rust or mill scale is acceptable, loose or flaking rust is not; epoxy coating damage is repaired.",
+                "reference": "ACI 301 Section 3; ACI 318 §26.6.1",
+                "recordRequired": "Photo of the mat as it will be covered",
+                "photoRequired": true
+              }
+            ]
+          },
+          {
+            "name": "pre-pour-release",
+            "title": "4 Pre-pour release",
+            "elements": [
+              {
+                "type": "radiogroup",
+                "choices": ["Pass", "Fail", "N/A"],
+                "name": "weather-plan",
+                "title": "Hot- or cold-weather plan (if applicable)",
+                "classification": "review",
+                "signoffRoles": ["Owner's representative"],
+                "acceptanceCriteria": "Where hot weather is forecast during placement, or the air temperature is expected to fall below 40 °F during the protection period, the accepted hot- or cold-weather concreting plan is on site and its materials (shade, windbreaks, blankets, heaters, evaporation control) are ready. Mark N/A when neither applies.",
+                "reference": "ACI 305R; ACI 306R; ACI 301 Section 5",
+                "recordRequired": "Accepted hot- / cold-weather plan; forecast for the pour day"
+              },
+              {
+                "type": "radiogroup",
+                "choices": ["Pass", "Fail", "N/A"],
+                "name": "pre-pour-release",
+                "title": "Pre-pour release",
+                "classification": "hold",
+                "signoffRoles": ["Contractor", "Owner's representative"],
+                "acceptanceCriteria": "Every earlier line in this ITP is passed or marked N/A; forms are clean and coated; the pour sequence, joints, pump and finishing crew are ready; testing agency is booked. Placement may start only after both signatures.",
+                "reference": "Project specifications; this ITP",
+                "recordRequired": "Signed release",
+                "photoRequired": true
+              }
+            ]
+          },
+          {
+            "name": "placement",
+            "title": "5 Placement and after",
+            "elements": [
+              {
+                "type": "radiogroup",
+                "choices": ["Pass", "Fail", "N/A"],
+                "name": "batch-tickets",
+                "title": "Batch tickets reviewed (including water added)",
+                "classification": "review",
+                "signoffRoles": ["Owner's representative"],
+                "acceptanceCriteria": "Every truck's ticket shows mix ID, volume, batch time and any water added on site; water added does not take the mix past its maximum w/cm; concrete is discharged within 90 minutes or 300 drum revolutions of batching unless the project allows otherwise.",
+                "reference": "ASTM C94",
+                "recordRequired": "Batch tickets for the placement"
+              },
+              {
+                "type": "text",
+                "inputType": "number",
+                "name": "slump",
+                "title": "Slump",
+                "classification": "witness",
+                "signoffRoles": ["Owner's representative"],
+                "acceptanceCriteria": "Within the slump stated on the accepted mix design and its tolerance. Target and tolerance: Project-specific value required — verify before issue.",
+                "reference": "ASTM C143; ASTM C172 (sampling)",
+                "recordRequired": "Field test report (time, truck and ticket number)",
+                "unit": "in"
+              },
+              {
+                "type": "text",
+                "inputType": "number",
+                "name": "air-content",
+                "title": "Air content",
+                "classification": "witness",
+                "signoffRoles": ["Owner's representative"],
+                "acceptanceCriteria": "Within the air content stated on the accepted mix design and its tolerance; required content depends on exposure class. Target and tolerance: Project-specific value required — verify before issue.",
+                "reference": "ASTM C231 (pressure method) or C173; ACI 318 §19.3.3",
+                "recordRequired": "Field test report",
+                "unit": "%"
+              },
+              {
+                "type": "text",
+                "inputType": "number",
+                "name": "concrete-temperature",
+                "title": "Concrete temperature",
+                "classification": "witness",
+                "signoffRoles": ["Owner's representative"],
+                "acceptanceCriteria": "Concrete temperature at discharge is not above 95 °F unless the project allows a higher limit, and not below the cold-weather minimum for the section size. Cold-weather minimum: Project-specific value required — verify before issue.",
+                "reference": "ASTM C1064; ACI 301 Section 4; ACI 306R",
+                "recordRequired": "Field test report with air temperature",
+                "unit": "°F",
+                "max": 95
+              },
+              {
+                "type": "text",
+                "inputType": "number",
+                "name": "unit-weight",
+                "title": "Unit weight (density)",
+                "classification": "witness",
+                "signoffRoles": ["Owner's representative"],
+                "acceptanceCriteria": "Within the density range stated on the accepted mix design. Range: Project-specific value required — verify before issue.",
+                "reference": "ASTM C138",
+                "recordRequired": "Field test report",
+                "unit": "lb/ft³"
+              },
+              {
+                "type": "text",
+                "name": "cylinders",
+                "title": "Cylinders cast — set IDs and initial curing",
+                "classification": "witness",
+                "signoffRoles": ["Owner's representative"],
+                "acceptanceCriteria": "One strength test (two 6 × 12 in or three 4 × 8 in cylinders per test age) at least once per day, per 150 yd³ and per 5,000 ft² of slab or wall; molded within 15 minutes of sampling; initial curing at 60–80 °F protected from vibration and moisture loss.",
+                "reference": "ACI 318 §26.12; ASTM C31; ASTM C172",
+                "recordRequired": "Cylinder set IDs and the curing location"
+              },
+              {
+                "type": "radiogroup",
+                "choices": ["Pass", "Fail", "N/A"],
+                "name": "consolidation",
+                "title": "Placement and consolidation",
+                "classification": "information",
+                "acceptanceCriteria": "Concrete placed in lifts without segregation or cold joints; internal vibration inserted at spacing that overlaps the vibrator's radius of action; no honeycombing or voids visible when forms are stripped.",
+                "reference": "ACI 309R; ACI 301 Section 5",
+                "recordRequired": "Pour start and finish times; truck count"
+              },
+              {
+                "type": "text",
+                "name": "curing",
+                "title": "Curing method and duration",
+                "classification": "witness",
+                "signoffRoles": ["Owner's representative"],
+                "acceptanceCriteria": "Curing starts as soon as finishing allows and keeps the concrete above 50 °F and moist for at least the first 7 days (3 days for high-early-strength concrete) unless the project requires longer.",
+                "reference": "ACI 318 §26.5.3; ACI 308R; ACI 301 Section 5",
+                "recordRequired": "Method (e.g. curing compound, wet burlap, sheet) and the dates"
+              },
+              {
+                "type": "radiogroup",
+                "choices": ["Pass", "Fail", "N/A"],
+                "name": "stripping",
+                "title": "Form stripping",
+                "classification": "information",
+                "acceptanceCriteria": "Forms and shoring removed no earlier than the time or strength stated for the element; stripped surfaces checked for honeycombing, cracks and tie holes, and defects reported. Stripping time / strength: Project-specific value required — verify before issue.",
+                "reference": "ACI 347R; ACI 301 Section 2",
+                "recordRequired": "Stripping date; defects noted",
+                "photoRequired": true
+              },
+              {
+                "type": "radiogroup",
+                "choices": ["Pass", "Fail", "N/A"],
+                "name": "anchor-bolt-survey-after",
+                "title": "Post-pour anchor-bolt survey",
+                "classification": "review",
+                "signoffRoles": ["Owner's representative"],
+                "acceptanceCriteria": "Anchor bolts surveyed after the pour are within the setting-plan tolerances for position, projection and plumb; out-of-tolerance bolts are reported for engineering disposition. Tolerances: Project-specific value required — verify before issue.",
+                "reference": "Anchor-bolt setting plan; ACI 117",
+                "recordRequired": "As-built anchor-bolt survey"
+              },
+              {
+                "type": "radiogroup",
+                "choices": ["Pass", "Fail", "N/A"],
+                "name": "strength-results",
+                "title": "7- and 28-day strength results",
+                "classification": "review",
+                "signoffRoles": ["Third-party inspector"],
+                "acceptanceCriteria": "28-day acceptance: every average of three consecutive strength tests is at least f′c, and no single test falls below f′c by more than 500 psi (f′c ≤ 5,000 psi) or by more than 0.10 f′c (f′c > 5,000 psi). 7-day results are recorded for trend.",
+                "reference": "ACI 318 §26.12.3; ASTM C39",
+                "recordRequired": "Laboratory compressive-strength reports"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "key": "earthwork-compaction",
+      "name": "Earthwork and compaction",
+      "description": "Subgrade proof-roll, fill approval, lift thickness, moisture and field density, grade check and release before building on fill.",
+      "body": {
+        "title": "Earthwork and compaction",
+        "libraryKey": "earthwork-compaction",
+        "libraryVersion": 1,
+        "signoffRoles": [
+          {
+            "name": "Contractor",
+            "party": "contractor"
+          },
+          {
+            "name": "Owner's representative",
+            "party": "client"
+          },
+          {
+            "name": "Third-party inspector",
+            "party": "engineer"
+          }
+        ],
+        "pages": [
+          {
+            "name": "before-work",
+            "title": "1 Before work",
+            "elements": [
+              {
+                "type": "radiogroup",
+                "choices": ["Pass", "Fail", "N/A"],
+                "name": "compaction-criteria",
+                "title": "Compaction criteria and test method accepted",
+                "classification": "review",
+                "signoffRoles": ["Owner's representative"],
+                "acceptanceCriteria": "The required percentage of maximum dry density, moisture range, lift thickness and test frequency are stated for each fill zone, with the Proctor method named. Values: Project-specific value required — verify before issue.",
+                "reference": "Geotechnical report; project specifications",
+                "recordRequired": "Accepted earthwork submittal"
+              },
+              {
+                "type": "radiogroup",
+                "choices": ["Pass", "Fail", "N/A"],
+                "name": "fill-material",
+                "title": "Fill material approved",
+                "classification": "review",
+                "signoffRoles": ["Third-party inspector"],
+                "acceptanceCriteria": "Each borrow source or stockpile has a laboratory moisture-density curve and classification; material meets the specified gradation and plasticity limits and is free of organics, debris and frozen lumps.",
+                "reference": "ASTM D698 or D1557; ASTM D2487",
+                "recordRequired": "Laboratory Proctor and classification reports per source"
+              },
+              {
+                "type": "radiogroup",
+                "choices": ["Pass", "Fail", "N/A"],
+                "name": "proof-roll",
+                "title": "Subgrade proof-roll",
+                "classification": "hold",
+                "signoffRoles": ["Contractor", "Third-party inspector"],
+                "acceptanceCriteria": "Exposed subgrade is proof-rolled with the specified loaded equipment; soft, pumping or yielding areas are marked and corrected before fill is placed. Equipment and rutting limit: Project-specific value required — verify before issue.",
+                "reference": "Geotechnical report",
+                "recordRequired": "Marked-up plan of soft areas and their correction",
+                "photoRequired": true
+              }
+            ]
+          },
+          {
+            "name": "placement",
+            "title": "2 Placement",
+            "elements": [
+              {
+                "type": "text",
+                "inputType": "number",
+                "name": "lift-thickness",
+                "title": "Loose lift thickness",
+                "classification": "witness",
+                "signoffRoles": ["Owner's representative"],
+                "acceptanceCriteria": "Each loose lift is no thicker than the specified maximum for the compaction equipment in use. Maximum: Project-specific value required — verify before issue.",
+                "reference": "Project specifications",
+                "recordRequired": "Lift measurements and locations",
+                "unit": "in"
+              },
+              {
+                "type": "text",
+                "inputType": "number",
+                "name": "moisture",
+                "title": "Moisture content",
+                "classification": "witness",
+                "signoffRoles": ["Owner's representative"],
+                "acceptanceCriteria": "Moisture content at compaction within the specified range of optimum from the moisture-density curve. Range: Project-specific value required — verify before issue.",
+                "reference": "ASTM D6938 or D2216",
+                "recordRequired": "Field test report",
+                "unit": "%"
+              },
+              {
+                "type": "text",
+                "inputType": "number",
+                "name": "relative-compaction",
+                "title": "Relative compaction (lowest test)",
+                "classification": "witness",
+                "signoffRoles": ["Owner's representative"],
+                "acceptanceCriteria": "Every field density test is at or above the specified percentage of maximum dry density; failing areas are reworked and retested. Specified percentage: Project-specific value required — verify before issue.",
+                "reference": "ASTM D6938 (nuclear) or D1556 (sand cone); ASTM D698 / D1557",
+                "recordRequired": "Test locations, elevations and results",
+                "unit": "%"
+              },
+              {
+                "type": "radiogroup",
+                "choices": ["Pass", "Fail", "N/A"],
+                "name": "test-frequency",
+                "title": "Test frequency met",
+                "classification": "review",
+                "signoffRoles": ["Third-party inspector"],
+                "acceptanceCriteria": "Number of density tests per lift and per area meets the specified frequency. Frequency: Project-specific value required — verify before issue.",
+                "reference": "Project specifications",
+                "recordRequired": "Test log against placed quantities"
+              }
+            ]
+          },
+          {
+            "name": "acceptance",
+            "title": "3 Acceptance",
+            "elements": [
+              {
+                "type": "text",
+                "inputType": "number",
+                "name": "grade-check",
+                "title": "Finished grade (largest deviation)",
+                "classification": "review",
+                "signoffRoles": ["Owner's representative"],
+                "acceptanceCriteria": "Finished subgrade or fill surface within the specified tolerance of design elevation. Tolerance: Project-specific value required — verify before issue.",
+                "reference": "Grading plan",
+                "recordRequired": "Grade survey",
+                "unit": "in"
+              },
+              {
+                "type": "radiogroup",
+                "choices": ["Pass", "Fail", "N/A"],
+                "name": "release-to-cover",
+                "title": "Release before covering or building on fill",
+                "classification": "hold",
+                "signoffRoles": ["Contractor", "Owner's representative"],
+                "acceptanceCriteria": "Compaction results, grade survey and corrections are complete and accepted for this area before base, slab or structure is placed on it.",
+                "reference": "This ITP; geotechnical report",
+                "recordRequired": "Signed release with area limits",
+                "photoRequired": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "key": "underground-conduit-duct-bank",
+      "name": "Underground conduit / duct bank before backfill",
+      "description": "Trench and bedding, conduit arrangement, joints, bends, mandrel pull, depth of cover, as-built and release for encasement or backfill. NEC references.",
+      "body": {
+        "title": "Underground conduit / duct bank before backfill",
+        "libraryKey": "underground-conduit-duct-bank",
+        "libraryVersion": 1,
+        "signoffRoles": [
+          {
+            "name": "Contractor",
+            "party": "contractor"
+          },
+          {
+            "name": "Owner's representative",
+            "party": "client"
+          },
+          {
+            "name": "Third-party inspector",
+            "party": "engineer"
+          }
+        ],
+        "pages": [
+          {
+            "name": "before-work",
+            "title": "1 Before work",
+            "elements": [
+              {
+                "type": "radiogroup",
+                "choices": ["Pass", "Fail", "N/A"],
+                "name": "materials",
+                "title": "Conduit and fittings submittal accepted",
+                "classification": "review",
+                "signoffRoles": ["Owner's representative"],
+                "acceptanceCriteria": "Conduit type, schedule, fittings, spacers and cement are as accepted and listed for the installation (direct burial or concrete-encased).",
+                "reference": "NFPA 70 (NEC) Articles 300, 344, 352 as applicable",
+                "recordRequired": "Accepted submittal; delivery tickets"
+              },
+              {
+                "type": "radiogroup",
+                "choices": ["Pass", "Fail", "N/A"],
+                "name": "trench",
+                "title": "Trench and bedding",
+                "classification": "witness",
+                "signoffRoles": ["Owner's representative"],
+                "acceptanceCriteria": "Trench is at the line and depth shown, sides are stable and protected as required, bottom is free of rocks and standing water, and bedding is placed and compacted as detailed.",
+                "reference": "Electrical site plan; OSHA 29 CFR 1926 Subpart P",
+                "recordRequired": "Trench depth readings at intervals"
+              }
+            ]
+          },
+          {
+            "name": "installation",
+            "title": "2 Installation",
+            "elements": [
+              {
+                "type": "radiogroup",
+                "choices": ["Pass", "Fail", "N/A"],
+                "name": "arrangement",
+                "title": "Conduit count, size and arrangement",
+                "classification": "witness",
+                "signoffRoles": ["Owner's representative"],
+                "acceptanceCriteria": "Number, size and position of conduits in each run match the duct-bank section on the drawings, including spares.",
+                "reference": "Duct-bank sections",
+                "recordRequired": "Photo of each distinct section",
+                "photoRequired": true
+              },
+              {
+                "type": "text",
+                "inputType": "number",
+                "name": "spacer-interval",
+                "title": "Spacer interval (largest)",
+                "classification": "information",
+                "acceptanceCriteria": "Spacers installed at no more than the specified interval and the conduits held at the detailed separation. Interval: Project-specific value required — verify before issue.",
+                "reference": "Duct-bank details; spacer manufacturer's instructions",
+                "unit": "ft"
+              },
+              {
+                "type": "radiogroup",
+                "choices": ["Pass", "Fail", "N/A"],
+                "name": "joints",
+                "title": "Joints and couplings",
+                "classification": "information",
+                "acceptanceCriteria": "Every joint fully seated and made with the listed method (solvent cement or threaded); couplings staggered where detailed; end bells or bushings at terminations.",
+                "reference": "NFPA 70 (NEC) Articles 344, 352"
+              },
+              {
+                "type": "text",
+                "inputType": "number",
+                "name": "bends",
+                "title": "Total bends between pull points (largest run)",
+                "classification": "review",
+                "signoffRoles": ["Owner's representative"],
+                "acceptanceCriteria": "No run has more than 360° of bends between pull points.",
+                "reference": "NFPA 70 (NEC) 344.26 / 352.26",
+                "recordRequired": "Run-by-run bend count",
+                "unit": "degrees",
+                "max": 360
+              },
+              {
+                "type": "radiogroup",
+                "choices": ["Pass", "Fail", "N/A"],
+                "name": "proof-pull",
+                "title": "Mandrel / proof pull",
+                "classification": "witness",
+                "signoffRoles": ["Owner's representative"],
+                "acceptanceCriteria": "A mandrel or test plug sized for the conduit passes through every conduit; pull string or tape left in each. Mandrel size: Project-specific value required — verify before issue.",
+                "reference": "Project specifications",
+                "recordRequired": "Mandrel size and runs proved"
+              },
+              {
+                "type": "radiogroup",
+                "choices": ["Pass", "Fail", "N/A"],
+                "name": "grounding-conductor",
+                "title": "Grounding conductor (if specified)",
+                "classification": "information",
+                "acceptanceCriteria": "Ground conductor installed along the duct bank where detailed, with connections made as specified. Mark N/A when none is shown.",
+                "reference": "Grounding drawings; NFPA 70 (NEC) Article 250"
+              }
+            ]
+          },
+          {
+            "name": "before-backfill",
+            "title": "3 Before encasement or backfill",
+            "elements": [
+              {
+                "type": "text",
+                "inputType": "number",
+                "name": "cover-depth",
+                "title": "Depth of cover (smallest measured)",
+                "classification": "witness",
+                "signoffRoles": ["Owner's representative"],
+                "acceptanceCriteria": "Cover from finished grade to the top of the conduit or encasement is at least the depth on the drawings and not less than the NEC Table 300.5 minimum for the wiring method and location. Depth: Project-specific value required — verify before issue.",
+                "reference": "NFPA 70 (NEC) Table 300.5; electrical site plan",
+                "recordRequired": "Depth readings at intervals",
+                "unit": "in"
+              },
+              {
+                "type": "radiogroup",
+                "choices": ["Pass", "Fail", "N/A"],
+                "name": "encasement-cover",
+                "title": "Concrete encasement cover (if encased)",
+                "classification": "information",
+                "acceptanceCriteria": "Forms or spacers give the detailed concrete cover around the outermost conduits; reinforcement installed where detailed. Cover: Project-specific value required — verify before issue. Mark N/A for direct burial.",
+                "reference": "Duct-bank details"
+              },
+              {
+                "type": "radiogroup",
+                "choices": ["Pass", "Fail", "N/A"],
+                "name": "as-built",
+                "title": "As-built location recorded",
+                "classification": "review",
+                "signoffRoles": ["Owner's representative"],
+                "acceptanceCriteria": "Run alignment, depth and stub-up locations are surveyed or measured from fixed points and recorded before they are covered.",
+                "reference": "Project specifications",
+                "recordRequired": "As-built survey or dimensioned sketch"
+              },
+              {
+                "type": "radiogroup",
+                "choices": ["Pass", "Fail", "N/A"],
+                "name": "release-to-backfill",
+                "title": "Release for encasement / backfill",
+                "classification": "hold",
+                "signoffRoles": ["Contractor", "Owner's representative"],
+                "acceptanceCriteria": "Every earlier line is passed or marked N/A and the run is photographed end to end before encasement or backfill starts. Warning tape is ready to place at the depth shown.",
+                "reference": "This ITP; NFPA 70 (NEC) 300.5",
+                "recordRequired": "Signed release; photos of the full run",
+                "photoRequired": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "key": "piping-pressure-test",
+      "name": "Piping pressure test",
+      "description": "Test package, joints and examinations, gauges and relief, pressure hold, leak examination, drain and test record. Code-neutral: the governing code and numbers are set per project.",
+      "body": {
+        "title": "Piping pressure test",
+        "libraryKey": "piping-pressure-test",
+        "libraryVersion": 1,
+        "signoffRoles": [
+          {
+            "name": "Contractor",
+            "party": "contractor"
+          },
+          {
+            "name": "Owner's representative",
+            "party": "client"
+          },
+          {
+            "name": "Third-party inspector",
+            "party": "engineer"
+          }
+        ],
+        "pages": [
+          {
+            "name": "before-test",
+            "title": "1 Before the test",
+            "elements": [
+              {
+                "type": "radiogroup",
+                "choices": ["Pass", "Fail", "N/A"],
+                "name": "test-package",
+                "title": "Test package accepted",
+                "classification": "review",
+                "signoffRoles": ["Owner's representative"],
+                "acceptanceCriteria": "Test package names the system and limits (marked-up drawings or isometrics), governing code, test medium, design pressure, test pressure and hold time, and the isolation and venting points. Test pressure and hold time: Project-specific value required — verify before issue.",
+                "reference": "Governing piping code (e.g. ASME B31.1, B31.3, B31.9, or the plumbing / water code in force)",
+                "recordRequired": "Accepted test package"
+              },
+              {
+                "type": "radiogroup",
+                "choices": ["Pass", "Fail", "N/A"],
+                "name": "welds-complete",
+                "title": "Joints complete and examinations accepted",
+                "classification": "review",
+                "signoffRoles": ["Third-party inspector"],
+                "acceptanceCriteria": "Every joint in the test limits is complete; required examinations (visual, radiographic or other NDE) are accepted; supports are installed or temporary supports added for a water-filled test.",
+                "reference": "Governing piping code; weld / joint log",
+                "recordRequired": "Joint log with examination results"
+              },
+              {
+                "type": "radiogroup",
+                "choices": ["Pass", "Fail", "N/A"],
+                "name": "joints-exposed",
+                "title": "Joints exposed for examination",
+                "classification": "information",
+                "acceptanceCriteria": "Joints are left uninsulated, unpainted and visible for the leak examination unless the governing code permits otherwise.",
+                "reference": "Governing piping code"
+              },
+              {
+                "type": "radiogroup",
+                "choices": ["Pass", "Fail", "N/A"],
+                "name": "gauges",
+                "title": "Gauges and relief device",
+                "classification": "witness",
+                "signoffRoles": ["Owner's representative"],
+                "acceptanceCriteria": "Test gauges have current calibration and a range suited to the test pressure; a relief device set to protect the system from over-pressure is installed; equipment, instruments and expansion joints that cannot take the test pressure are isolated or removed. Gauge range and relief setting: Project-specific value required — verify before issue.",
+                "reference": "Governing piping code; calibration certificates",
+                "recordRequired": "Gauge serial numbers and calibration dates"
+              }
+            ]
+          },
+          {
+            "name": "test",
+            "title": "2 Test",
+            "elements": [
+              {
+                "type": "text",
+                "inputType": "number",
+                "name": "test-pressure",
+                "title": "Test pressure held",
+                "classification": "hold",
+                "signoffRoles": ["Contractor", "Third-party inspector"],
+                "acceptanceCriteria": "Pressure held at not less than the test pressure in the accepted test package for the full hold time. Test pressure: Project-specific value required — verify before issue.",
+                "reference": "Governing piping code; accepted test package",
+                "recordRequired": "Start and end pressure readings with times",
+                "photoRequired": true,
+                "unit": "psig"
+              },
+              {
+                "type": "text",
+                "inputType": "number",
+                "name": "hold-time",
+                "title": "Hold time",
+                "classification": "witness",
+                "signoffRoles": ["Owner's representative"],
+                "acceptanceCriteria": "At least the hold time in the accepted test package (and not less than the governing code's minimum). Hold time: Project-specific value required — verify before issue.",
+                "reference": "Governing piping code",
+                "recordRequired": "Start and end times",
+                "unit": "min"
+              },
+              {
+                "type": "text",
+                "inputType": "number",
+                "name": "pressure-drop",
+                "title": "Pressure drop not explained by temperature",
+                "classification": "witness",
+                "signoffRoles": ["Owner's representative"],
+                "acceptanceCriteria": "No pressure drop beyond what the recorded temperature change explains; any allowed loss is as stated in the test package. Allowed loss: Project-specific value required — verify before issue.",
+                "reference": "Governing piping code",
+                "recordRequired": "Pressure and temperature readings",
+                "unit": "psi"
+              },
+              {
+                "type": "radiogroup",
+                "choices": ["Pass", "Fail", "N/A"],
+                "name": "leak-check",
+                "title": "Leak examination",
+                "classification": "hold",
+                "signoffRoles": ["Contractor", "Third-party inspector"],
+                "acceptanceCriteria": "Every joint examined at the examination pressure; no leaks or weeping found. Leaks are repaired and the test is repeated.",
+                "reference": "Governing piping code",
+                "recordRequired": "Leaks found and repairs made, if any",
+                "photoRequired": true
+              }
+            ]
+          },
+          {
+            "name": "after-test",
+            "title": "3 After the test",
+            "elements": [
+              {
+                "type": "radiogroup",
+                "choices": ["Pass", "Fail", "N/A"],
+                "name": "drain-restore",
+                "title": "Drain, vent and restore",
+                "classification": "information",
+                "acceptanceCriteria": "Test medium drained and disposed of as permitted; temporary blinds, plugs and gauges removed; isolated items reinstated with new gaskets where required; system left vented or as instructed.",
+                "reference": "Accepted test package",
+                "recordRequired": "Blind / plug removal list"
+              },
+              {
+                "type": "radiogroup",
+                "choices": ["Pass", "Fail", "N/A"],
+                "name": "test-record",
+                "title": "Test record signed",
+                "classification": "review",
+                "signoffRoles": ["Owner's representative"],
+                "acceptanceCriteria": "Test report completed with system, limits, medium, pressures, times, gauge serial numbers and signatures, and filed with the turnover records.",
+                "reference": "Governing piping code; project specifications",
+                "recordRequired": "Signed pressure-test report"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

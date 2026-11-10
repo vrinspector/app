@@ -2,7 +2,9 @@
 
 Block 9.5 (PRD v2.63 §5) — new routes, no legacy counterpart:
 
-    GET    /itp-templates[?include_archived]      → the caller's masters (latest version each)
+    GET    /itp-templates[?include_archived]      → the caller's masters (latest version each);
+                                                    a new account is first given the
+                                                    starter library (13.7)
     POST   /itp-templates                         → 201 master, version 1
     GET    /itp-templates/{id}                    → one version, with body + version list
     PUT    /itp-templates/{id}                    → 201 the next version (content edits)
@@ -77,7 +79,9 @@ from app.api.itp_state import (
     signature_public,
 )
 from app.core.auth import AuthUser
+from app.core.config import settings
 from app.core.itp import DEFAULT_ROLES, TemplateError, parse_template_body
+from app.core.itp_library import seed_starter_library
 from app.models import (
     ItpItem,
     ItpItemPublic,
@@ -185,7 +189,13 @@ def list_templates(
     current_user: CurrentUser,
     include_archived: bool = Query(default=False),
 ) -> Any:
-    """The caller's masters, latest version of each, most recently changed first."""
+    """The caller's masters, latest version of each, most recently changed first.
+
+    An account that has never had a master is first given the starter library
+    (increment 13.7, ``app/core/itp_library.py``).
+    """
+    if settings.ITP_STARTER_LIBRARY:
+        seed_starter_library(session, current_user, current_email(current_user))
     rows = session.exec(
         select(ItpTemplate)
         .where(ItpTemplate.created_by_sub == current_user.sub)
@@ -195,8 +205,13 @@ def list_templates(
     for row in rows:
         latest.setdefault(row.template_key, row)
     result = [t for t in latest.values() if include_archived or t.status != "archived"]
+    # Newest first; ties (the starters are seeded together) in creation order.
     result.sort(
-        key=lambda t: t.updated_at or datetime.min.replace(tzinfo=UTC), reverse=True
+        key=lambda t: (
+            t.updated_at or datetime.min.replace(tzinfo=UTC),
+            -(t.id or 0),
+        ),
+        reverse=True,
     )
     return [ItpTemplateSummary.model_validate(_template_summary(t)) for t in result]
 

@@ -742,7 +742,7 @@ Every ITP line can now carry what it asks for and the evidence that answers it.
   Third-party inspector (stored as contractor / client / engineer). The
   Sign-off roles dialog offers **Add default roles** while any of the three is
   missing. The starter template uses Contractor and Owner's representative and
-  US customary units (inches).
+  US customary units (inches). (Replaced by the starter library in 13.7.)
 
 ### Tests (increment 13.6)
 
@@ -778,3 +778,96 @@ Every ITP line can now carry what it asks for and the evidence that answers it.
 57. **Default roles are offered, not forced.** A project gets the three default
     roles from the *Add default roles* button or from a template that names
     them; templates that name other roles still create those.
+
+## Increment 13.7 — starter template library (owner review 2026-11-10)
+
+Replaces the five-line concrete placeholder with four worked master templates
+that every new account starts with.
+
+- **The library.** `backend/app/itp-library.json` (copied to
+  `frontend/src/lib/itpLibrary.json`; a backend test fails if the two differ
+  in content) holds:
+
+  | Starter | Lines | Hold points | Sections |
+  |---|---|---|---|
+  | Cast-in-place concrete (ACI 301 / 318; ASTM C31, C39, C94, C138, C143, C172, C231, C1064) | 27 | 8 | 1 Before work · 2 Formwork and embeds · 3 Rebar inspection · 4 Pre-pour release · 5 Placement and after |
+  | Earthwork and compaction | 9 | 2 | Before work · Placement · Acceptance |
+  | Underground conduit / duct bank before backfill | 12 | 1 | Before work · Installation · Before encasement or backfill |
+  | Piping pressure test | 10 | 2 | Before the test · Test · After the test |
+
+  Every line has a measurable acceptance criterion, a reference, the record
+  required and an H / W / R / I code; every hold point needs a photo and
+  names the roles that release it. Where the number is set by the project
+  rather than the code (specified cover, slump and air targets, compaction
+  percentage, test pressure, tolerances) the criterion ends *"Project-specific
+  value required — verify before issue."* and no `min` / `max` is invented.
+  Numbers the codes do fix are stated: clear spacing (ACI 318 §25.2), cover
+  tolerance (ACI 117), discharge within 90 min / 300 revolutions (ASTM C94),
+  95 °F concrete temperature (the line's `max`), cylinder frequency and
+  sampling times (ACI 318 §26.12, ASTM C31 / C172), 7-day curing above 50 °F
+  (ACI 318 §26.5.3), the 28-day acceptance rule (ACI 318 §26.12.3), 360° of
+  bends between pull points (NEC 344.26 / 352.26). Text is our own; nothing
+  is copied from a third-party product.
+- **Concrete outline as reviewed.** 1 Before work — mix design (R), rebar shop
+  drawings and mill certificates (R), subgrade / compaction (W). 2 Formwork and
+  embeds — dimensions / line / level, anchor-bolt template surveyed before the
+  pour, embeds / sleeves / penetrations, cast-in grounding (W). 3 Rebar
+  inspection — bar size and grade, spacing, laps, ties, chairs / supports,
+  clear cover (measured, in), cleanliness: each a hold point with a photo,
+  released by the Third-party inspector. 4 Pre-pour release — hot / cold
+  weather plan (R, N/A when neither applies) and the release hold signed by
+  Contractor + Owner's representative. 5 Placement and after — batch tickets
+  incl. water added (R), slump / air / temperature / unit weight entered as
+  values (W), cylinders with set IDs and initial curing (W), consolidation (I),
+  curing method and duration (W), stripping (I), post-pour anchor-bolt survey
+  (R), 7 / 28-day results (R).
+- **Seeding.** `GET /api/v1/itp-templates` gives an account that has never had
+  a master (no row of any status) the four starters as published version 1
+  masters it owns, once (`app/core/itp_library.py`; a per-account advisory
+  lock stops two first requests seeding twice). No API shape changed. After
+  that they are ordinary masters: edit (new version), archive, apply. They are
+  never re-added. `ITP_STARTER_LIBRARY=false` turns seeding off.
+- **New template → Start from.** The editor offers each starter or a *Blank
+  outline* (one section, one hold-point line showing every field, the three
+  default roles); picking one fills name, description and JSON.
+- **Demo.** The sample account's masters are the four starters. Project 1:
+  concrete on Stage 1 (in progress — submittals and formwork passed, first
+  rebar hold released, second waiting for the inspector) and Stage 2 (not
+  started); the pressure test on Stage 3 (pressure hold passed at 225 psig,
+  waiting for both signatures); the duct bank for the whole project.
+- **Phone width.** List cards no longer push past the screen edge when a
+  description is long (`ListCard` grid item `min-w-0`). The template detail's
+  line table is still cramped on a phone; increment 13.8 (look and feel) takes
+  that on.
+
+### Tests (increment 13.7)
+
+- Backend: `tests/core/test_itp_library.py` (library parses, every line has a
+  criterion / reference / code, holds need a photo and roles, number lines a
+  unit, "per spec" never alone, the concrete outline, frontend copy matches)
+  and `tests/api/routes/test_itp_library.py` (new account seeded once and in
+  order, accounts independent, archived starters stay archived, an account
+  with masters is left alone, the concrete starter imports with its evidence
+  and blocking, setting off, the seed function is idempotent).
+- Frontend: `src/lib/itpLibrary.test.ts` and the concrete starter in
+  `src/lib/itp.test.ts`; the Playwright demo walks in `tests/demo/itp.spec.ts`
+  now run on the starters (pressure test completed past two hold points,
+  concrete line evidence and the first rebar hold, duct-bank bends tolerance,
+  the Start-from picker).
+
+### Decisions for the owner (increment 13.7)
+
+58. **Starters are seeded into the account, not shared.** Each account gets
+    its own editable copies the first time it opens its templates; there is
+    no central library that changes under people. A later library update
+    reaches existing accounts only through *New template → Start from*.
+59. **When to seed:** only an account with no master at all. An account that
+    already made its own templates (or archived the starters) is left alone.
+60. **Rebar lines are released by the Third-party inspector** (IBC 1705.3
+    special inspection), the pre-pour and backfill / fill releases by
+    Contractor + Owner's representative, the pressure hold and leak check by
+    Contractor + Third-party inspector. Witness lines name the Owner's
+    representative as the notified party; change any of these per master.
+61. **Project-specific numbers are left blank on purpose.** Lines such as
+    clear cover or test pressure take a measured value but carry no min / max
+    until you edit the master; the starter will not guess a project's number.

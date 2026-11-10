@@ -18,7 +18,8 @@ import { LoadingButton } from "@/components/ui/loading-button"
 import { NativeSelect } from "@/components/ui/native-select"
 import { Textarea } from "@/components/ui/textarea"
 import useCustomToast from "@/hooks/useCustomToast"
-import { checkTemplateText, STARTER_TEMPLATE } from "@/lib/itp"
+import { checkTemplateText } from "@/lib/itp"
+import { BLANK_TEMPLATE, STARTER_LIBRARY } from "@/lib/itpLibrary"
 import { itpKeys } from "@/lib/queries"
 import { extractErrorMessage } from "@/utils"
 
@@ -27,8 +28,8 @@ import { extractErrorMessage } from "@/utils"
  *
  * The body is SurveyJS JSON typed or pasted into the box (the SurveyJS
  * visual builder is a paid product; PRD v2.63 §5 has templates authored as
- * JSON or generated). A new template starts from a worked concrete-pour
- * example. The box is checked as it changes with the same rules the API
+ * JSON or generated). A new template starts from one of the starter library
+ * templates (increment 13.7) or a blank outline. The box is checked as it changes with the same rules the API
  * applies, so "5 lines · 1 hold point" or the exact problem shows before
  * saving.
  */
@@ -39,6 +40,19 @@ interface TemplateFormDialogProps {
   /** Edit this version (saves v+1) instead of creating a master. */
   template?: ItpTemplatePublic
   onSaved?: (template: ItpTemplatePublic) => void
+}
+
+const BLANK = "blank"
+
+function startingPoint(key: string) {
+  const starter = STARTER_LIBRARY.find((t) => t.key === key)
+  return starter
+    ? {
+        name: starter.name,
+        description: starter.description,
+        body: starter.body,
+      }
+    : { name: "", description: "", body: BLANK_TEMPLATE }
 }
 
 export function TemplateFormDialog({
@@ -54,13 +68,27 @@ export function TemplateFormDialog({
   const [description, setDescription] = useState("")
   const [status, setStatus] = useState<"draft" | "published">("published")
   const [source, setSource] = useState("")
+  const [startFrom, setStartFrom] = useState(STARTER_LIBRARY[0]?.key ?? BLANK)
 
+  const fill = (key: string) => {
+    const start = startingPoint(key)
+    setStartFrom(key)
+    setName(start.name)
+    setDescription(start.description)
+    setSource(JSON.stringify(start.body, null, 2))
+  }
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset on open only
   useEffect(() => {
     if (!open) return
-    setName(template?.name ?? "")
-    setDescription(template?.description ?? "")
     setStatus("published")
-    setSource(JSON.stringify(template?.body ?? STARTER_TEMPLATE, null, 2))
+    if (template) {
+      setName(template.name)
+      setDescription(template.description ?? "")
+      setSource(JSON.stringify(template.body, null, 2))
+    } else {
+      fill(STARTER_LIBRARY[0]?.key ?? BLANK)
+    }
   }, [open, template])
 
   const check = useMemo(() => checkTemplateText(source), [source])
@@ -132,6 +160,29 @@ export function TemplateFormDialog({
           }}
           noValidate
         >
+          {editing ? null : (
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="template-start">Start from</Label>
+              <NativeSelect
+                id="template-start"
+                value={startFrom}
+                onChange={(event) => fill(event.target.value)}
+                data-testid="template-start"
+              >
+                {STARTER_LIBRARY.map((starter) => (
+                  <option key={starter.key} value={starter.key}>
+                    Starter: {starter.name}
+                  </option>
+                ))}
+                <option value={BLANK}>Blank outline</option>
+              </NativeSelect>
+              <p className="text-xs text-muted-foreground">
+                Starters are worked ITPs with measurable criteria. Lines marked
+                “Project-specific value required — verify before issue” need
+                your project's number before the template is used.
+              </p>
+            </div>
+          )}
           <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
             <div className="flex flex-col gap-2">
               <Label htmlFor="template-name">Name</Label>
@@ -140,7 +191,7 @@ export function TemplateFormDialog({
                 value={name}
                 maxLength={255}
                 onChange={(event) => setName(event.target.value)}
-                placeholder="e.g. Concrete pour — suspended slab"
+                placeholder="e.g. Cast-in-place concrete — suspended slab"
                 data-testid="template-name"
               />
             </div>

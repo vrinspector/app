@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 
 from app.core import auth
+from app.core.config import settings
 from app.core.db import engine
 from app.core.email import MemoryTransport, mailer
 from app.core.storage import storage
@@ -56,6 +57,12 @@ def outbox() -> Generator[MemoryTransport]:
     mailer.use_transport(transport)
     yield transport
     mailer.use_transport(None)
+
+
+@pytest.fixture(autouse=True)
+def no_starter_library(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Accounts start empty in tests; the starter-library tests switch it on."""
+    monkeypatch.setattr(settings, "ITP_STARTER_LIBRARY", False)
 
 
 @pytest.fixture(autouse=True)

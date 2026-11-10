@@ -30,7 +30,7 @@ test("areas: add a series, then bulk-apply a template to them", async ({
   page,
 }) => {
   await openProject(page)
-  await expect(page.getByTestId("itp-card")).toHaveCount(2)
+  await expect(page.getByTestId("itp-card")).toHaveCount(4)
   await expect(page.getByTestId("area-row")).toHaveCount(3)
 
   await page.getByTestId("add-area-series").click()
@@ -52,27 +52,36 @@ test("areas: add a series, then bulk-apply a template to them", async ({
     "Apply to 3 areas",
   )
   await apply.getByTestId("apply-template-submit").click()
-  await expect(page.getByTestId("itp-card")).toHaveCount(5)
+  await expect(page.getByTestId("itp-card")).toHaveCount(7)
   await expect(
-    page.getByTestId("itp-card").filter({ hasText: "Concrete pour — Level 2" }),
+    page
+      .getByTestId("itp-card")
+      .filter({ hasText: "Cast-in-place concrete — Level 2" }),
   ).toBeVisible()
 })
 
 test("hold point blocks later lines until signed, then the ITP completes", async ({
   page,
 }, testInfo) => {
+  test.setTimeout(60_000)
+  // Stage 3 carries the starter "Piping pressure test": the pre-test checks
+  // are passed and the pressure hold is waiting for both signatures.
   await openProject(page)
-  await page.getByTestId("itp-card").filter({ hasText: "Stage 1" }).click()
-  await expect(page.getByTestId("itp-summary")).toContainText("2 of 5 recorded")
+  await page.getByTestId("itp-card").filter({ hasText: "Stage 3" }).click()
+  await expect(page.getByTestId("itp-summary")).toContainText(
+    "5 of 10 recorded",
+  )
 
   const lines = page.getByTestId("itp-item")
-  const hold = lines.nth(1)
-  const cover = lines.nth(2)
+  const hold = lines.nth(4)
+  const holdTime = lines.nth(5)
+  await expect(hold).toContainText("Test pressure held")
   await expect(hold).toContainText("Hold point")
-  await expect(cover).toHaveAttribute("data-blocked", "true")
-  await expect(cover.getByTestId("itp-result-pass")).toBeDisabled()
+  await expect(hold.getByTestId("itp-measured-unit")).toHaveText("psig")
+  await expect(holdTime).toHaveAttribute("data-blocked", "true")
+  await expect(holdTime.getByTestId("itp-result-pass")).toBeDisabled()
   await expect(page.getByTestId("itp-blockers")).toContainText(
-    "is waiting for Owner's representative",
+    "is waiting for Contractor",
   )
   await expect(page.getByTestId("itp-complete")).toBeDisabled()
   await page.screenshot({
@@ -80,13 +89,34 @@ test("hold point blocks later lines until signed, then the ITP completes", async
     fullPage: true,
   })
 
-  // The owner signs for the role that has no signer email.
-  await hold.getByTestId("itp-sign").click()
-  await page.getByTestId("itp-sign-confirm").click()
-  await expect(hold.getByTestId("itp-signature")).toHaveCount(2)
-  await expect(cover).toHaveAttribute("data-blocked", "false")
+  // The owner signs for both roles (neither has a signer email).
+  for (let i = 0; i < 2; i++) {
+    await hold.getByTestId("itp-sign").first().click()
+    await page.getByTestId("itp-sign-confirm").click()
+    await expect(hold.getByTestId("itp-signature")).toHaveCount(i + 1)
+  }
+  await expect(holdTime).toHaveAttribute("data-blocked", "false")
 
-  for (const index of [2, 3, 4]) {
+  for (const index of [5, 6]) {
+    await lines.nth(index).getByTestId("itp-result-pass").click()
+    await expect(lines.nth(index)).toHaveAttribute("data-status", "pass")
+  }
+  // The leak examination is a second hold point that needs a photo.
+  const leak = lines.nth(7)
+  await expect(leak.getByTestId("itp-result-pass")).toBeDisabled()
+  await leak.getByTestId("library-input").setInputFiles({
+    name: "leak-check.png",
+    mimeType: "image/png",
+    buffer: PNG_1x1,
+  })
+  await expect(leak.getByTestId("itp-photo-on-file")).toBeVisible()
+  await leak.getByTestId("itp-result-pass").click()
+  for (let i = 0; i < 2; i++) {
+    await leak.getByTestId("itp-sign").first().click()
+    await page.getByTestId("itp-sign-confirm").click()
+    await expect(leak.getByTestId("itp-signature")).toHaveCount(i + 1)
+  }
+  for (const index of [8, 9]) {
     await lines.nth(index).getByTestId("itp-result-pass").click()
     await expect(lines.nth(index)).toHaveAttribute("data-status", "pass")
   }
@@ -97,7 +127,7 @@ test("hold point blocks later lines until signed, then the ITP completes", async
 
   await page.getByTestId("itp-form-tab").click()
   await expect(page.getByTestId("survey-form")).toContainText(
-    "Reinforcement inspected before pour",
+    "Leak examination",
   )
   await page.screenshot({
     path: testInfo.outputPath("itp-form-view.png"),
@@ -108,64 +138,86 @@ test("hold point blocks later lines until signed, then the ITP completes", async
 test("line evidence: criteria, required photo, measured value with tolerance", async ({
   page,
 }, testInfo) => {
+  test.setTimeout(60_000)
+  // Stage 2 carries the starter "Cast-in-place concrete", not started.
   await openProject(page)
   await page.getByTestId("itp-card").filter({ hasText: "Stage 2" }).click()
   const lines = page.getByTestId("itp-item")
-  const formwork = lines.nth(0)
-  const rebar = lines.nth(1)
-  const cover = lines.nth(2)
+  await expect(lines).toHaveCount(27)
+  const mix = lines.nth(0)
+  const subgrade = lines.nth(2)
 
   // H / W / R / I vocabulary and the line's criteria under its title.
-  await expect(formwork).toContainText("Information")
-  await expect(cover).toContainText("Review")
-  await expect(rebar.getByTestId("itp-line-criteria")).toContainText(
-    "ACI 301 §3.3",
+  await expect(mix).toContainText("Review")
+  await expect(subgrade).toContainText("Witness")
+  await expect(mix.getByTestId("itp-line-criteria")).toContainText(
+    "ACI 301 Section 4",
   )
-  await expect(rebar.getByTestId("itp-criteria-record")).toContainText(
-    "Photos of the mat",
+  await expect(mix.getByTestId("itp-line-criteria")).toContainText(
+    "Project-specific value required — verify before issue",
+  )
+  await expect(mix.getByTestId("itp-criteria-record")).toContainText(
+    "Accepted mix submittal",
   )
 
-  await formwork.getByTestId("itp-result-pass").click()
-  await expect(formwork).toHaveAttribute("data-status", "pass")
-
-  // The rebar hold point cannot pass until a photo is on file.
-  await expect(rebar.getByTestId("itp-photo-required")).toBeVisible()
-  await expect(rebar.getByTestId("itp-result-pass")).toBeDisabled()
-  await rebar.getByTestId("library-input").setInputFiles({
-    name: "rebar-mat.png",
+  const photo = (name: string) => ({
+    name,
     mimeType: "image/png",
     buffer: PNG_1x1,
   })
-  await expect(rebar.getByTestId("itp-photo-on-file")).toBeVisible()
-  await expect(rebar.getByTestId("itp-photo")).toHaveCount(1)
-  await rebar.getByTestId("itp-result-pass").click()
-  await expect(rebar).toHaveAttribute("data-status", "pass")
-
-  // Owner signs both default roles; the cover line opens up.
-  for (let i = 0; i < 2; i++) {
-    await rebar.getByTestId("itp-sign").first().click()
-    await page.getByTestId("itp-sign-confirm").click()
-    await expect(rebar.getByTestId("itp-signature")).toHaveCount(i + 1)
+  // Before work and formwork: the anchor bolts, embeds and grounding lines
+  // need a photo before they can pass.
+  for (let index = 0; index < 7; index++) {
+    const line = lines.nth(index)
+    if ((await line.getByTestId("itp-photo-required").count()) > 0) {
+      await expect(line.getByTestId("itp-result-pass")).toBeDisabled()
+      await line
+        .getByTestId("library-input")
+        .setInputFiles(photo(`line-${index}.png`))
+      await expect(line.getByTestId("itp-photo-on-file")).toBeVisible()
+    }
+    await line.getByTestId("itp-result-pass").click()
+    await expect(line).toHaveAttribute("data-status", "pass")
   }
-  await expect(cover).toHaveAttribute("data-blocked", "false")
 
-  // Measured value with unit; below the 1.5 in minimum is flagged.
-  await expect(cover.getByTestId("itp-measured-unit")).toHaveText("in")
-  await expect(cover.getByTestId("itp-tolerance")).toContainText("≥ 1.5 in")
-  const value = cover.getByTestId("itp-measured-input")
-  await value.fill("1.25")
-  await value.press("Enter")
-  await expect(cover.getByTestId("itp-out-of-tolerance")).toBeVisible()
-  await value.fill("2")
-  await value.press("Enter")
-  await expect(cover.getByTestId("itp-out-of-tolerance")).toHaveCount(0)
-  await cover.getByTestId("itp-result-pass").click()
-  await expect(cover).toHaveAttribute("data-status", "pass")
-  await expect(value).toHaveValue("2")
+  // The first rebar hold point: photo, pass, then the third-party inspector
+  // releases it and the next rebar line opens up.
+  const barMarks = lines.nth(7)
+  const spacing = lines.nth(8)
+  await expect(barMarks).toContainText("Bar size and grade")
+  await expect(spacing).toHaveAttribute("data-blocked", "true")
+  await barMarks.getByTestId("library-input").setInputFiles(photo("bars.png"))
+  await barMarks.getByTestId("itp-result-pass").click()
+  await barMarks.getByTestId("itp-sign").first().click()
+  await page.getByTestId("itp-sign-confirm").click()
+  await expect(barMarks.getByTestId("itp-signature")).toHaveCount(1)
+  await expect(spacing).toHaveAttribute("data-blocked", "false")
   await page.screenshot({
     path: testInfo.outputPath("itp-line-evidence.png"),
     fullPage: true,
   })
+
+  // Measured value with unit and tolerance: the whole-project duct bank
+  // allows at most 360° of bends between pull points.
+  await openProject(page)
+  await page
+    .getByTestId("itp-card")
+    .filter({ hasText: "Underground conduit" })
+    .click()
+  const bends = page.getByTestId("itp-item").nth(5)
+  await expect(bends).toContainText("Total bends between pull points")
+  await expect(bends.getByTestId("itp-measured-unit")).toHaveText("degrees")
+  await expect(bends.getByTestId("itp-tolerance")).toContainText("≤ 360")
+  const value = bends.getByTestId("itp-measured-input")
+  await value.fill("400")
+  await value.press("Enter")
+  await expect(bends.getByTestId("itp-out-of-tolerance")).toBeVisible()
+  await value.fill("270")
+  await value.press("Enter")
+  await expect(bends.getByTestId("itp-out-of-tolerance")).toHaveCount(0)
+  await bends.getByTestId("itp-result-pass").click()
+  await expect(bends).toHaveAttribute("data-status", "pass")
+  await expect(value).toHaveValue("270")
 })
 
 test("an ITP line is marked on a drawing and shows its pin both ways", async ({
@@ -178,7 +230,7 @@ test("an ITP line is marked on a drawing and shows its pin both ways", async ({
   await page.getByRole("menuitem", { name: /Site Plan/ }).click()
 
   await expect(page.getByTestId("itp-marking-banner")).toContainText(
-    "Formwork set out",
+    "Concrete mix design accepted",
   )
   await expect(page.getByTestId("pin-mode")).toHaveAttribute(
     "aria-pressed",
@@ -191,7 +243,7 @@ test("an ITP line is marked on a drawing and shows its pin both ways", async ({
   await dialog.getByTestId("pin-status-in_progress").click()
   const marker = page.locator('[data-testid="pin-marker"][data-itp]')
   await expect(marker).toHaveCount(1)
-  await expect(marker).toHaveAttribute("data-itp", "information")
+  await expect(marker).toHaveAttribute("data-itp", "review")
 
   await page.getByTestId("itp-marking-back").click()
   await expect(
@@ -199,7 +251,7 @@ test("an ITP line is marked on a drawing and shows its pin both ways", async ({
   ).toContainText("Site Plan")
 })
 
-test("master templates: list, lines, SurveyJS preview, edit → v2", async ({
+test("master templates: starter library, lines, SurveyJS preview, edit → v2", async ({
   page,
 }) => {
   await page.goto("/demo.html")
@@ -209,16 +261,46 @@ test("master templates: list, lines, SurveyJS preview, edit → v2", async ({
     .getByTestId("main-nav")
     .getByRole("link", { name: "ITP templates" })
     .click()
+  // The account starts with the four starters, concrete first.
+  await expect(page.getByTestId("template-card")).toHaveCount(4)
+  await expect(page.getByTestId("template-card").first()).toContainText(
+    "Cast-in-place concrete",
+  )
+
+  // New template: pick a starter or a blank outline.
+  await page.getByTestId("new-template").click()
+  const creator = page.getByTestId("template-form-dialog")
+  await expect(creator.getByTestId("template-check")).toContainText(
+    "27 lines · 8 hold points · 3 sign-off roles",
+  )
+  await creator
+    .getByTestId("template-start")
+    .selectOption({ label: "Starter: Piping pressure test" })
+  await expect(creator.getByTestId("template-name")).toHaveValue(
+    "Piping pressure test",
+  )
+  await expect(creator.getByTestId("template-check")).toContainText(
+    "10 lines · 2 hold points · 3 sign-off roles",
+  )
+  await creator
+    .getByTestId("template-start")
+    .selectOption({ label: "Blank outline" })
+  await expect(creator.getByTestId("template-check")).toContainText(
+    "1 line · 1 hold point · 3 sign-off roles",
+  )
+  await page.keyboard.press("Escape")
+
   await page.getByTestId("template-card").first().click()
-  await expect(page.getByTestId("template-lines").locator("li")).toHaveCount(5)
+  await expect(page.getByTestId("template-lines").locator("li")).toHaveCount(27)
   await expect(page.getByTestId("survey-form")).toContainText(
-    "Pour witnessed · Witness point",
+    "Pre-pour release · Hold point",
   )
 
   await page.getByTestId("edit-template").click()
   const editor = page.getByTestId("template-form-dialog")
+  await expect(editor.getByTestId("template-start")).toHaveCount(0)
   await expect(editor.getByTestId("template-check")).toContainText(
-    "5 lines · 1 hold point · 2 sign-off roles",
+    "27 lines · 8 hold points · 3 sign-off roles",
   )
   await editor.getByTestId("template-body").fill('{"pages": []}')
   await expect(editor.getByTestId("template-check")).toContainText(
