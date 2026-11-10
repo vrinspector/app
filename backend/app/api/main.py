@@ -4,6 +4,7 @@ from app.api.routes import (
     areas,
     dashboard,
     drawings,
+    emails,
     findings,
     inspections,
     itps,
@@ -33,3 +34,5 @@ api_router.include_router(weather.router)
 # Increment 13 — Block 9.5 ITP templates, project ITPs, sign-off roles, Areas
 api_router.include_router(itps.router)
 api_router.include_router(areas.router)
+# Increment 13.5 — outbound email: send log + invite resend (Block 7.1)
+api_router.include_router(emails.router)

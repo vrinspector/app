@@ -1,0 +1,18 @@
+Hi,
+
+{{ inviter }} added you to the project "{{ project_name }}" on {{ app_name }}, the field inspection app, with the {{ role_label }} role. {{ role_description }}
+
+  Project:      {{ project_name }}
+  Client:       {{ project_client }}
+  Your role:    {{ role_label }}
+  Sign in with: {{ email }}
+
+Open the project:
+{{ link }}
+
+Sign in (or create your account) with the email address above - that is how {{ app_name }} knows it's you.
+
+Not expecting this? You can ignore this email; nothing happens until you sign in.
+
+--
+{{ app_name }} · Field Inspect LLC

@@ -113,6 +113,9 @@ ITP_ITEM_CLASSIFICATIONS = ("hold", "witness", "surveillance", "record")
 ITP_ITEM_STATUSES = ("pending", "pass", "fail", "na")
 SIGNOFF_PARTIES = ("contractor", "client", "engineer")
 ITP_SIGNATURE_METHODS = ("in_app", "external_link")
+# Increment 13.5 outbound email (Block 7.1 pulled forward).
+EMAIL_TYPES = ("member_invite",)
+EMAIL_STATUSES = ("queued", "sent", "failed", "skipped")
 
 # Byte-exact column comment from the Block 8E migration applied to RDS.
 PAGE_NUMBER_COMMENT = (
@@ -803,6 +806,60 @@ class ItpSignature(SQLModel, table=True):
     signature_s3_key: str | None = Field(default=None, sa_column=Column(String(512)))
 
 
+# --- Increment 13.5: outbound email send log (Block 7.1 pulled forward) --------
+
+
+class EmailSendLog(SQLModel, table=True):
+    """One row per email the app tries to send (rebuild increment 13.5).
+
+    Written as ``queued`` (or ``skipped`` when SMTP is not configured) before
+    delivery is attempted, then moved to ``sent`` / ``failed`` by the delivery
+    task, so an owner can see whether an invite went out and the audit trail
+    survives. Holds addresses, subject and outcome only — never the body,
+    never credentials. ``project_id`` is SET NULL on project delete so the log
+    outlives the project; ``related_id`` names the subject row of the email
+    (the member for ``member_invite``) without a foreign key, so removing the
+    member keeps the history.
+    """
+
+    __tablename__ = "email_send_log"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('queued', 'sent', 'failed', 'skipped')",
+            name="ck_email_send_log_status",
+        ),
+    )
+
+    id: int | None = Field(default=None, sa_column=_pk_column())
+    public_id: uuid.UUID | None = Field(default=None, sa_column=_public_id_column())
+    project_id: int | None = Field(
+        default=None,
+        sa_column=Column(
+            Integer,
+            ForeignKey("projects.id", ondelete="SET NULL"),
+            nullable=True,
+            index=True,
+        ),
+    )
+    email_type: str = Field(sa_column=Column(String(50), nullable=False))
+    related_id: int | None = Field(default=None, sa_column=Column(Integer))
+    recipient: str = Field(sa_column=Column(String(320), nullable=False))
+    subject: str = Field(sa_column=Column(String(255), nullable=False))
+    status: str = Field(
+        default="queued",
+        sa_column=Column(String(20), nullable=False, server_default=text("'queued'")),
+    )
+    # SMTP Message-ID we generated (SES keeps it), for tracing a bounce back.
+    message_id: str | None = Field(default=None, sa_column=Column(String(255)))
+    error: str | None = Field(default=None, sa_column=Column(Text))
+    triggered_by: str | None = Field(default=None, sa_column=Column(String(255)))
+    created_at: datetime | None = Field(default=None, sa_column=_created_at_column())
+    updated_at: datetime | None = Field(default=None, sa_column=_updated_at_column())
+    sent_at: datetime | None = Field(
+        default=None, sa_column=Column(DateTime(timezone=True))
+    )
+
+
 # The seven tables that exist on the live (pre-rebuild) staging database.
 LEGACY_TABLES: tuple[str, ...] = (
     "projects",
@@ -826,6 +883,7 @@ DOMAIN_TABLES: tuple[str, ...] = (
     "itp_item_required_roles",
     "external_sign_tokens",
     "itp_signatures",
+    "email_send_log",
 )
 
 
@@ -893,6 +951,23 @@ class ProjectPublic(SQLModel):
 class MemberInvite(SQLModel):
     email: EmailStr
     role: MemberRole = "inspector"
+
+
+class EmailLogPublic(SQLModel):
+    """A row of the email send log as the owner-only API returns it."""
+
+    id: int
+    public_id: uuid.UUID
+    project_id: int | None
+    email_type: str
+    related_id: int | None
+    recipient: str
+    subject: str
+    status: str
+    error: str | None
+    triggered_by: str | None
+    created_at: datetime
+    sent_at: datetime | None
 
 
 class MemberPublic(SQLModel):

@@ -6,6 +6,7 @@
  */
 import type {
   DrawingPublic,
+  EmailLogPublic,
   FindingPublic,
   InspectionPublic,
   MemberPublic,
@@ -56,6 +57,8 @@ export interface DemoDb {
   drawings: DrawingPublic[]
   pins: PinPublic[]
   reports: ReportPublic[]
+  /** Email send log (increment 13.5): what the demo "emailed". */
+  emails: EmailLogPublic[]
 }
 
 const me = DEMO_USER.email
@@ -465,6 +468,24 @@ export function createSeed(): DemoDb {
     },
   ]
 
+  // The viewer on project 1 was invited three days ago and hasn't signed in.
+  const emails: EmailLogPublic[] = [
+    {
+      id: 1,
+      public_id: publicId(),
+      project_id: 1,
+      email_type: "member_invite",
+      related_id: 3,
+      recipient: "qa.lead@example.com",
+      subject: "You've been added to Cedar Hollow Landfill RNG on VR Inspector",
+      status: "sent",
+      error: null,
+      triggered_by: me,
+      created_at: ago(3 * DAY),
+      sent_at: ago(3 * DAY),
+    },
+  ]
+
   return {
     projects,
     members,
@@ -474,6 +495,7 @@ export function createSeed(): DemoDb {
     drawings,
     pins,
     reports,
+    emails,
   }
 }
 

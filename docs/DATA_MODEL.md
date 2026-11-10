@@ -247,6 +247,24 @@ Decisions for the owner (non-blocking; say if any should change):
     everything else today. If signed records should stop a project being
     deleted, that is a small change to the guards.
 
+## Outbound email send log (increment 13.5, migration `f3b8d1c6a425`)
+
+`email_send_log` — one row per email the app tries to send. Additive and
+idempotent; downgrade refuses while rows exist.
+
+| Column | Notes |
+|---|---|
+| `id`, `public_id` | INTEGER PK + UUID, as everywhere |
+| `project_id` | FK `projects.id` **ON DELETE SET NULL** — the log outlives the project |
+| `email_type` | `member_invite` today; increment 14 adds signing links, reminders and witness notices |
+| `related_id` | the row the email is about (the member for an invite); no FK, so removing the member keeps the history |
+| `recipient`, `subject` | what was sent and to whom — the body is never stored |
+| `status` | `queued` → `sent` / `failed`; `skipped` when SMTP is not configured (check constraint) |
+| `message_id` | the SMTP `Message-ID` we generated, to trace an SES bounce back to the row |
+| `error` | failure reason (≤ 500 chars), never credentials |
+| `triggered_by` | the signed-in email that caused the send |
+| `created_at`, `updated_at`, `sent_at` | timestamps |
+
 ## Not ported (by design)
 
 * `voice_notes` (Block 1) — the deployed SPA uses browser speech recognition

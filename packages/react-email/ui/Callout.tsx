@@ -17,8 +17,8 @@ export const Detail = ({ label, value }: DetailProps) => (
 )
 
 const calloutStyle = {
-  backgroundColor: "#f2f8f7",
-  borderLeft: "3px solid #00897b",
+  backgroundColor: "#f7f5f0",
+  borderLeft: "3px solid #a07850",
   margin: "24px 0 28px",
   padding: "6px 18px",
 }
@@ -28,7 +28,7 @@ const detailStyle = {
 }
 
 const labelStyle = {
-  color: "#64748b",
+  color: "#a07850",
   fontSize: "11px",
   fontWeight: "700",
   letterSpacing: "1px",
@@ -37,8 +37,7 @@ const labelStyle = {
 }
 
 const valueStyle = {
-  color: "#1e293b",
-  fontFamily: 'Consolas, "Courier New", monospace',
+  color: "#2b2b2b",
   fontSize: "14px",
   fontWeight: "700",
   lineHeight: "22px",

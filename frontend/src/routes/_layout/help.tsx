@@ -348,7 +348,10 @@ function Help() {
             project screen: owners invite by email as an{" "}
             <strong>Inspector</strong> (logs inspections, findings and photos)
             or a <strong>Viewer</strong> (read-only), and can remove members.
-            The person signs in with the invited email address.
+            The person is emailed an invite with a link to the project and signs
+            in with the invited email address. Under each member, owners see
+            whether the invite email went out, and can press{" "}
+            <strong>Resend invite</strong> until the person has signed in.
           </p>
           <Note>
             <strong>Use the correct project:</strong> confirm the project name

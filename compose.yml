@@ -60,6 +60,15 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       EMAILS_FROM_EMAIL: ${EMAILS_FROM_EMAIL}
+      # Increment 13.5 outbound email (AWS SES SMTP in production; values are
+      # owner-supplied at RG-3, never committed).
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_TLS: ${SMTP_TLS:-true}
+      SMTP_SSL: ${SMTP_SSL:-false}
+      EMAILS_FROM_NAME: ${EMAILS_FROM_NAME:-}
+      EMAILS_REPLY_TO: ${EMAILS_REPLY_TO:-}
+      SES_CONFIGURATION_SET: ${SES_CONFIGURATION_SET:-}
+      APP_PUBLIC_URL: ${APP_PUBLIC_URL:-}
       S3_BUCKET: ${S3_BUCKET:-vrinspector-files}
       AWS_REGION: ${AWS_REGION:-us-east-1}
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:?Variable not set}@db:5432/app

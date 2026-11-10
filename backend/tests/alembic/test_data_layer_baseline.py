@@ -25,7 +25,9 @@ BASELINE_REVISION = "b7d3e9a1c204"
 # The revision before the baseline: downgrading to it removes every domain table.
 PRE_BASELINE_REVISION = "3f1c2d9a8b70"
 # Head of the chain (later increments add tables on top of the baseline).
-HEAD_REVISION = "e7c2a9f4b613"
+HEAD_REVISION = "f3b8d1c6a425"
+# The revision before the ITP migration (increment 12).
+PRE_ITP_REVISION = "d5a1b7c3e902"
 
 LEGACY_SEED = """
 INSERT INTO projects (name, client, location, status, created_by)
@@ -259,7 +261,7 @@ def test_itp_migration_is_additive_and_refuses_to_lose_itp_data(legacy_db: str) 
                        VALUES (1, 'Rebar checked', 'hold');
                    UPDATE inspection_pins SET itp_item_id = 1 WHERE id = 1;"""
             )
-            result = run_alembic(legacy_db, "downgrade", "-1")
+            result = run_alembic(legacy_db, "downgrade", PRE_ITP_REVISION)
             assert result.returncode != 0
             assert "Refusing to downgrade" in (result.stderr + result.stdout)
             assert _scalar(legacy_db, "SELECT count(*) FROM project_itps") == 1
@@ -270,7 +272,7 @@ def test_itp_migration_is_additive_and_refuses_to_lose_itp_data(legacy_db: str) 
             conn.execute(text("DELETE FROM project_itps"))
     finally:
         engine.dispose()
-    result = run_alembic(legacy_db, "downgrade", "-1")
+    result = run_alembic(legacy_db, "downgrade", PRE_ITP_REVISION)
     assert result.returncode == 0, result.stderr
     assert "itp_item_id" not in _columns(legacy_db, "inspection_pins")
     assert (
@@ -279,6 +281,49 @@ def test_itp_migration_is_additive_and_refuses_to_lose_itp_data(legacy_db: str) 
         )
         == 0
     )
+
+
+def test_email_log_migration_is_additive_and_guarded(legacy_db: str) -> None:
+    assert run_alembic(legacy_db, "upgrade", "head").returncode == 0
+    cols = _columns(legacy_db, "email_send_log")
+    assert cols["project_id"]["nullable"] is True
+    assert cols["status"]["nullable"] is False
+
+    engine = create_engine(legacy_db, isolation_level="AUTOCOMMIT")
+    try:
+        with engine.connect() as conn:
+            conn.exec_driver_sql(
+                """INSERT INTO email_send_log
+                       (project_id, email_type, related_id, recipient, subject)
+                       VALUES (1, 'member_invite', 2, 'field@example.com', 'Hi')"""
+            )
+            # Unknown statuses are refused by the check constraint.
+            try:
+                conn.exec_driver_sql(
+                    "UPDATE email_send_log SET status = 'bounced'"
+                )
+            except Exception as exc:  # noqa: BLE001
+                assert "ck_email_send_log_status" in str(exc)
+            else:  # pragma: no cover
+                raise AssertionError("status check constraint missing")
+            result = run_alembic(legacy_db, "downgrade", "-1")
+            assert result.returncode != 0
+            assert "Refusing to downgrade f3b8d1c6a425" in (
+                result.stderr + result.stdout
+            )
+            conn.execute(text("DELETE FROM email_send_log"))
+    finally:
+        engine.dispose()
+    result = run_alembic(legacy_db, "downgrade", "-1")
+    assert result.returncode == 0, result.stderr
+    engine = create_engine(legacy_db)
+    try:
+        with engine.connect() as conn:
+            assert "email_send_log" not in inspect(conn).get_table_names()
+    finally:
+        engine.dispose()
+    # And back up again cleanly.
+    assert run_alembic(legacy_db, "upgrade", "head").returncode == 0
 
 
 def test_downgrade_refuses_to_drop_populated_tables(legacy_db: str) -> None:

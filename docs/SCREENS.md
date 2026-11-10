@@ -655,3 +655,62 @@ Tests: backend 33 new (`tests/api/routes/test_itps.py`, `test_areas.py`,
     apply templates.** Viewers can read everything.
 46. **Drafts can be applied; archived masters cannot.** Archive hides a
     master from the list and the Apply dialog without touching copies in use.
+
+## Increment 13.5 — email delivery (member invites)
+
+The Members section on the project screen (owners only) now shows, under
+each non-owner member, the outcome of their latest invite email from the
+send log: "Invite emailed 10 Nov 2026", "Sending invite email…" (the list
+re-reads every two seconds while any invite is queued), "Invite email failed
+— try Resend invite" (the reason is in the tooltip) or "Invite not emailed —
+email is off on this server". **Resend invite** appears on members who have
+not signed in yet; a second press within a minute is refused with a plain
+message. Adding a member says "Member added — invite email on its way".
+Inspectors and viewers never request the owner-only log. The Help page's
+"Permissions and access" section says so. The demo records invites instead
+of sending them (`src/demo/fakeApi.ts`, one seeded invite on Cedar Hollow).
+
+The invite email itself (React Email, `packages/react-email/emails/member_invite.tsx`):
+forest-green VR Inspector band with the gold rule, "You've been added to a
+project", who added them, the project, client, role (with one sentence on
+what the role can do) and the address to sign in with, a gold **Open the
+project** button linking to `/projects/{id}`, and the same link in plain
+text. A preview is in `docs/email-previews/member_invite.png`.
+
+### Tests
+
+Backend 17 new tests (`tests/api/routes/test_emails.py`,
+`tests/core/test_email.py`, plus the migration guard in
+`tests/alembic/test_data_layer_baseline.py`): invite → branded multipart
+email + `sent` row; markup in a project name is escaped; transport failure →
+`failed` row and the invite still succeeds; unconfigured SMTP → `skipped`;
+resend cooldown (429), owner row (400), other project (404); log is
+owner-only (403 inspector, 404 outsider, 401 anonymous) and filterable; the
+log survives member and project deletion; SMTP transport over a real socket
+to an in-process SMTP server, STARTTLS / implicit TLS / no-login paths, a
+closed port raising; Mailpit end to end when it is running (CI). Frontend 4
+new unit tests (`src/test/members-reports.test.tsx`) and a Playwright walk
+in the demo at phone size (`tests/demo/invite-email.spec.ts`).
+
+### Decisions for the owner (increment 13.5)
+
+47. **Adding a member always emails them.** There is no "add without
+    emailing" switch; say if you want one.
+48. **Mailpit stands in for MailCatcher.** The plan says MailCatcher; the
+    template already ships Mailpit, its maintained successor with the same
+    SMTP port (1025) and a web inbox (http://localhost:8025), and CI already
+    starts it. Nothing else changes.
+49. **One attempt per send, then the owner decides.** A failed invite is
+    shown as failed with a Resend button rather than retried automatically,
+    so a wrong address is not hammered. Increment 14's reminders can add
+    timed retries if wanted.
+50. **Resend is limited to once a minute per member** and is offered only
+    until the person signs in.
+51. **The invite comes from `EMAILS_FROM_EMAIL`** with the display name
+    "VR Inspector", not from the owner's own address (SES can only send
+    from the verified domain). The owner's email is named in the body.
+    Set `EMAILS_REPLY_TO` if replies should reach a real inbox.
+52. **SES set-up is yours at RG-3:** verify the sending domain (DKIM DNS
+    records), request production access (leave the SES sandbox), create SES
+    SMTP credentials, and put them in the server environment — the settings
+    table is in `docs/API_PORT.md` → Configuration.

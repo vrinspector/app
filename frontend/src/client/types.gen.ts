@@ -500,6 +500,62 @@ export type DrawingViewUrl = {
 };
 
 /**
+ * EmailLogPublic
+ *
+ * A row of the email send log as the owner-only API returns it.
+ */
+export type EmailLogPublic = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Public Id
+     */
+    public_id: string;
+    /**
+     * Project Id
+     */
+    project_id: number | null;
+    /**
+     * Email Type
+     */
+    email_type: string;
+    /**
+     * Related Id
+     */
+    related_id: number | null;
+    /**
+     * Recipient
+     */
+    recipient: string;
+    /**
+     * Subject
+     */
+    subject: string;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Error
+     */
+    error: string | null;
+    /**
+     * Triggered By
+     */
+    triggered_by: string | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Sent At
+     */
+    sent_at: string | null;
+};
+
+/**
  * FindingCreate
  */
 export type FindingCreate = {
@@ -4170,3 +4226,78 @@ export type areasUpdateAreaResponses = {
 };
 
 export type areasUpdateAreaResponse = areasUpdateAreaResponses[keyof areasUpdateAreaResponses];
+
+export type emailsListProjectEmailsData = {
+    body?: never;
+    path: {
+        /**
+         * Project Id
+         */
+        project_id: number;
+    };
+    query?: {
+        /**
+         * Email Type
+         */
+        email_type?: string | null;
+        /**
+         * Related Id
+         */
+        related_id?: number | null;
+    };
+    url: '/api/v1/projects/{project_id}/emails';
+};
+
+export type emailsListProjectEmailsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type emailsListProjectEmailsError = emailsListProjectEmailsErrors[keyof emailsListProjectEmailsErrors];
+
+export type emailsListProjectEmailsResponses = {
+    /**
+     * Response Emails-List Project Emails
+     *
+     * Successful Response
+     */
+    200: Array<EmailLogPublic>;
+};
+
+export type emailsListProjectEmailsResponse = emailsListProjectEmailsResponses[keyof emailsListProjectEmailsResponses];
+
+export type emailsResendMemberInviteData = {
+    body?: never;
+    path: {
+        /**
+         * Project Id
+         */
+        project_id: number;
+        /**
+         * Member Id
+         */
+        member_id: number;
+    };
+    query?: never;
+    url: '/api/v1/projects/{project_id}/members/{member_id}/invite-email';
+};
+
+export type emailsResendMemberInviteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type emailsResendMemberInviteError = emailsResendMemberInviteErrors[keyof emailsResendMemberInviteErrors];
+
+export type emailsResendMemberInviteResponses = {
+    /**
+     * Successful Response
+     */
+    202: EmailLogPublic;
+};
+
+export type emailsResendMemberInviteResponse = emailsResendMemberInviteResponses[keyof emailsResendMemberInviteResponses];

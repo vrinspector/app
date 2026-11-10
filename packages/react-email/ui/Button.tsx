@@ -9,9 +9,9 @@ export const LinkButton = ({ children, href }: ButtonProps) => (
 )
 
 const buttonStyle = {
-  backgroundColor: "#00796b",
+  backgroundColor: "#b8960c",
   borderRadius: "6px",
-  color: "#ffffff",
+  color: "#2b2b2b",
   display: "inline-block",
   fontSize: "14px",
   fontWeight: "700",

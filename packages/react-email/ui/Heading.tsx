@@ -9,10 +9,10 @@ export const Heading = ({ children }: HeadingProps) => (
 )
 
 const headingStyle = {
-  color: "#17212b",
+  color: "#2e3d2e",
   fontSize: "26px",
   fontWeight: "700",
   letterSpacing: "-0.3px",
   lineHeight: "34px",
-  margin: "0 0 20px",
+  margin: "28px 0 20px",
 }
