@@ -40,6 +40,8 @@
         "react-error-boundary": "^6.1.6",
         "react-hook-form": "^7.91.0",
         "sonner": "^2.0.8",
+        "survey-core": "3.2.2",
+        "survey-react-ui": "3.2.2",
         "tailwind-merge": "^3.7.0",
         "tailwindcss": "^4.2.1",
         "zod": "^4.6.7",
@@ -1161,6 +1163,10 @@
     "styled-jsx": ["styled-jsx@5.1.6", "", { "dependencies": { "client-only": "0.0.1" }, "peerDependencies": { "react": ">= 16.8.0 || 17.x.x || ^18.0.0-0 || ^19.0.0-0" } }, "sha512-qSVyDTeMotdvQYoHWLNGwRFJHC+i+ZvdBRYosOFgC+Wg1vx4frN2/RG/NA7SYqqvKNLf39P2LSRA2pu6n0XYZA=="],
 
     "superjson": ["superjson@2.2.6", "", { "dependencies": { "copy-anything": "^4" } }, "sha512-H+ue8Zo4vJmV2nRjpx86P35lzwDT3nItnIsocgumgr0hHMQ+ZGq5vrERg9kJBo5AWGmxZDhzDo+WVIJqkB0cGA=="],
+
+    "survey-core": ["survey-core@3.2.2", "", {}, "sha512-S3YSPFywObmObHz/4VLnGof+I0R21IlBcrzLuhocIeISbv2I/MSvBUrIwCq2Bx6r34dxCOrJZ0H7i54b+gFxlQ=="],
+
+    "survey-react-ui": ["survey-react-ui@3.2.2", "", { "peerDependencies": { "react": "^16.5.0 || ^17.0.1 || ^18.1.0 || ^19.0.0", "react-dom": "^16.5.0 || ^17.0.1 || ^18.1.0 || ^19.0.0", "survey-core": "3.2.2" } }, "sha512-xr70p6uN2CYmiQNqLqxLJ/1ZE4rajdcpvNS5COJKVbzC2nIIg6ISU47AzeUTNRmb5+ouGmtL6DNJcaM0K3WGOg=="],
 
     "tagged-tag": ["tagged-tag@1.0.0", "", {}, "sha512-yEFYrVhod+hdNyx7g5Bnkkb0G6si8HJurOoOEgC8B/O0uXLHlaey/65KRv6cuWBNhBgHKAROVpc7QyYqE5gFng=="],
 

@@ -1,6 +1,8 @@
 import { queryOptions } from "@tanstack/react-query"
 
 import {
+  type AreaPublic,
+  AreasService,
   type DashboardPublic,
   DashboardService,
   type DrawingPublic,
@@ -9,14 +11,21 @@ import {
   FindingsService,
   type InspectionPublic,
   InspectionsService,
+  type ItpItemRef,
+  ItpsService,
+  type ItpTemplatePublic,
+  type ItpTemplateSummary,
   type MemberPublic,
   type PhotoPublic,
   PhotosService,
   type PinPublic,
+  type ProjectItpPublic,
+  type ProjectItpSummary,
   type ProjectPublic,
   ProjectsService,
   type ReportPublic,
   ReportsService,
+  type SignoffRolePublic,
   type WeatherReading,
   WeatherService,
 } from "@/client"
@@ -38,6 +47,14 @@ import {
  *   ["drawings", id]                   one drawing
  *   ["drawings", id, "view-url"]       its presigned view URL (1 hour)
  *   ["drawings", id, "pins"]           its pins, every page
+ *   ["projects", id, "areas"]          its areas with ITP roll-ups (increment 13)
+ *   ["projects", id, "itps"]           its ITPs (summaries)
+ *   ["projects", id, "itp-items"]      every ITP line, for the pin dialog
+ *   ["projects", id, "signoff-roles"]  its sign-off roles
+ *   ["areas", id]                      one area
+ *   ["itps", id]                       one ITP with lines, signatures, pins
+ *   ["itp-templates"]                  the caller's master templates
+ *   ["itp-templates", id]              one template version
  *
  * Invalidating ["projects", id] therefore also refreshes that project's
  * members, inspections and drawings — what the legacy SPA did by reloading
@@ -59,6 +76,19 @@ export const projectKeys = {
   inspections: (projectId: number) =>
     ["projects", projectId, "inspections"] as const,
   drawings: (projectId: number) => ["projects", projectId, "drawings"] as const,
+  areas: (projectId: number) => ["projects", projectId, "areas"] as const,
+  itps: (projectId: number) => ["projects", projectId, "itps"] as const,
+  itpItems: (projectId: number) =>
+    ["projects", projectId, "itp-items"] as const,
+  signoffRoles: (projectId: number) =>
+    ["projects", projectId, "signoff-roles"] as const,
+}
+
+export const itpKeys = {
+  detail: (itpId: number) => ["itps", itpId] as const,
+  area: (areaId: number) => ["areas", areaId] as const,
+  templates: ["itp-templates"] as const,
+  template: (templateId: number) => ["itp-templates", templateId] as const,
 }
 
 export const drawingKeys = {
@@ -240,6 +270,78 @@ export const pinsQuery = (drawingId: number) =>
     queryKey: drawingKeys.pins(drawingId),
     queryFn: async () =>
       (await DrawingsService.listPins({ path: { drawing_id: drawingId } }))
+        .data ?? [],
+  })
+
+// ── Block 9.5 ITPs and areas (increment 13) ─────────────────────────────────
+
+export const templatesQuery = (includeArchived = false) =>
+  queryOptions<ItpTemplateSummary[]>({
+    queryKey: [...itpKeys.templates, { includeArchived }],
+    queryFn: async () =>
+      (
+        await ItpsService.listTemplates({
+          query: { include_archived: includeArchived },
+        })
+      ).data ?? [],
+  })
+
+export const templateQuery = (templateId: number) =>
+  queryOptions<ItpTemplatePublic>({
+    queryKey: itpKeys.template(templateId),
+    queryFn: async () =>
+      (await ItpsService.readTemplate({ path: { template_id: templateId } }))
+        .data as ItpTemplatePublic,
+  })
+
+export const areasQuery = (projectId: number) =>
+  queryOptions<AreaPublic[]>({
+    queryKey: projectKeys.areas(projectId),
+    queryFn: async () =>
+      (await AreasService.listAreas({ path: { project_id: projectId } }))
+        .data ?? [],
+  })
+
+export const areaQuery = (areaId: number) =>
+  queryOptions<AreaPublic>({
+    queryKey: itpKeys.area(areaId),
+    queryFn: async () =>
+      (await AreasService.readArea({ path: { area_id: areaId } }))
+        .data as AreaPublic,
+  })
+
+export const projectItpsQuery = (projectId: number) =>
+  queryOptions<ProjectItpSummary[]>({
+    queryKey: projectKeys.itps(projectId),
+    queryFn: async () =>
+      (await ItpsService.listProjectItps({ path: { project_id: projectId } }))
+        .data ?? [],
+  })
+
+export const itpQuery = (itpId: number) =>
+  queryOptions<ProjectItpPublic>({
+    queryKey: itpKeys.detail(itpId),
+    queryFn: async () =>
+      (await ItpsService.readProjectItp({ path: { itp_id: itpId } }))
+        .data as ProjectItpPublic,
+  })
+
+export const itpItemsQuery = (projectId: number) =>
+  queryOptions<ItpItemRef[]>({
+    queryKey: projectKeys.itpItems(projectId),
+    queryFn: async () =>
+      (
+        await ItpsService.listProjectItpItems({
+          path: { project_id: projectId },
+        })
+      ).data ?? [],
+  })
+
+export const signoffRolesQuery = (projectId: number) =>
+  queryOptions<SignoffRolePublic[]>({
+    queryKey: projectKeys.signoffRoles(projectId),
+    queryFn: async () =>
+      (await ItpsService.listSignoffRoles({ path: { project_id: projectId } }))
         .data ?? [],
   })
 

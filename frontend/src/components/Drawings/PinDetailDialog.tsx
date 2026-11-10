@@ -1,12 +1,12 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { ExternalLink, Trash2 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 
-import { DrawingsService, type PinPublic } from "@/client"
+import { DrawingsService, type ItpItemRef, type PinPublic } from "@/client"
 import { ConfirmDialog } from "@/components/Common/ConfirmDialog"
 import { Button } from "@/components/ui/button"
 import {
@@ -32,7 +32,8 @@ import { Textarea } from "@/components/ui/textarea"
 import useCustomToast from "@/hooks/useCustomToast"
 import { useProjectFindings } from "@/hooks/useProjectFindings"
 import { formatDateTime } from "@/lib/format"
-import { drawingKeys } from "@/lib/queries"
+import { classificationInfo } from "@/lib/itp"
+import { drawingKeys, itpItemsQuery, projectKeys } from "@/lib/queries"
 import {
   PIN_STATUS_OPTIONS,
   PIN_STATUS_VALUES,
@@ -55,6 +56,7 @@ const schema = z.object({
   label: z.string().trim().max(255),
   notes: z.string().trim().max(5000),
   finding_id: z.string(),
+  itp_item_id: z.string(),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -65,6 +67,7 @@ function toFormValues(pin: PinPublic | null): FormValues {
     label: pin?.label ?? "",
     notes: pin?.notes ?? "",
     finding_id: pin?.finding_id ? String(pin.finding_id) : NONE,
+    itp_item_id: pin?.itp_item_id ? String(pin.itp_item_id) : NONE,
   }
 }
 
@@ -92,6 +95,8 @@ export function PinDetailDialog({
   const [deleting, setDeleting] = useState(false)
   const open = pin !== null
   const projectFindings = useProjectFindings(projectId, open && canWrite)
+  const itpItems = useQuery({ ...itpItemsQuery(projectId), enabled: open })
+  const itpGroups = groupItpItems(itpItems.data ?? [])
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -112,6 +117,7 @@ export function PinDetailDialog({
   const saveMutation = useMutation({
     mutationFn: async (values: FormValues) => {
       if (!pin) throw new Error("No pin selected.")
+      const itpItemId = values.itp_item_id ? Number(values.itp_item_id) : null
       const response = await DrawingsService.updatePin({
         path: { pin_id: pin.id },
         body: {
@@ -119,12 +125,22 @@ export function PinDetailDialog({
           label: nullIfBlank(values.label),
           notes: nullIfBlank(values.notes),
           finding_id: values.finding_id ? Number(values.finding_id) : null,
+          // Sent only when changed, so the legacy body is unchanged otherwise.
+          ...(itpItemId !== (pin.itp_item_id ?? null)
+            ? { itp_item_id: itpItemId }
+            : {}),
         },
       })
       return response.data as PinPublic
     },
     onSuccess: (saved) => {
       updatePins((pins) => pins.map((p) => (p.id === saved.id ? saved : p)))
+      if (saved.itp_item_id !== pin?.itp_item_id) {
+        queryClient.invalidateQueries({
+          queryKey: projectKeys.itpItems(projectId),
+        })
+        queryClient.invalidateQueries({ queryKey: ["itps"] })
+      }
       showSuccessToast("Pin updated")
       onClose()
     },
@@ -155,6 +171,9 @@ export function PinDetailDialog({
     ? projectFindings.byId.get(pin.finding_id)
     : undefined
   const pinNumber = pin ? String(pin.tag_number || pin.id) : ""
+  const linkedItp = pin?.itp_item_id
+    ? itpItems.data?.find((item) => item.id === pin.itp_item_id)
+    : undefined
 
   return (
     <>
@@ -265,6 +284,34 @@ export function PinDetailDialog({
                 />
                 <FormField
                   control={form.control}
+                  name="itp_item_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>ITP line</FormLabel>
+                      <FormControl>
+                        <NativeSelect {...field} data-testid="pin-itp-select">
+                          <option value={NONE}>Not an ITP line</option>
+                          {itpGroups.map((group) => (
+                            <optgroup key={group.id} label={group.title}>
+                              {group.items.map((item) => (
+                                <option key={item.id} value={String(item.id)}>
+                                  {
+                                    classificationInfo(item.classification)
+                                      .short
+                                  }{" "}
+                                  · {item.requirement}
+                                </option>
+                              ))}
+                            </optgroup>
+                          ))}
+                        </NativeSelect>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
                   name="notes"
                   render={({ field }) => (
                     <FormItem>
@@ -330,6 +377,32 @@ export function PinDetailDialog({
             </div>
           )}
 
+          {linkedItp ? (
+            <p
+              className="text-xs text-muted-foreground"
+              data-testid="pin-linked-itp"
+            >
+              Marks{" "}
+              {classificationInfo(linkedItp.classification).label.toLowerCase()}{" "}
+              <Link
+                to="/projects/$projectId/itps/$itpId"
+                params={{
+                  projectId: String(projectId),
+                  itpId: String(linkedItp.project_itp_id),
+                }}
+                className="inline-flex items-center gap-1 text-vri-copper underline-offset-2 hover:underline"
+              >
+                {linkedItp.requirement}
+                <ExternalLink className="size-3" aria-hidden="true" />
+              </Link>{" "}
+              in {linkedItp.itp_title}
+              {linkedItp.classification === "hold"
+                ? linkedItp.released
+                  ? " — released."
+                  : " — waiting for sign-off."
+                : "."}
+            </p>
+          ) : null}
           {linked ? (
             <p
               className="text-xs text-muted-foreground"
@@ -374,4 +447,25 @@ export function PinDetailDialog({
       />
     </>
   )
+}
+
+function groupItpItems(
+  items: ItpItemRef[],
+): Array<{ id: number; title: string; items: ItpItemRef[] }> {
+  const groups = new Map<
+    number,
+    { id: number; title: string; items: ItpItemRef[] }
+  >()
+  for (const item of items) {
+    const group = groups.get(item.project_itp_id) ?? {
+      id: item.project_itp_id,
+      title: item.area_name
+        ? `${item.itp_title} (${item.area_name})`
+        : item.itp_title,
+      items: [],
+    }
+    group.items.push(item)
+    groups.set(item.project_itp_id, group)
+  }
+  return [...groups.values()]
 }

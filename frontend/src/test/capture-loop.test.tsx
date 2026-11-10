@@ -87,6 +87,7 @@ vi.mock("@/client", () => ({
     createPin: api.createPin,
     updatePin: api.updatePin,
   },
+  ItpsService: { listProjectItpItems: async () => ({ data: [] }) },
   WeatherService: { readWeather: async () => ({ data: undefined }) },
 }))
 

@@ -9,8 +9,13 @@ const byTitle = (title: string) => {
 }
 
 describe("navigation", () => {
-  it("keeps the legacy information architecture: dashboard, projects, help", () => {
-    expect(NAV_ITEMS.map((i) => i.path)).toEqual(["/", "/projects", "/help"])
+  it("keeps the legacy information architecture, plus ITP templates", () => {
+    expect(NAV_ITEMS.map((i) => i.path)).toEqual([
+      "/",
+      "/projects",
+      "/itp-templates",
+      "/help",
+    ])
   })
 
   it("marks the dashboard active only on the exact home path", () => {

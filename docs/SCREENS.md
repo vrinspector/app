@@ -574,3 +574,84 @@ it under 15 s; the stopwatch run on a real phone remains the owner's
     inspection is shown in the form and can be changed. Drawings belong to
     the project, not to an inspection, so some choice has to be made; if a
     project usually has one open inspection this is invisible.
+
+## Increment 13 — ITP screens and Areas (Block 9.5)
+
+New screens:
+
+* **ITP templates** (`/itp-templates`, new sidebar entry): the signed-in
+  person's masters, latest version of each, with status, line count and hold
+  points; "Show archived". **New template** opens an editor with name,
+  description, status and the SurveyJS JSON, pre-filled with a worked
+  concrete-pour example; the box is checked as it is typed
+  ("5 lines · 1 hold point · 2 sign-off roles", or the exact problem) with
+  the same rules the API applies.
+* **Template** (`/itp-templates/$templateId`): the line list with
+  classification and signing roles, the **SurveyJS form preview** (MIT
+  `survey-core` / `survey-react-ui` 3.2.2, loaded as its own chunk), version
+  links, **Edit** (saves the next version) and Publish / Move to draft /
+  Archive.
+* **Project screen** gains **ITPs** (cards with area, status, recorded
+  progress, waiting hold points; area filter; **Apply template**;
+  **Sign-off roles**) and **Areas** (add one, **Add a series** such as Level
+  1–12, rename / retype / nest, move up / down, delete; each row shows its
+  ITP progress and opens the area).
+* **Apply template** dialog: a master, then the whole project or any number
+  of areas with Select all — one frozen copy per area in a single request.
+* **Area** (`/projects/$projectId/areas/$areaId`): its ITPs with completion
+  and hold-point status, areas inside it, Apply template pre-set to it.
+  Increment 14 adds the area's combined sign-off pack here.
+* **ITP** (`/projects/$projectId/itps/$itpId`): the checklist by section with
+  large Pass / Fail / N/A buttons per line, classification badges, notes,
+  required roles with **Sign as …** and the recorded signatures (time and,
+  when the device allows, GPS), a lock on every line past an unreleased hold
+  point, the list of what still blocks completion, **Mark complete**, and
+  Rename / move to area, Reopen, Void / Restore (owner), Delete (unsigned
+  only). **Form view** renders the frozen copy with SurveyJS with the
+  recorded results filled in.
+* **Pins both ways:** each line lists the pins that mark it (opening the
+  drawing) and has **Mark on drawing**, which opens the viewer in pin mode
+  with a banner naming the line; the placed pin is linked to it. On the
+  drawing, a pin that marks a line has a square outline — brick while its
+  hold point waits, green once released, amber for other lines — and the pin
+  dialog has an **ITP line** picker and a link back to the ITP.
+
+Demo build: `src/demo/fakeItp.ts` answers every new route with the same
+rules, seeded with one master and three stages of the sample landfill
+project (two with the master applied, the first part-recorded with its hold
+point half-signed and marked by a pin on the P&ID).
+
+Tests: backend 33 new (`tests/api/routes/test_itps.py`, `test_areas.py`,
+`tests/core/test_itp_template.py`); frontend 9 new unit tests
+(`src/lib/itp.test.ts`) and 4 Playwright walks in the demo at phone size
+(`tests/demo/itp.spec.ts`): series + bulk apply, hold point → sign → complete
+→ form view, mark a line on a drawing and back, template preview + edit → v2.
+
+### Decisions for the owner (increment 13)
+
+39. **Templates are written as JSON**, starting from the worked example. The
+    SurveyJS visual form builder is a paid product (the stack brief chose the
+    free form library); the AI import in Block 10E is the friendlier way in.
+    Every question must say whether it is a hold point, witness point,
+    surveillance or record, and a hold point must name at least one role.
+40. **Only the person who made a master can apply it** (follows decision
+    35, masters belong to an account until the app has a company record).
+    Inspectors can make and apply their own.
+41. **A hold point locks every later line** until all its roles have
+    signed, and the hold line itself must be recorded Pass or N/A before it
+    can be signed. A signed line's result cannot be changed.
+42. **"Complete" needs every line recorded, no failed lines and every hold
+    point released.** Witness-point signatures are shown but do not block
+    completion (the witness may decline to attend).
+43. **In-app signing:** a role with a signer email is signed only by the
+    member signed in with that email (whatever their project role — a client
+    engineer invited as a viewer can sign); a role without one is signed by
+    a project owner. The time and, if allowed, the phone's GPS are recorded
+    now; the drawn signature, weather stamp and no-account email links are
+    increment 14.
+44. **Signed ITPs cannot be deleted, only voided** (owner only), and a
+    voided or complete ITP is read-only until restored or reopened.
+45. **Owners manage sign-off roles; owners and inspectors manage areas and
+    apply templates.** Viewers can read everything.
+46. **Drafts can be applied; archived masters cannot.** Archive hides a
+    master from the list and the Apply dialog without touching copies in use.

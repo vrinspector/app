@@ -35,9 +35,14 @@ from app.models import (
     Finding,
     Inspection,
     InspectionPin,
+    ItpItem,
+    ItpTemplate,
     Photo,
     Project,
+    ProjectArea,
+    ProjectItp,
     ProjectMember,
+    SignoffRole,
 )
 
 WRITE_ROLES: frozenset[str] = frozenset({"owner", "inspector"})
@@ -229,3 +234,80 @@ def ensure_inspection_open(inspection: Inspection) -> None:
             status_code=status.HTTP_409_CONFLICT,
             detail="Inspection is signed off; reopen it to change findings",
         )
+
+
+# ── Block 9.5: ITPs, areas and sign-off roles (increment 13) ─────────────────
+# Same object hiding: each row is reached through its project, and a row of a
+# project the caller cannot see is "not found".
+
+
+def get_authorized_area(
+    db: Session, area_id: int, user: AuthUser, *, roles: Iterable[str] | None = None
+) -> ProjectArea:
+    area = db.get(ProjectArea, area_id)
+    if area is None:
+        raise not_found("Area not found")
+    require_project_member(
+        db, area.project_id, user, roles=roles, detail="Area not found"
+    )
+    return area
+
+
+def get_authorized_itp(
+    db: Session, itp_id: int, user: AuthUser, *, roles: Iterable[str] | None = None
+) -> ProjectItp:
+    itp = db.get(ProjectItp, itp_id)
+    if itp is None:
+        raise not_found("ITP not found")
+    require_project_member(
+        db, itp.project_id, user, roles=roles, detail="ITP not found"
+    )
+    return itp
+
+
+def get_authorized_itp_item(
+    db: Session, item_id: int, user: AuthUser, *, roles: Iterable[str] | None = None
+) -> tuple[ItpItem, ProjectItp]:
+    item = db.get(ItpItem, item_id)
+    itp = db.get(ProjectItp, item.project_itp_id) if item is not None else None
+    if item is None or itp is None:
+        raise not_found("ITP item not found")
+    require_project_member(
+        db, itp.project_id, user, roles=roles, detail="ITP item not found"
+    )
+    return item, itp
+
+
+def get_authorized_signoff_role(
+    db: Session, role_id: int, user: AuthUser, *, roles: Iterable[str] | None = None
+) -> SignoffRole:
+    role = db.get(SignoffRole, role_id)
+    if role is None:
+        raise not_found("Sign-off role not found")
+    require_project_member(
+        db, role.project_id, user, roles=roles, detail="Sign-off role not found"
+    )
+    return role
+
+
+def get_owned_template(db: Session, template_id: int, user: AuthUser) -> ItpTemplate:
+    """Masters belong to the account that created them (owner decision 35)."""
+    template = db.get(ItpTemplate, template_id)
+    if template is None or template.created_by_sub != user.sub:
+        raise not_found("Template not found")
+    return template
+
+
+def ensure_area_in_project(db: Session, area_id: int, project_id: int) -> ProjectArea:
+    area = db.get(ProjectArea, area_id)
+    if area is None or area.project_id != project_id:
+        raise not_found("Area not found")
+    return area
+
+
+def ensure_itp_item_in_project(db: Session, item_id: int, project_id: int) -> None:
+    """A pin may only mark an ITP item of the same project (else 404)."""
+    item = db.get(ItpItem, item_id)
+    itp = db.get(ProjectItp, item.project_itp_id) if item is not None else None
+    if itp is None or itp.project_id != project_id:
+        raise not_found("ITP item not found")

@@ -290,6 +290,28 @@ function Help() {
             a numbered version with a <strong>Download PDF</strong> button, so
             an earlier report can always be opened again.
           </p>
+          <h3 className="mt-2 font-semibold">ITPs, hold points and areas</h3>
+          <p>
+            Build a master inspection and test plan once under{" "}
+            <strong>ITP templates</strong>: its sections, lines, whether each
+            line is a hold point, witness point, surveillance or record, and
+            which roles sign it. On a project, <strong>Apply template</strong>{" "}
+            makes the project's own copy — for the whole project or, in one
+            action, one copy per area (a level, lot, stage or chainage; add a
+            numbered series such as Level 1–12 with{" "}
+            <strong>Add a series</strong>). Editing the master later never
+            changes a copy already in use.
+          </p>
+          <p>
+            Record each line with <strong>Pass</strong>, <strong>Fail</strong>{" "}
+            or <strong>N/A</strong>. A hold point stops the lines after it until
+            every required role has signed it; owners sign for roles without a
+            signer email, and a role with an email is signed by that person from
+            their own login. An ITP can be marked complete once every line is
+            recorded, nothing has failed and every hold point is released.{" "}
+            <strong>Mark on drawing</strong> places a pin for a line, and the pin
+            shows the line's hold-point state on the sheet.
+          </p>
         </HelpSection>
 
         <HelpSection id="handoff" title="Field-to-office handoff">

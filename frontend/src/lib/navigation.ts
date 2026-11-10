@@ -1,5 +1,6 @@
 import {
   CircleHelp,
+  ClipboardCheck,
   FolderKanban,
   LayoutDashboard,
   type LucideIcon,
@@ -40,6 +41,12 @@ export const NAV_ITEMS: NavItem[] = [
     path: "/projects",
     icon: FolderKanban,
     blurb: "Every project you are a member of, with its inspections.",
+  },
+  {
+    title: "ITP templates",
+    path: "/itp-templates",
+    icon: ClipboardCheck,
+    blurb: "Master inspection and test plans you apply to projects and areas.",
   },
   {
     title: "Help",

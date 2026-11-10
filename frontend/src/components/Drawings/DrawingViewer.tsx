@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { Link } from "@tanstack/react-router"
 import {
   ChevronLeft,
   ChevronRight,
@@ -37,7 +38,12 @@ import {
   zoomStepIn,
   zoomStepOut,
 } from "@/lib/drawings"
-import { drawingKeys, pinsQuery, projectKeys } from "@/lib/queries"
+import {
+  drawingKeys,
+  itpItemsQuery,
+  pinsQuery,
+  projectKeys,
+} from "@/lib/queries"
 import { cn } from "@/lib/utils"
 import { PIN_STATUS_OPTIONS } from "@/lib/vocab"
 import { PinDetailDialog } from "./PinDetailDialog"
@@ -76,6 +82,11 @@ interface DrawingViewerProps {
   onRetry: () => void
   /** The inspection the viewer was opened from, pre-selected for new findings. */
   inspectionId?: number | null
+  /**
+   * Increment 13 ("Mark on drawing" on an ITP line): new pins mark this
+   * line, and the viewer opens in pin mode with a banner naming it.
+   */
+  itpItemId?: number | null
 }
 
 interface PendingScroll {
@@ -91,6 +102,7 @@ export function DrawingViewer({
   canWrite,
   onRetry,
   inspectionId = null,
+  itpItemId = null,
 }: DrawingViewerProps) {
   const kind = drawingFileKind(drawing)
   const isPdf = kind === "pdf"
@@ -101,7 +113,7 @@ export function DrawingViewer({
 
   const [zoom, setZoom] = useState<number | null>(null)
   const [pageNumber, setPageNumber] = useState(1)
-  const [pinMode, setPinMode] = useState(false)
+  const [pinMode, setPinMode] = useState(itpItemId !== null && canWrite)
   const [placing, setPlacing] = useState<PointPercent | null>(null)
   const [selectedPin, setSelectedPin] = useState<PinPublic | null>(null)
   const [capturePin, setCapturePin] = useState<PinPublic | null>(null)
@@ -113,6 +125,15 @@ export function DrawingViewer({
   const dimensionsSentRef = useRef(false)
 
   const pins = useQuery(pinsQuery(drawing.id))
+  // Block 9.5: the project's ITP lines, so pins that mark one render as a
+  // hold / witness point and the banner can name the line being marked.
+  const itpItems = useQuery(itpItemsQuery(projectId))
+  const itpItemsById = useMemo(
+    () => new Map((itpItems.data ?? []).map((item) => [item.id, item])),
+    [itpItems.data],
+  )
+  const markingItem =
+    itpItemId !== null ? itpItemsById.get(itpItemId) : undefined
 
   // Block 8E R6: record the page size in points the first time page 1 of a
   // PDF without stored dimensions is rendered (legacy `savePdfDimensions`).
@@ -340,6 +361,38 @@ export function DrawingViewer({
       data-testid="drawing-viewer"
       data-kind={kind}
     >
+      {itpItemId !== null ? (
+        <div
+          className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b bg-status-attention-bg px-3 py-2 text-sm text-status-attention-fg"
+          role="status"
+          data-testid="itp-marking-banner"
+        >
+          <span className="min-w-0 flex-1">
+            {markingItem ? (
+              <>
+                Placing a pin for ITP line{" "}
+                <strong>“{markingItem.requirement}”</strong> (
+                {markingItem.itp_title})
+              </>
+            ) : (
+              "Placing a pin for an ITP line"
+            )}
+          </span>
+          {markingItem ? (
+            <Link
+              to="/projects/$projectId/itps/$itpId"
+              params={{
+                projectId: String(projectId),
+                itpId: String(markingItem.project_itp_id),
+              }}
+              className="font-semibold underline-offset-2 hover:underline"
+              data-testid="itp-marking-back"
+            >
+              Back to the ITP
+            </Link>
+          ) : null}
+        </div>
+      ) : null}
       <div
         className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b bg-vri-green px-2 py-1.5 text-vri-offwhite sm:px-3"
         data-testid="viewer-toolbar"
@@ -510,6 +563,7 @@ export function DrawingViewer({
               {baseSize ? (
                 <PinOverlay
                   pins={visiblePins}
+                  itpItems={itpItemsById}
                   pinMode={pinMode && canWrite}
                   suppressClickRef={suppressClickRef}
                   onPlace={setPlacing}
@@ -551,6 +605,13 @@ export function DrawingViewer({
             {option.label}
           </li>
         ))}
+        <li className="flex items-center gap-1.5">
+          <span
+            className="inline-block size-2.5 rotate-45 border-2 border-status-critical-fg bg-transparent"
+            aria-hidden="true"
+          />
+          ITP hold point
+        </li>
         {pins.isError ? (
           <li className="ml-auto text-destructive">
             Pins could not be loaded.
@@ -560,11 +621,20 @@ export function DrawingViewer({
 
       <PinStatusDialog
         drawingId={drawing.id}
+        itpItem={markingItem ?? null}
         point={placing}
         pageNumber={isPdf ? pageNumber : 1}
         isPdf={isPdf}
         onClose={() => setPlacing(null)}
         onPlaced={(pin, { logFinding }) => {
+          if (pin.itp_item_id) {
+            setPinMode(false)
+            queryClient.invalidateQueries({
+              queryKey: projectKeys.itpItems(projectId),
+            })
+            queryClient.invalidateQueries({ queryKey: ["itps"] })
+            return
+          }
           if (logFinding && canWrite) {
             setPinMode(false)
             setCapturePin(pin)

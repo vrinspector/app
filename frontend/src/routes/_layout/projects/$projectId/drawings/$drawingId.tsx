@@ -43,6 +43,8 @@ import { extractErrorMessage } from "@/utils"
  */
 const searchSchema = z.object({
   inspection: z.coerce.number().int().positive().optional().catch(undefined),
+  /** Increment 13: place a pin that marks this ITP line ("Mark on drawing"). */
+  itpItem: z.coerce.number().int().positive().optional().catch(undefined),
 })
 
 export const Route = createFileRoute(
@@ -132,7 +134,7 @@ function DrawingBody({
   drawing: DrawingPublic
 }) {
   const navigate = Route.useNavigate()
-  const { inspection: inspectionId } = Route.useSearch()
+  const { inspection: inspectionId, itpItem: itpItemId } = Route.useSearch()
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
   const { canWrite } = useProjectRole(projectId)
@@ -232,6 +234,7 @@ function DrawingBody({
           canWrite={canWrite}
           onRetry={() => viewUrl.refetch()}
           inspectionId={inspectionId ?? null}
+          itpItemId={itpItemId ?? null}
         />
       )}
 

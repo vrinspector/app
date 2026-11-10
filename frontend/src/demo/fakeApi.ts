@@ -26,6 +26,7 @@ import type {
 } from "@/client"
 
 import { DEMO_USER } from "./auth0-stub"
+import { registerItpRoutes } from "./fakeItp"
 import { demoUploadUrl, forgetStoredFile, storedFileUrl } from "./fakeS3"
 import {
   ASSET_URLS,
@@ -551,7 +552,9 @@ on("POST", "/drawings/{drawing_id}/pins", ({ params, body }) => {
     page_number: Number(body.page_number ?? 1),
     created_by: me,
     created_at: stamp(),
+    itp_item_id: (body.itp_item_id as number) ?? null,
   }
+  itpRoutes.checkPinItem(drawingId, created.itp_item_id)
   db.pins.push(created)
   return created
 })
@@ -560,6 +563,7 @@ on("GET", "/pins/{pin_id}", ({ params }) =>
 )
 on("PUT|PATCH", "/pins/{pin_id}", ({ params, body }) => {
   const pin = find(db.pins, num(params[0]), "Pin")
+  itpRoutes.checkPinItem(pin.drawing_id, body.itp_item_id)
   for (const [key, value] of Object.entries(body)) {
     if (value !== undefined) (pin as Record<string, unknown>)[key] = value
   }
@@ -613,6 +617,25 @@ on("DELETE", "/reports/{report_id}", ({ params }) => {
   find(db.reports, num(params[0]), "Report")
   remove(db.reports, (r) => r.id !== num(params[0]))
   return null
+})
+
+// --- ITPs, sign-off roles, areas (increment 13) ------------------------------
+const itpRoutes = registerItpRoutes({
+  on,
+  fail: (status, detail) => {
+    throw new HttpError(status, detail)
+  },
+  me,
+  isOwner: (projectId) =>
+    db.members.some(
+      (m) =>
+        m.project_id === projectId && m.user_email === me && m.role === "owner",
+    ),
+  projectExists: (projectId) => db.projects.some((p) => p.id === projectId),
+  pins: db.pins,
+  drawingTitle: (id) => db.drawings.find((d) => d.id === id)?.title ?? null,
+  drawingProject: (id) => db.drawings.find((d) => d.id === id)?.project_id,
+  nextPublicId,
 })
 
 // --- Adapter ---------------------------------------------------------------

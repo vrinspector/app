@@ -42,6 +42,7 @@ from app.api.authz import (
     WRITE_ROLES,
     current_email,
     ensure_finding_in_project,
+    ensure_itp_item_in_project,
     get_authorized_drawing,
     get_authorized_pin,
     get_authorized_project,
@@ -227,6 +228,8 @@ def create_pin(
     )
     if payload.finding_id is not None:
         ensure_finding_in_project(session, payload.finding_id, drawing.project_id)
+    if payload.itp_item_id is not None:
+        ensure_itp_item_in_project(session, payload.itp_item_id, drawing.project_id)
     pin = InspectionPin.model_validate(
         payload,
         update={"drawing_id": drawing_id, "created_by": current_email(current_user)},
@@ -248,13 +251,17 @@ def update_pin(
     pin_id: int, payload: PinUpdate, session: SessionDep, current_user: CurrentUser
 ) -> Any:
     pin, drawing = get_authorized_pin(session, pin_id, current_user, roles=WRITE_ROLES)
-    # ``finding_id: null`` unlinks the pin; other nulls are "not sent".
+    # ``finding_id: null`` / ``itp_item_id: null`` unlink the pin; other
+    # nulls are "not sent".
+    nullable = {"finding_id", "itp_item_id"}
     updates = payload.model_dump(exclude_unset=True)
-    updates = {k: v for k, v in updates.items() if v is not None or k == "finding_id"}
+    updates = {k: v for k, v in updates.items() if v is not None or k in nullable}
     if not updates:
         raise _no_fields()
     if updates.get("finding_id") is not None:
         ensure_finding_in_project(session, updates["finding_id"], drawing.project_id)
+    if updates.get("itp_item_id") is not None:
+        ensure_itp_item_in_project(session, updates["itp_item_id"], drawing.project_id)
     pin.sqlmodel_update(updates)
     session.add(pin)
     session.commit()

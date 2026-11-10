@@ -170,6 +170,45 @@ working defaults; there is no key to configure. The test suite injects an
 `httpx.MockTransport` (`weather.use_transport`) and never reaches the
 network, the same seam as `Storage.use_client`.
 
+## ITPs, sign-off roles and Areas (increment 13)
+
+Block 9.5 (PRD v2.63 §5) — new routes with no legacy counterpart, in
+`app/api/routes/itps.py` and `app/api/routes/areas.py`; the read model
+(hold points, completion blockers) is `app/api/itp_state.py`, the template
+reader `app/core/itp.py` (mirrored in `frontend/src/lib/itp.ts` for the
+editor and the demo).
+
+    GET    /itp-templates[?include_archived]   caller's masters, latest version each
+    POST   /itp-templates                      201, version 1 (body validated → 422 with a reason)
+    GET    /itp-templates/{id}                 one version + body + version list
+    PUT    /itp-templates/{id}                 201, the next version (409 unless editing the latest)
+    PATCH  /itp-templates/{id}/status          draft / published / archived, in place
+    GET    /projects/{id}/signoff-roles        roles + how many lines need each
+    POST   /projects/{id}/signoff-roles        owner; 409 duplicate name (case-insensitive)
+    PUT    /signoff-roles/{id}                 owner; `signer_email: null` clears
+    DELETE /signoff-roles/{id}                 owner; 409 while lines need it
+    GET    /projects/{id}/areas                ordered, each with an ITP roll-up
+    POST   /projects/{id}/areas                owner/inspector; appended
+    POST   /projects/{id}/areas/bulk           {prefix, start, end, area_type, parent_area_id} ≤ 200
+    PUT    /projects/{id}/areas/order          {area_ids}: every area exactly once
+    GET    /areas/{id}  PUT /areas/{id}         rename / retype / re-parent (no cycles, same project)
+    DELETE /areas/{id}                         409 when any of its ITPs is signed
+    GET    /projects/{id}/itps[?area_id]       summaries
+    POST   /projects/{id}/itps                 {template_id, area_id?, title?} → frozen copy
+    POST   /projects/{id}/itps/bulk            {template_id, area_ids} → one copy per area, all or none
+    GET    /projects/{id}/itp-items            every line (for the pin dialog)
+    GET    /itps/{id}  PUT /itps/{id}           title / area / status (complete checks blockers)
+    DELETE /itps/{id}                          409 once anything is signed ("void it instead")
+    PUT    /itp-items/{id}                     {status?, notes?}
+    POST   /itp-items/{id}/signatures          in-app sign-off for one required role
+
+`PinCreate` / `PinUpdate` / `PinPublic` gain `itp_item_id` (same project or
+404 "ITP item not found"; `null` unlinks). Object hiding as everywhere else:
+an area, ITP, line or role of a project the caller cannot see is 404 with
+"Area / ITP / ITP item / Sign-off role not found"; a master of another
+account is "Template not found". Owner decisions 39–46 are in
+`docs/SCREENS.md`.
+
 ## Authorization (carried over from the July 2026 hardening)
 
 * Every object is reached through its project; non-members get **404** with

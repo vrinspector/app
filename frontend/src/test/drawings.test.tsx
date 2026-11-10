@@ -91,6 +91,7 @@ vi.mock("@/client", () => ({
     deletePin: api.deletePin,
   },
   // Weather (increment 10.5) is a silent badge; no reading here.
+  ItpsService: { listProjectItpItems: async () => ({ data: [] }) },
   WeatherService: { readWeather: async () => ({ data: undefined }) },
 }))
 

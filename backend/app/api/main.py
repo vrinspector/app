@@ -1,10 +1,12 @@
 from fastapi import APIRouter
 
 from app.api.routes import (
+    areas,
     dashboard,
     drawings,
     findings,
     inspections,
+    itps,
     photos,
     projects,
     reports,
@@ -28,3 +30,6 @@ api_router.include_router(drawings.router)
 api_router.include_router(reports.router)
 # Increment 10.5 — Block 5 weather badge (Open-Meteo lookup, no key)
 api_router.include_router(weather.router)
+# Increment 13 — Block 9.5 ITP templates, project ITPs, sign-off roles, Areas
+api_router.include_router(itps.router)
+api_router.include_router(areas.router)
