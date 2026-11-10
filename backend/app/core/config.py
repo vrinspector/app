@@ -88,6 +88,12 @@ class Settings(BaseSettings):
     # 15 minutes, so ten minutes keeps a crew's repeated opens to one call.
     WEATHER_CACHE_SECONDS: int = 600
 
+    # --- ITP starter library (increment 13.7) ---
+    # Seed the starter master templates (app/itp-library.json) the first time
+    # an account with no masters lists them. Off only in tests that need an
+    # empty list.
+    ITP_STARTER_LIBRARY: bool = True
+
     # --- Outbound email (increment 13.5; Block 7.1 pulled forward) ---
     # One SMTP service for every email the app sends. Production target is
     # AWS SES over SMTP (host email-smtp.<region>.amazonaws.com, port 587,

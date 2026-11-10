@@ -10,6 +10,9 @@
  * photos filed under a line (`photos.itp_item_id`, with `photoRequired`
  * blocking Pass and sign-off), measured values with out-of-tolerance flags,
  * the H / W / R / I vocabulary and the three default sign-off roles.
+ *
+ * Increment 13.7: the sample account's masters are the starter library
+ * (`src/lib/itpLibrary.json`, the same file the API seeds new accounts from).
  */
 import type {
   AreaPublic,
@@ -24,12 +27,8 @@ import type {
   ProjectItpSummary,
   SignoffRolePublic,
 } from "@/client"
-import {
-  DEFAULT_ROLES,
-  parseTemplateBody,
-  STARTER_TEMPLATE,
-  TemplateError,
-} from "@/lib/itp"
+import { DEFAULT_ROLES, parseTemplateBody, TemplateError } from "@/lib/itp"
+import { STARTER_LIBRARY } from "@/lib/itpLibrary"
 
 type Body = Record<string, unknown>
 type Handler = (args: {
@@ -459,7 +458,7 @@ export function registerItpRoutes(ctx: ItpContext) {
     const archived = query.get("include_archived") === "true"
     return [...latest.values()]
       .filter((t) => archived || t.status !== "archived")
-      .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+      .sort((a, b) => b.updated_at.localeCompare(a.updated_at) || a.id - b.id)
       .map(templateSummary)
   })
   on("POST", "/itp-templates", ({ body }) => {
@@ -955,53 +954,98 @@ export function registerItpRoutes(ctx: ItpContext) {
     }
   }
 
-  // ── sample data: one master, three stages of project 1, two applied ─────
-  const master = addTemplate(
-    "Concrete pour",
-    "Equipment pad pour, from pre-pour checks to test cylinders",
-    "published",
-    structuredClone(STARTER_TEMPLATE) as Body,
+  // ── sample data (13.7): the starter library as the account's masters,
+  // three stages of project 1 with concrete on two and a pressure test on
+  // the third, and the duct bank for the whole project ───────────────────────
+  const masters = STARTER_LIBRARY.map((starter) =>
+    addTemplate(
+      starter.name,
+      starter.description,
+      "published",
+      structuredClone(starter.body) as Body,
+    ),
   )
+  // Seeded together, as the API does: one timestamp, listed in library order.
+  const seededAt = stamp()
+  for (const m of masters) {
+    m.created_at = seededAt
+    m.updated_at = seededAt
+  }
+  const masterFor = (key: string) =>
+    masters[STARTER_LIBRARY.findIndex((t) => t.key === key)]
+  const concrete = masterFor("cast-in-place-concrete")
+  const pressureTest = masterFor("piping-pressure-test")
   const stage1 = newArea(1, "Stage 1 — Compressor pad", "stage", null, 10)
   const stage2 = newArea(1, "Stage 2 — Flare pad", "stage", null, 20)
-  newArea(1, "Stage 3 — Condensate area", "stage", null, 30)
+  const stage3 = newArea(1, "Stage 3 — Condensate area", "stage", null, 30)
   const first = importItp(
-    master,
+    concrete,
     1,
     stage1.id,
-    `Concrete pour — ${stage1.name}`,
+    `${concrete.name} — ${stage1.name}`,
   )
-  importItp(master, 1, stage2.id, `Concrete pour — ${stage2.name}`)
-  const firstLines = items.filter((i) => i.project_itp_id === first.id)
-  firstLines[0].status = "pass"
-  firstLines[0].notes = "Set-out checked against S-101 rev C"
-  // The rebar hold point passed with its photo, half signed.
-  ctx.photos.push({
-    id: ctx.photos.reduce((max, p) => Math.max(max, p.id), 0) + 1,
-    public_id: ctx.nextPublicId(),
-    inspection_id: null,
-    itp_item_id: firstLines[1].id,
-    finding_id: null,
-    // A sample asset the demo already ships (no rebar photo of our own).
-    s3_key: "photos/demo/compressor-skid.jpg",
-    filename: "rebar-mat.jpg",
-    content_type: "image/jpeg",
-    uploaded_by: me,
-    created_at: stamp(),
-    view_url: null,
-  })
-  firstLines[1].status = "pass"
-  firstLines[1].notes = "Tape on #5 bars at 12 in o.c. — matches S-201"
-  first.status = "in_progress"
-  const siteEngineer = roles.find((r) => r.role_name === "Contractor")
-  if (siteEngineer) {
+  importItp(concrete, 1, stage2.id, `${concrete.name} — ${stage2.name}`)
+  const third = importItp(
+    pressureTest,
+    1,
+    stage3.id,
+    `${pressureTest.name} — ${stage3.name}`,
+  )
+  // A whole-project ITP (no area): the site duct bank, not started.
+  const conduit = masterFor("underground-conduit-duct-bank")
+  importItp(conduit, 1, null, conduit.name)
+
+  const lineOf = (itp: ItpRow, name: string) => {
+    const found = items.find(
+      (i) => i.project_itp_id === itp.id && i.element_name === name,
+    )
+    if (!found) throw new Error(`demo seed: no line ${name}`)
+    return found
+  }
+  // Sample assets the demo already ships stand in for site photos.
+  const filePhoto = (itemId: number, s3Key: string, filename: string) => {
+    ctx.photos.push({
+      id: ctx.photos.reduce((max, p) => Math.max(max, p.id), 0) + 1,
+      public_id: ctx.nextPublicId(),
+      inspection_id: null,
+      itp_item_id: itemId,
+      finding_id: null,
+      s3_key: s3Key,
+      filename,
+      content_type: "image/jpeg",
+      uploaded_by: me,
+      created_at: stamp(),
+      view_url: null,
+    })
+  }
+  const record = (
+    itp: ItpRow,
+    name: string,
+    notes: string | null = null,
+    value: string | null = null,
+  ) => {
+    const line = lineOf(itp, name)
+    if (line.photo_required) {
+      filePhoto(line.id, "photos/demo/compressor-skid.jpg", `${name}.jpg`)
+    }
+    line.status = "pass"
+    line.notes = notes
+    line.measured_value = value
+    itp.status = "in_progress"
+    return line
+  }
+  const signAs = (itp: ItpRow, line: ItemRow, roleName: string) => {
+    const role = roles.find(
+      (r) => r.project_id === itp.project_id && r.role_name === roleName,
+    )
+    if (!role) return
     signatures.push({
-      id: 1,
-      project_itp_id: first.id,
-      itp_item_id: firstLines[1].id,
-      signoff_role_id: siteEngineer.id,
-      role_name: siteEngineer.role_name,
-      party: siteEngineer.party,
+      id: nextId(signatures),
+      project_itp_id: itp.id,
+      itp_item_id: line.id,
+      signoff_role_id: role.id,
+      role_name: role.role_name,
+      party: role.party,
       signer_name: "Demo Inspector",
       signer_email: me,
       method: "in_app",
@@ -1010,8 +1054,29 @@ export function registerItpRoutes(ctx: ItpContext) {
       gps_lng: -78.6382,
     })
   }
+
+  // Stage 1 concrete: submittals and formwork passed, the first rebar hold
+  // point released, the second passed and waiting for the inspector.
+  record(first, "mix-design", "Mix 4000-AE, accepted rev 1")
+  record(first, "rebar-submittals", "Shop drawings S-201 rev C on site")
+  record(first, "subgrade", "Density report DR-07: 97 % of D1557")
+  record(first, "form-dimensions", "Set-out checked against S-101 rev C")
+  record(first, "anchor-bolts", "Template surveyed; all bolts within 1/8 in")
+  record(first, "embeds", null)
+  record(first, "grounding", null)
+  const barMarks = record(first, "bar-size-grade", "#5 Grade 60 — A615")
+  signAs(first, barMarks, "Third-party inspector")
+  record(first, "bar-spacing", "Tape on #5 bars at 12 in o.c. — matches S-201")
   const padPin = ctx.pins.find((p) => p.id === 5)
-  if (padPin) padPin.itp_item_id = firstLines[1].id
+  if (padPin) padPin.itp_item_id = barMarks.id
+
+  // Stage 3 pressure test: checks done, the pressure hold passed at
+  // 225 psig and waiting for both signatures.
+  record(third, "test-package", "Test pack TP-CD-03 accepted")
+  record(third, "welds-complete", "Weld log complete; RT accepted")
+  record(third, "joints-exposed")
+  record(third, "gauges", "Gauges G-114 / G-115, calibrated 2026-09")
+  record(third, "test-pressure", "Hydrostatic, ambient 61 °F", "225")
 
   return { checkPinItem, checkEvidence, checkEvidenceDelete }
 }

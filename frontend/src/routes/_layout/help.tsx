@@ -306,6 +306,20 @@ function Help() {
             changes a copy already in use.
           </p>
           <p>
+            A new account starts with four <strong>starter templates</strong>:
+            cast-in-place concrete (submittals, formwork and embeds, rebar hold
+            points, pre-pour release, field tests, cylinders, curing and 28-day
+            results), earthwork and compaction, underground conduit / duct bank
+            before backfill, and piping pressure test. Every line states a
+            measurable acceptance criterion and its reference. Where the number
+            depends on your project — a specified cover, slump or test pressure
+            — the line says{" "}
+            <em>Project-specific value required — verify before issue</em>: edit
+            the master and put your project's value in before you apply it.{" "}
+            <strong>New template</strong> can start from any starter again, or
+            from a blank outline.
+          </p>
+          <p>
             Record each line with <strong>Pass</strong>, <strong>Fail</strong>{" "}
             or <strong>N/A</strong>. A hold point stops the lines after it until
             every required role has signed it; owners sign for roles without a

@@ -4,50 +4,42 @@ import {
   checkTemplateText,
   parseTemplateBody,
   percent,
-  STARTER_TEMPLATE,
   TemplateError,
 } from "./itp"
+import { BLANK_TEMPLATE, starterTemplate } from "./itpLibrary"
 
 describe("ITP template bodies (mirror of the API's parser)", () => {
-  it("reads the starter template into lines, sections and roles", () => {
-    const parsed = parseTemplateBody(STARTER_TEMPLATE)
-    expect(parsed.items.map((i) => i.elementName)).toEqual([
-      "formwork",
-      "rebar",
-      "cover",
-      "pour",
-      "cylinders",
+  it("reads the concrete starter into lines, sections and roles", () => {
+    const parsed = parseTemplateBody(
+      starterTemplate("cast-in-place-concrete").body,
+    )
+    expect(parsed.items).toHaveLength(27)
+    expect(parsed.holdCount).toBe(8)
+    expect([...new Set(parsed.items.map((i) => i.section))]).toEqual([
+      "1 Before work",
+      "2 Formwork and embeds",
+      "3 Rebar inspection",
+      "4 Pre-pour release",
+      "5 Placement and after",
     ])
-    expect(parsed.items.map((i) => i.section)).toEqual([
-      "Pre-pour",
-      "Pre-pour",
-      "Pre-pour",
-      "Pour",
-      "Pour",
-    ])
-    expect(parsed.holdCount).toBe(1)
     expect(parsed.roles).toEqual([
       { name: "Contractor", party: "contractor" },
       { name: "Owner's representative", party: "client" },
+      { name: "Third-party inspector", party: "engineer" },
     ])
-    expect(parsed.items.map((i) => i.classification)).toEqual([
-      "information",
-      "hold",
-      "review",
-      "witness",
-      "review",
-    ])
-    expect(parsed.items[1]).toMatchObject({
+    const cover = parsed.items.find((i) => i.elementName === "clear-cover")
+    expect(cover).toMatchObject({
+      classification: "hold",
       photoRequired: true,
-      reference: "ACI 301 §3.3; approved shop drawings",
-      valueType: null,
-    })
-    expect(parsed.items[2]).toMatchObject({
+      reference: "ACI 318 §20.5.1.3; ACI 117",
       valueType: "number",
       unit: "in",
-      min: 1.5,
-      max: null,
+      roles: ["Third-party inspector"],
     })
+    const temperature = parsed.items.find(
+      (i) => i.elementName === "concrete-temperature",
+    )
+    expect(temperature).toMatchObject({ valueType: "number", max: 95 })
   })
 
   it("reads the old words and the H / W / R / I letters", () => {
@@ -146,7 +138,7 @@ describe("ITP template bodies (mirror of the API's parser)", () => {
 
   it("checks typed text, including JSON syntax errors", () => {
     expect(checkTemplateText("{")).toMatchObject({ ok: false })
-    const ok = checkTemplateText(JSON.stringify(STARTER_TEMPLATE))
+    const ok = checkTemplateText(JSON.stringify(BLANK_TEMPLATE))
     expect(ok.ok).toBe(true)
   })
 

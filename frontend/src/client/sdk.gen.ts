@@ -693,6 +693,9 @@ export class ItpsService {
      * List Templates
      *
      * The caller's masters, latest version of each, most recently changed first.
+     *
+     * An account that has never had a master is first given the starter library
+     * (increment 13.7, ``app/core/itp_library.py``).
      */
     public static listTemplates<ThrowOnError extends boolean = true>(options?: Options<itpsListTemplatesData, ThrowOnError>) {
         return (options?.client ?? client).get<itpsListTemplatesResponses, itpsListTemplatesErrors, ThrowOnError>({
