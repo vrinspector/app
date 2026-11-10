@@ -309,8 +309,8 @@ function Help() {
             signer email, and a role with an email is signed by that person from
             their own login. An ITP can be marked complete once every line is
             recorded, nothing has failed and every hold point is released.{" "}
-            <strong>Mark on drawing</strong> places a pin for a line, and the pin
-            shows the line's hold-point state on the sheet.
+            <strong>Mark on drawing</strong> places a pin for a line, and the
+            pin shows the line's hold-point state on the sheet.
           </p>
         </HelpSection>
 
