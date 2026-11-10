@@ -143,3 +143,124 @@ def test_item_limit() -> None:
     }
     with pytest.raises(TemplateError, match="at most 500"):
         parse_template_body(body)
+
+
+# ── Increment 13.6: vocabulary and line evidence ────────────────────────────
+
+
+def test_old_words_letters_and_new_words_all_read() -> None:
+    body = {
+        "pages": [
+            {
+                "elements": [
+                    {"type": "boolean", "name": "a", "classification": "surveillance"},
+                    {"type": "boolean", "name": "b", "classification": "record"},
+                    {"type": "boolean", "name": "c", "classification": "W"},
+                    {"type": "boolean", "name": "d", "classification": " Review "},
+                    {"type": "boolean", "name": "e", "classification": "i"},
+                ]
+            }
+        ]
+    }
+    parsed = parse_template_body(body)
+    assert [i.classification for i in parsed.items] == [
+        "information",
+        "review",
+        "witness",
+        "review",
+        "information",
+    ]
+    # The concrete fixture still uses the pre-13.6 words.
+    assert [i.classification for i in parse_template_body(CONCRETE_POUR).items] == [
+        "information",
+        "hold",
+        "review",
+        "witness",
+        "review",
+    ]
+
+
+def test_evidence_properties_and_value_types() -> None:
+    body = {
+        "signoffRoles": ["Contractor", "Owner's representative", {"name": "QA"}],
+        "pages": [
+            {
+                "elements": [
+                    {
+                        "type": "boolean",
+                        "name": "a",
+                        "classification": "hold",
+                        "signoffRoles": ["Third-party inspector"],
+                        "acceptanceCriteria": "  No loose ties ",
+                        "reference": "ACI 301 §3.3",
+                        "recordRequired": "Photo",
+                        "photoRequired": True,
+                    },
+                    {
+                        "type": "text",
+                        "name": "b",
+                        "inputType": "number",
+                        "classification": "R",
+                        "unit": "in",
+                        "min": "1.5",
+                        "max": 3,
+                    },
+                    {"type": "text", "name": "c", "classification": "R", "min": 1},
+                    {"type": "comment", "name": "d", "classification": "R"},
+                    {
+                        "type": "boolean",
+                        "name": "e",
+                        "classification": "R",
+                        "valueType": "Number",
+                        "unit": "°F",
+                    },
+                    {
+                        "type": "text",
+                        "name": "f",
+                        "classification": "R",
+                        "valueType": "none",
+                        "unit": "in",
+                    },
+                ]
+            }
+        ],
+    }
+    # A hold role outside a declared list is refused, so drop the list here.
+    with pytest.raises(TemplateError, match="not in the template"):
+        parse_template_body(body)
+    body["signoffRoles"] = None
+    parsed = parse_template_body(body)
+    a, b, c, d, e, f = parsed.items
+    assert a.acceptance_criteria == "No loose ties"
+    assert (a.reference, a.record_required, a.photo_required) == (
+        "ACI 301 §3.3",
+        "Photo",
+        True,
+    )
+    assert a.value_type is None and a.unit is None
+    assert (b.value_type, b.unit, b.min_value, b.max_value) == ("number", "in", 1.5, 3)
+    assert (c.value_type, c.min_value) == ("text", None)
+    assert d.value_type == "text"
+    assert (e.value_type, e.unit) == ("number", "°F")
+    assert (f.value_type, f.unit) == (None, None)
+    assert [(r.name, r.party) for r in parsed.roles] == [
+        ("Third-party inspector", "engineer")
+    ]
+
+
+@pytest.mark.parametrize(
+    ("extra", "message"),
+    [
+        ({"photoRequired": "yes"}, "photoRequired must be true or false"),
+        ({"valueType": "date"}, "valueType must be"),
+        ({"valueType": 3}, "valueType must be"),
+        ({"min": "low"}, "min must be a number"),
+        ({"max": True}, "max must be a number"),
+        ({"min": 5, "max": 1}, "min is greater than max"),
+        ({"unit": "x" * 41}, "unit is longer than 40"),
+        ({"reference": "x" * 256}, "reference is longer than 255"),
+    ],
+)
+def test_bad_evidence_is_refused(extra: dict[str, Any], message: str) -> None:
+    with pytest.raises(TemplateError, match=message):
+        parse_template_body(_q(classification="review", **extra))

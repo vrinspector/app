@@ -265,6 +265,29 @@ idempotent; downgrade refuses while rows exist.
 | `triggered_by` | the signed-in email that caused the send |
 | `created_at`, `updated_at`, `sent_at` | timestamps |
 
+## ITP line evidence (increment 13.6, migration `a9d4c2e7f318`)
+
+| Table | Column | Type | Notes |
+|---|---|---|---|
+| itp_items | acceptance_criteria | text NULL | From the template question's `acceptanceCriteria` |
+| itp_items | reference_doc | varchar(255) NULL | `reference` |
+| itp_items | record_required | text NULL | `recordRequired` |
+| itp_items | photo_required | boolean NOT NULL DEFAULT false | `photoRequired`; Pass and sign-off need a photo on file |
+| itp_items | value_type | varchar(10) NULL | `number` / `text`; NULL = result only |
+| itp_items | value_unit | varchar(40) NULL | e.g. in, psi, °F |
+| itp_items | value_min / value_max | double precision NULL | Number lines only; outside → `out_of_tolerance` |
+| itp_items | measured_value | text NULL | As entered (numbers normalised, `1,250.0` → `1250`) |
+| photos | itp_item_id | integer NULL FK → itp_items ON DELETE CASCADE, indexed | Evidence photo of one line |
+| photos | inspection_id | now NULL-able | Check `ck_photos_one_parent`: `num_nonnulls(inspection_id, itp_item_id) = 1` |
+
+`itp_items.classification` values renamed: `surveillance` → `information`,
+`record` → `review` (now hold / witness / review / information). Template
+bodies are not rewritten; the parser still reads the old words.
+
+Upgrade is idempotent and every existing row stays valid. Downgrade refuses
+while any photo is ITP evidence or any line holds a measured value, otherwise
+maps the classification words back and drops the added columns.
+
 ## Not ported (by design)
 
 * `voice_notes` (Block 1) — the deployed SPA uses browser speech recognition

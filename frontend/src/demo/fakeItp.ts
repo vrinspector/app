@@ -5,6 +5,11 @@
  * pins that mark ITP lines, areas with bulk add / reorder / bulk apply.
  * The template body is read with the same parser the editor uses
  * (`parseTemplateBody`, a port of the API's).
+ *
+ * Increment 13.6: line evidence — acceptance criteria / reference / record,
+ * photos filed under a line (`photos.itp_item_id`, with `photoRequired`
+ * blocking Pass and sign-off), measured values with out-of-tolerance flags,
+ * the H / W / R / I vocabulary and the three default sign-off roles.
  */
 import type {
   AreaPublic,
@@ -13,12 +18,18 @@ import type {
   ItpSignaturePublic,
   ItpTemplatePublic,
   ItpTemplateSummary,
+  PhotoPublic,
   PinPublic,
   ProjectItpPublic,
   ProjectItpSummary,
   SignoffRolePublic,
 } from "@/client"
-import { parseTemplateBody, STARTER_TEMPLATE, TemplateError } from "@/lib/itp"
+import {
+  DEFAULT_ROLES,
+  parseTemplateBody,
+  STARTER_TEMPLATE,
+  TemplateError,
+} from "@/lib/itp"
 
 type Body = Record<string, unknown>
 type Handler = (args: {
@@ -34,6 +45,7 @@ export interface ItpContext {
   isOwner: (projectId: number) => boolean
   projectExists: (projectId: number) => boolean
   pins: PinPublic[]
+  photos: PhotoPublic[]
   drawingTitle: (drawingId: number) => string | null
   drawingProject: (drawingId: number) => number | undefined
   nextPublicId: () => string
@@ -91,6 +103,15 @@ interface ItemRow {
   sort_order: number
   updated_at: string
   role_ids: number[]
+  acceptance_criteria: string | null
+  reference_doc: string | null
+  record_required: string | null
+  photo_required: boolean
+  value_type: string | null
+  value_unit: string | null
+  value_min: number | null
+  value_max: number | null
+  measured_value: string | null
 }
 interface RoleRow {
   id: number
@@ -145,7 +166,10 @@ export function registerItpRoutes(ctx: ItpContext) {
       const released = item.classification !== "hold" || missing.length === 0
       const blockedBy = gate
       if (!gate && !released) gate = item
-      return { item, sigs, missing, released, blockedBy }
+      const photoCount = ctx.photos.filter(
+        (p) => p.itp_item_id === item.id,
+      ).length
+      return { item, sigs, missing, released, blockedBy, photoCount }
     })
   }
 
@@ -163,6 +187,17 @@ export function registerItpRoutes(ctx: ItpContext) {
       notes: item.notes,
       sort_order: item.sort_order,
       updated_at: item.updated_at,
+      acceptance_criteria: item.acceptance_criteria,
+      reference_doc: item.reference_doc,
+      record_required: item.record_required,
+      photo_required: item.photo_required,
+      photo_count: s.photoCount,
+      value_type: item.value_type,
+      value_unit: item.value_unit,
+      value_min: item.value_min,
+      value_max: item.value_max,
+      measured_value: item.measured_value,
+      out_of_tolerance: outOfTolerance(item),
       required_roles: item.role_ids.map((rid) => {
         const r = get(roles, rid, "Role")
         return {
@@ -187,6 +222,17 @@ export function registerItpRoutes(ctx: ItpContext) {
           status: p.status,
         })),
     }
+  }
+
+  function outOfTolerance(item: ItemRow): boolean | null {
+    if (item.value_type !== "number" || item.measured_value === null)
+      return null
+    if (item.value_min === null && item.value_max === null) return null
+    const value = Number(item.measured_value)
+    return (
+      (item.value_min !== null && value < item.value_min) ||
+      (item.value_max !== null && value > item.value_max)
+    )
   }
 
   function blockers(states: ReturnType<typeof itemStates>): string[] {
@@ -376,6 +422,15 @@ export function registerItpRoutes(ctx: ItpContext) {
         notes: null,
         sort_order: (index + 1) * 10,
         updated_at: stamp(),
+        acceptance_criteria: p.acceptanceCriteria,
+        reference_doc: p.reference,
+        record_required: p.recordRequired,
+        photo_required: p.photoRequired,
+        value_type: p.valueType,
+        value_unit: p.unit,
+        value_min: p.min,
+        value_max: p.max,
+        measured_value: null,
         role_ids: p.roles.map(
           (name) =>
             roles.find(
@@ -483,6 +538,29 @@ export function registerItpRoutes(ctx: ItpContext) {
     }
     roles.push(row)
     return rolePublic(row)
+  })
+  on("POST", "/projects/{project_id}/signoff-roles/defaults", ({ params }) => {
+    const pid = num(params[0])
+    project(pid)
+    for (const d of DEFAULT_ROLES) {
+      const taken = roles.some(
+        (r) =>
+          r.project_id === pid &&
+          r.role_name.toLowerCase() === d.name.toLowerCase(),
+      )
+      if (!taken) {
+        roles.push({
+          id: nextId(roles),
+          public_id: ctx.nextPublicId(),
+          project_id: pid,
+          role_name: d.name,
+          party: d.party,
+          signer_email: null,
+          created_at: stamp(),
+        })
+      }
+    }
+    return roles.filter((r) => r.project_id === pid).map(rolePublic)
   })
   on("PUT", "/signoff-roles/{role_id}", ({ params, body }) => {
     const r = get(roles, num(params[0]), "Sign-off role")
@@ -717,6 +795,10 @@ export function registerItpRoutes(ctx: ItpContext) {
     for (const pin of ctx.pins) {
       if (pin.itp_item_id && ids.has(pin.itp_item_id)) pin.itp_item_id = null
     }
+    for (let i = ctx.photos.length - 1; i >= 0; i--) {
+      const itemId = ctx.photos[i].itp_item_id
+      if (itemId && ids.has(itemId)) ctx.photos.splice(i, 1)
+    }
     for (let i = items.length - 1; i >= 0; i--) {
       if (ids.has(items[i].id)) items.splice(i, 1)
     }
@@ -732,21 +814,75 @@ export function registerItpRoutes(ctx: ItpContext) {
     if (!state) return fail(404, "ITP item not found")
     return { item, itp, state }
   }
+  const ensureRecordable = (state: ReturnType<typeof itemStates>[number]) => {
+    if (state.blockedBy) {
+      fail(
+        409,
+        `Waiting for hold point “${state.blockedBy.requirement}” to be signed off before this line can be recorded`,
+      )
+    }
+    if (state.sigs.length)
+      fail(409, "This line is signed; its result can no longer change")
+  }
+  const measured = (item: ItemRow, raw: unknown): string | null => {
+    const value = typeof raw === "string" ? raw.trim() : ""
+    if (!value) return null
+    if (!item.value_type) fail(422, "This line does not take a measured value")
+    if (item.value_type === "number") {
+      const n = Number(value.replace(/,/g, ""))
+      if (!Number.isFinite(n)) fail(422, `“${value}” is not a number`)
+      return String(n)
+    }
+    return value
+  }
+
+  /** May evidence photos be added to / listed for this line? */
+  function checkEvidence(itemId: number, opts: { read?: boolean } = {}) {
+    const { itp, state } = lineState(itemId)
+    if (opts.read) return
+    if (itp.status === "complete")
+      fail(409, "This ITP is complete; reopen it to change its photos")
+    if (itp.status === "voided") fail(409, "This ITP is voided")
+    if (state.blockedBy) {
+      fail(
+        409,
+        `Waiting for hold point “${state.blockedBy.requirement}” to be signed off before this line can be recorded`,
+      )
+    }
+    if (state.sigs.length)
+      fail(409, "This line is signed; its photos can no longer change")
+  }
+  function checkEvidenceDelete(itemId: number) {
+    checkEvidence(itemId)
+    const { item, state } = lineState(itemId)
+    if (item.photo_required && item.status === "pass" && state.photoCount <= 1)
+      fail(
+        409,
+        "This line passed with its required photo; set it back to pending before removing the last photo",
+      )
+  }
+
   on("PUT", "/itp-items/{item_id}", ({ params, body }) => {
     const { item, itp, state } = lineState(num(params[0]))
     if (itp.status === "complete")
       fail(409, "This ITP is complete; reopen it to change results")
     if (itp.status === "voided") fail(409, "This ITP is voided")
+    if ("measured_value" in body) {
+      const value = measured(item, body.measured_value)
+      if (value !== item.measured_value) {
+        ensureRecordable(state)
+        item.measured_value = value
+      }
+    }
     const status = body.status as string | undefined
     if (status && status !== item.status) {
-      if (state.blockedBy) {
+      ensureRecordable(state)
+      if (status === "pass" && item.photo_required && !state.photoCount) {
         fail(
           409,
-          `Waiting for hold point “${state.blockedBy.requirement}” to be signed off before this line can be recorded`,
+          "This line needs a photo on file before it can pass — take or upload one first",
         )
       }
-      if (state.sigs.length)
-        fail(409, "This line is signed; its result can no longer change")
       item.status = status
       if (itp.status === "not_started") itp.status = "in_progress"
     }
@@ -773,6 +909,9 @@ export function registerItpRoutes(ctx: ItpContext) {
     }
     if (item.status !== "pass" && item.status !== "na") {
       fail(409, "Record this line as Pass or N/A before it is signed")
+    }
+    if (item.photo_required && item.status === "pass" && !state.photoCount) {
+      fail(409, "This line needs a photo on file before it can be signed")
     }
     if (role.signer_email) {
       if (role.signer_email.toLowerCase() !== me.toLowerCase()) {
@@ -836,9 +975,25 @@ export function registerItpRoutes(ctx: ItpContext) {
   const firstLines = items.filter((i) => i.project_itp_id === first.id)
   firstLines[0].status = "pass"
   firstLines[0].notes = "Set-out checked against S-101 rev C"
+  // The rebar hold point passed with its photo, half signed.
+  ctx.photos.push({
+    id: ctx.photos.reduce((max, p) => Math.max(max, p.id), 0) + 1,
+    public_id: ctx.nextPublicId(),
+    inspection_id: null,
+    itp_item_id: firstLines[1].id,
+    finding_id: null,
+    // A sample asset the demo already ships (no rebar photo of our own).
+    s3_key: "photos/demo/compressor-skid.jpg",
+    filename: "rebar-mat.jpg",
+    content_type: "image/jpeg",
+    uploaded_by: me,
+    created_at: stamp(),
+    view_url: null,
+  })
   firstLines[1].status = "pass"
+  firstLines[1].notes = "Tape on #5 bars at 12 in o.c. — matches S-201"
   first.status = "in_progress"
-  const siteEngineer = roles.find((r) => r.role_name === "Site engineer")
+  const siteEngineer = roles.find((r) => r.role_name === "Contractor")
   if (siteEngineer) {
     signatures.push({
       id: 1,
@@ -858,5 +1013,5 @@ export function registerItpRoutes(ctx: ItpContext) {
   const padPin = ctx.pins.find((p) => p.id === 5)
   if (padPin) padPin.itp_item_id = firstLines[1].id
 
-  return { checkPinItem }
+  return { checkPinItem, checkEvidence, checkEvidenceDelete }
 }

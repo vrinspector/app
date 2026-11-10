@@ -25,7 +25,9 @@ BASELINE_REVISION = "b7d3e9a1c204"
 # The revision before the baseline: downgrading to it removes every domain table.
 PRE_BASELINE_REVISION = "3f1c2d9a8b70"
 # Head of the chain (later increments add tables on top of the baseline).
-HEAD_REVISION = "f3b8d1c6a425"
+HEAD_REVISION = "a9d4c2e7f318"
+# The revision before the email log (increment 13.5).
+PRE_EMAIL_REVISION = "e7c2a9f4b613"
 # The revision before the ITP migration (increment 12).
 PRE_ITP_REVISION = "d5a1b7c3e902"
 
@@ -306,7 +308,7 @@ def test_email_log_migration_is_additive_and_guarded(legacy_db: str) -> None:
                 assert "ck_email_send_log_status" in str(exc)
             else:  # pragma: no cover
                 raise AssertionError("status check constraint missing")
-            result = run_alembic(legacy_db, "downgrade", "-1")
+            result = run_alembic(legacy_db, "downgrade", PRE_EMAIL_REVISION)
             assert result.returncode != 0
             assert "Refusing to downgrade f3b8d1c6a425" in (
                 result.stderr + result.stdout
@@ -314,7 +316,7 @@ def test_email_log_migration_is_additive_and_guarded(legacy_db: str) -> None:
             conn.execute(text("DELETE FROM email_send_log"))
     finally:
         engine.dispose()
-    result = run_alembic(legacy_db, "downgrade", "-1")
+    result = run_alembic(legacy_db, "downgrade", PRE_EMAIL_REVISION)
     assert result.returncode == 0, result.stderr
     engine = create_engine(legacy_db)
     try:
@@ -355,3 +357,75 @@ def test_downgrade_refuses_to_drop_populated_tables(legacy_db: str) -> None:
             assert not set(DOMAIN_TABLES) & set(inspect(conn).get_table_names())
     finally:
         engine.dispose()
+
+
+def test_line_evidence_migration_renames_and_guards(legacy_db: str) -> None:
+    """Increment 13.6: vocabulary rename, evidence columns, ITP photos."""
+    assert run_alembic(legacy_db, "upgrade", PRE_EMAIL_REVISION).returncode == 0
+    engine = create_engine(legacy_db, isolation_level="AUTOCOMMIT")
+    try:
+        with engine.connect() as conn:
+            conn.exec_driver_sql(
+                """INSERT INTO project_itps (project_id, title, body)
+                       VALUES (1, 'Concrete pour', '{}');
+                   INSERT INTO itp_items (project_itp_id, requirement, classification)
+                       VALUES (1, 'Formwork', 'surveillance'),
+                              (1, 'Cover', 'record'),
+                              (1, 'Rebar', 'hold');"""
+            )
+    finally:
+        engine.dispose()
+    assert run_alembic(legacy_db, "upgrade", "head").returncode == 0
+
+    rows = _scalar(
+        legacy_db,
+        "SELECT string_agg(classification, ',' ORDER BY id) FROM itp_items",
+    )
+    assert rows == "information,review,hold"
+    assert _columns(legacy_db, "photos")["inspection_id"]["nullable"] is True
+    assert _columns(legacy_db, "itp_items")["photo_required"]["nullable"] is False
+    assert (
+        _scalar(legacy_db, "SELECT count(*) FROM itp_items WHERE photo_required")
+        == 0
+    )
+
+    engine = create_engine(legacy_db, isolation_level="AUTOCOMMIT")
+    try:
+        with engine.connect() as conn:
+            # A photo needs exactly one parent.
+            for values in ("(NULL, NULL, 'x')", "(1, 1, 'x')"):
+                try:
+                    conn.exec_driver_sql(
+                        "INSERT INTO photos (inspection_id, itp_item_id, s3_key) "
+                        f"VALUES {values}"
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    assert "ck_photos_one_parent" in str(exc)
+                else:  # pragma: no cover
+                    raise AssertionError("photo parent check missing")
+            conn.exec_driver_sql(
+                "INSERT INTO photos (itp_item_id, s3_key) "
+                "VALUES (3, 'photos/itp-items/3/a.jpg')"
+            )
+            result = run_alembic(legacy_db, "downgrade", "-1")
+            assert result.returncode != 0
+            assert "Refusing to downgrade a9d4c2e7f318" in (
+                result.stderr + result.stdout
+            )
+            conn.execute(text("DELETE FROM photos WHERE itp_item_id IS NOT NULL"))
+            conn.execute(text("UPDATE itp_items SET measured_value = '2' WHERE id = 2"))
+            result = run_alembic(legacy_db, "downgrade", "-1")
+            assert result.returncode != 0
+            conn.execute(text("UPDATE itp_items SET measured_value = NULL"))
+    finally:
+        engine.dispose()
+    result = run_alembic(legacy_db, "downgrade", "-1")
+    assert result.returncode == 0, result.stderr
+    rows = _scalar(
+        legacy_db,
+        "SELECT string_agg(classification, ',' ORDER BY id) FROM itp_items",
+    )
+    assert rows == "surveillance,record,hold"
+    assert "itp_item_id" not in _columns(legacy_db, "photos")
+    assert _columns(legacy_db, "photos")["inspection_id"]["nullable"] is False
+    assert run_alembic(legacy_db, "upgrade", "head").returncode == 0

@@ -109,7 +109,9 @@ function dashboard(): DashboardPublic {
       inspection_count: inspections.length,
       open_finding_count: open.length,
       high_finding_count: open.filter((f) => f.priority === "high").length,
-      photo_count: db.photos.filter((p) => ids.has(p.inspection_id)).length,
+      photo_count: db.photos.filter(
+        (p) => p.inspection_id !== null && ids.has(p.inspection_id),
+      ).length,
       last_inspected: last ? last.slice(0, 10) : "Never",
     }
   })
@@ -445,7 +447,30 @@ on("PATCH|POST|PUT", "/findings/{finding_id}/resolve", ({ params, body }) => {
 })
 
 // --- Photos ----------------------------------------------------------------
+// Increment 13.6: a photo is filed under exactly one of an inspection or an
+// ITP line; the line's rules (hold points, signed, closed ITP) live in fakeItp.
+function photoParent(source: {
+  inspection_id?: unknown
+  itp_item_id?: unknown
+}): { itpItemId: number } | null {
+  const hasInspection =
+    source.inspection_id !== undefined && source.inspection_id !== null
+  const hasItem =
+    source.itp_item_id !== undefined && source.itp_item_id !== null
+  if (hasInspection === hasItem) {
+    throw new HttpError(422, "Give exactly one of inspection_id or itp_item_id")
+  }
+  return hasItem ? { itpItemId: Number(source.itp_item_id) } : null
+}
+
 on("POST", "/photos/presign", ({ body }) => {
+  const line = photoParent(body)
+  if (line) {
+    itpRoutes.checkEvidence(line.itpItemId)
+    const name = String(body.filename ?? "photo.jpg").replace(/[^\w.-]/g, "_")
+    const key = `photos/itp-items/${line.itpItemId}/${Date.now()}-${name}`
+    return { upload_url: demoUploadUrl(key), s3_key: key }
+  }
   const inspectionId = Number(body.inspection_id)
   find(db.inspections, inspectionId, "Inspection")
   const name = String(body.filename ?? "photo.jpg").replace(/[^\w.-]/g, "_")
@@ -453,6 +478,17 @@ on("POST", "/photos/presign", ({ body }) => {
   return { upload_url: demoUploadUrl(key), s3_key: key }
 })
 on("GET", "/photos", ({ query }) => {
+  const line = photoParent({
+    inspection_id: query.get("inspection_id"),
+    itp_item_id: query.get("itp_item_id"),
+  })
+  if (line) {
+    itpRoutes.checkEvidence(line.itpItemId, { read: true })
+    return db.photos
+      .filter((p) => p.itp_item_id === line.itpItemId)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .map(withPhotoUrl)
+  }
   const inspectionId = num(query.get("inspection_id") ?? "0")
   find(db.inspections, inspectionId, "Inspection")
   const findingId = query.get("finding_id")
@@ -463,6 +499,29 @@ on("GET", "/photos", ({ query }) => {
     .map(withPhotoUrl)
 })
 on("POST", "/photos", ({ body }) => {
+  const line = photoParent(body)
+  if (line) {
+    itpRoutes.checkEvidence(line.itpItemId)
+    const s3Key = String(body.s3_key)
+    if (!s3Key.startsWith(`photos/itp-items/${line.itpItemId}/`)) {
+      notFound("Photo")
+    }
+    const created: PhotoPublic = {
+      id: nextId(db.photos),
+      public_id: nextPublicId(),
+      inspection_id: null,
+      itp_item_id: line.itpItemId,
+      finding_id: null,
+      s3_key: s3Key,
+      filename: (body.filename as string) ?? null,
+      content_type: (body.content_type as string) ?? "image/jpeg",
+      uploaded_by: me,
+      created_at: stamp(),
+      view_url: fileUrl(s3Key),
+    }
+    db.photos.push(created)
+    return created
+  }
   const inspectionId = Number(body.inspection_id)
   find(db.inspections, inspectionId, "Inspection")
   // Increment 11a: a photo may be filed under a finding of the same inspection.
@@ -495,6 +554,7 @@ on("GET", "/photos/{photo_id}", ({ params }) =>
 )
 on("DELETE", "/photos/{photo_id}", ({ params }) => {
   const photo = find(db.photos, num(params[0]), "Photo")
+  if (photo.itp_item_id) itpRoutes.checkEvidenceDelete(photo.itp_item_id)
   forgetStoredFile(photo.s3_key)
   remove(db.photos, (p) => p.id !== photo.id)
   return null
@@ -683,6 +743,7 @@ const itpRoutes = registerItpRoutes({
     ),
   projectExists: (projectId) => db.projects.some((p) => p.id === projectId),
   pins: db.pins,
+  photos: db.photos,
   drawingTitle: (id) => db.drawings.find((d) => d.id === id)?.title ?? null,
   drawingProject: (id) => db.drawings.find((d) => d.id === id)?.project_id,
   nextPublicId,

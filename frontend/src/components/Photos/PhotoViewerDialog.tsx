@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dialog"
 import useCustomToast from "@/hooks/useCustomToast"
 import { formatDateTime } from "@/lib/format"
-import { inspectionKeys } from "@/lib/queries"
+import { inspectionKeys, itpKeys } from "@/lib/queries"
 import { extractErrorMessage } from "@/utils"
 
 /*
@@ -29,6 +29,8 @@ interface PhotoViewerDialogProps {
   index: number | null
   onIndexChange: (index: number | null) => void
   canWrite: boolean
+  /** Called after a delete (the ITP screen refreshes its photo counts). */
+  onDeleted?: (photo: PhotoPublic) => void
 }
 
 export function PhotoViewerDialog({
@@ -36,6 +38,7 @@ export function PhotoViewerDialog({
   index,
   onIndexChange,
   canWrite,
+  onDeleted,
 }: PhotoViewerDialogProps) {
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
@@ -57,13 +60,16 @@ export function PhotoViewerDialog({
     onSuccess: (_result, target) => {
       showSuccessToast("Photo deleted")
       setDeleting(false)
-      queryClient.setQueryData<PhotoPublic[]>(
-        inspectionKeys.photos(target.inspection_id),
-        (current) => current?.filter((item) => item.id !== target.id),
+      // Inspection photos, or an ITP line's evidence (increment 13.6).
+      const key =
+        target.inspection_id !== null
+          ? inspectionKeys.photos(target.inspection_id)
+          : itpKeys.photos(target.itp_item_id ?? 0)
+      queryClient.setQueryData<PhotoPublic[]>(key, (current) =>
+        current?.filter((item) => item.id !== target.id),
       )
-      queryClient.invalidateQueries({
-        queryKey: inspectionKeys.photos(target.inspection_id),
-      })
+      queryClient.invalidateQueries({ queryKey: key })
+      onDeleted?.(target)
       onIndexChange(null)
     },
     onError: (error: Error) => {

@@ -93,6 +93,8 @@ export const itpKeys = {
   area: (areaId: number) => ["areas", areaId] as const,
   templates: ["itp-templates"] as const,
   template: (templateId: number) => ["itp-templates", templateId] as const,
+  /** Evidence photos of one ITP line (increment 13.6). */
+  photos: (itemId: number) => ["itp-items", itemId, "photos"] as const,
 }
 
 export const drawingKeys = {

@@ -72,6 +72,11 @@ class Storage:
         return f"photos/inspections/{int(inspection_id)}/"
 
     @staticmethod
+    def itp_photo_prefix(itp_item_id: int) -> str:
+        """Evidence photos of one ITP line (increment 13.6)."""
+        return f"photos/itp-items/{int(itp_item_id)}/"
+
+    @staticmethod
     def drawing_prefix(project_id: int) -> str:
         # Deployed Block 8D layout: drawings/projects/{project_id}/{uuid}{ext}
         return f"drawings/projects/{int(project_id)}/"

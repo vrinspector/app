@@ -36,3 +36,5 @@ extend-ignore-re = [
 alls = "alls"
 # SMTP greeting verb (RFC 5321), used by the in-process SMTP test server.
 HELO = "HELO"
+# American Concrete Institute (ACI 301 / 318 references in ITP templates).
+ACI = "ACI"

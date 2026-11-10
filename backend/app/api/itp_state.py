@@ -16,6 +16,7 @@ from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 
+from sqlalchemy import func
 from sqlmodel import Session, col, select
 
 from app.models import (
@@ -28,6 +29,7 @@ from app.models import (
     ItpRoleRef,
     ItpSignature,
     ItpSignaturePublic,
+    Photo,
     ProjectArea,
     ProjectItp,
     ProjectItpPublic,
@@ -43,6 +45,7 @@ class ItemState:
     signatures: list[ItpSignature] = field(default_factory=list)
     pins: list[ItpPinRef] = field(default_factory=list)
     blocked_by: ItpItem | None = None
+    photo_count: int = 0
 
     @property
     def missing_roles(self) -> list[SignoffRole]:
@@ -145,6 +148,14 @@ def load_itp_states(db: Session, itps: Iterable[ProjectItp]) -> list[ItpState]:
         ).all()
         for link, role in links:
             by_item[link.itp_item_id].roles.append(role)
+        photo_counts = db.exec(
+            select(col(Photo.itp_item_id), func.count(col(Photo.id)))
+            .where(col(Photo.itp_item_id).in_(item_ids))
+            .group_by(col(Photo.itp_item_id))
+        ).all()
+        for photo_item_id, count in photo_counts:
+            if photo_item_id is not None:
+                by_item[photo_item_id].photo_count = int(count)
         pins = db.exec(
             select(InspectionPin, Drawing)
             .join(Drawing, col(Drawing.id) == col(InspectionPin.drawing_id))
@@ -188,6 +199,21 @@ def load_itp_state(db: Session, itp: ProjectItp) -> ItpState:
     return load_itp_states(db, [itp])[0]
 
 
+def out_of_tolerance(item: ItpItem) -> bool | None:
+    """For a number line with a value and a min and / or max: outside them?"""
+    if item.value_type != "number" or item.measured_value is None:
+        return None
+    if item.value_min is None and item.value_max is None:
+        return None
+    try:
+        value = float(item.measured_value)
+    except ValueError:  # pragma: no cover - normalised on save
+        return None
+    return (item.value_min is not None and value < item.value_min) or (
+        item.value_max is not None and value > item.value_max
+    )
+
+
 def item_public(state: ItemState) -> ItpItemPublic:
     item = state.item
     assert item.id is not None and item.public_id is not None
@@ -204,6 +230,17 @@ def item_public(state: ItemState) -> ItpItemPublic:
         notes=item.notes,
         sort_order=item.sort_order,
         updated_at=item.updated_at,
+        acceptance_criteria=item.acceptance_criteria,
+        reference_doc=item.reference_doc,
+        record_required=item.record_required,
+        photo_required=item.photo_required,
+        photo_count=state.photo_count,
+        value_type=item.value_type,
+        value_unit=item.value_unit,
+        value_min=item.value_min,
+        value_max=item.value_max,
+        measured_value=item.measured_value,
+        out_of_tolerance=out_of_tolerance(item),
         required_roles=[
             ItpRoleRef(
                 id=r.id or 0,

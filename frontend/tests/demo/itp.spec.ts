@@ -11,6 +11,11 @@ import { expect, type Page, test } from "@playwright/test"
 
 test.use({ viewport: { width: 412, height: 915 } }) // phone first
 
+const PNG_1x1 = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+  "base64",
+)
+
 async function openProject(page: Page) {
   await page.goto("/demo.html")
   await expect(page.getByTestId("greeting")).toBeVisible()
@@ -67,7 +72,7 @@ test("hold point blocks later lines until signed, then the ITP completes", async
   await expect(cover).toHaveAttribute("data-blocked", "true")
   await expect(cover.getByTestId("itp-result-pass")).toBeDisabled()
   await expect(page.getByTestId("itp-blockers")).toContainText(
-    "is waiting for Client engineer",
+    "is waiting for Owner's representative",
   )
   await expect(page.getByTestId("itp-complete")).toBeDisabled()
   await page.screenshot({
@@ -100,6 +105,69 @@ test("hold point blocks later lines until signed, then the ITP completes", async
   })
 })
 
+test("line evidence: criteria, required photo, measured value with tolerance", async ({
+  page,
+}, testInfo) => {
+  await openProject(page)
+  await page.getByTestId("itp-card").filter({ hasText: "Stage 2" }).click()
+  const lines = page.getByTestId("itp-item")
+  const formwork = lines.nth(0)
+  const rebar = lines.nth(1)
+  const cover = lines.nth(2)
+
+  // H / W / R / I vocabulary and the line's criteria under its title.
+  await expect(formwork).toContainText("Information")
+  await expect(cover).toContainText("Review")
+  await expect(rebar.getByTestId("itp-line-criteria")).toContainText(
+    "ACI 301 §3.3",
+  )
+  await expect(rebar.getByTestId("itp-criteria-record")).toContainText(
+    "Photos of the mat",
+  )
+
+  await formwork.getByTestId("itp-result-pass").click()
+  await expect(formwork).toHaveAttribute("data-status", "pass")
+
+  // The rebar hold point cannot pass until a photo is on file.
+  await expect(rebar.getByTestId("itp-photo-required")).toBeVisible()
+  await expect(rebar.getByTestId("itp-result-pass")).toBeDisabled()
+  await rebar.getByTestId("library-input").setInputFiles({
+    name: "rebar-mat.png",
+    mimeType: "image/png",
+    buffer: PNG_1x1,
+  })
+  await expect(rebar.getByTestId("itp-photo-on-file")).toBeVisible()
+  await expect(rebar.getByTestId("itp-photo")).toHaveCount(1)
+  await rebar.getByTestId("itp-result-pass").click()
+  await expect(rebar).toHaveAttribute("data-status", "pass")
+
+  // Owner signs both default roles; the cover line opens up.
+  for (let i = 0; i < 2; i++) {
+    await rebar.getByTestId("itp-sign").first().click()
+    await page.getByTestId("itp-sign-confirm").click()
+    await expect(rebar.getByTestId("itp-signature")).toHaveCount(i + 1)
+  }
+  await expect(cover).toHaveAttribute("data-blocked", "false")
+
+  // Measured value with unit; below the 1.5 in minimum is flagged.
+  await expect(cover.getByTestId("itp-measured-unit")).toHaveText("in")
+  await expect(cover.getByTestId("itp-tolerance")).toContainText("≥ 1.5 in")
+  const value = cover.getByTestId("itp-measured-input")
+  await value.fill("1.25")
+  await value.press("Enter")
+  await expect(cover.getByTestId("itp-out-of-tolerance")).toBeVisible()
+  await value.fill("2")
+  await value.press("Enter")
+  await expect(cover.getByTestId("itp-out-of-tolerance")).toHaveCount(0)
+  await cover.getByTestId("itp-result-pass").click()
+  await expect(cover).toHaveAttribute("data-status", "pass")
+  await expect(value).toHaveValue("2")
+  await page.screenshot({
+    path: testInfo.outputPath("itp-line-evidence.png"),
+    fullPage: true,
+  })
+})
+
 test("an ITP line is marked on a drawing and shows its pin both ways", async ({
   page,
 }) => {
@@ -123,7 +191,7 @@ test("an ITP line is marked on a drawing and shows its pin both ways", async ({
   await dialog.getByTestId("pin-status-in_progress").click()
   const marker = page.locator('[data-testid="pin-marker"][data-itp]')
   await expect(marker).toHaveCount(1)
-  await expect(marker).toHaveAttribute("data-itp", "surveillance")
+  await expect(marker).toHaveAttribute("data-itp", "information")
 
   await page.getByTestId("itp-marking-back").click()
   await expect(

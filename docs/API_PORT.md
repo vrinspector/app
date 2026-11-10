@@ -246,6 +246,34 @@ outbound-email service, `app/core/email.py`; routes in
 * The template's unused `send_email` / `test_email` helpers and the
   `emails` package were removed in favour of this service.
 
+## ITP line evidence (increment 13.6)
+
+Additive changes; no existing request changes meaning.
+
+- `POST /photos/presign`, `POST /photos` take **exactly one** of
+  `inspection_id` / `itp_item_id` (422 otherwise). With `itp_item_id` the key
+  is bound to `photos/itp-items/{itp_item_id}/…` (a key outside it → 404),
+  `finding_id` is refused, and the line must be recordable (409 past an
+  unreleased hold point, once signed, on a complete / voided ITP).
+  `GET /photos?itp_item_id=N` lists a line's photos (any member).
+  `PhotoPublic.inspection_id` is now nullable and gains `itp_item_id`.
+  `DELETE /photos/{id}` on a line photo follows the same lock and refuses the
+  last photo of a passed photo-required line (409).
+- `PUT /itp-items/{id}` accepts `measured_value` (string; `""` / null
+  clears). 422 when the line takes no value or a number line gets text; 409
+  under the same locks as the result. `status: "pass"` → 409 on a
+  photo-required line with no photo.
+- `POST /itp-items/{id}/signatures` → 409 on a passed photo-required line
+  whose photo is gone.
+- `ItpItemPublic` gains `acceptance_criteria`, `reference_doc`,
+  `record_required`, `photo_required`, `photo_count`, `value_type`,
+  `value_unit`, `value_min`, `value_max`, `measured_value`,
+  `out_of_tolerance` (true / false for a number line with limits and a value,
+  else null). `classification` is now hold / witness / review / information.
+- `POST /projects/{id}/signoff-roles/defaults` (owner) adds whichever of
+  Contractor (contractor), Owner's representative (client) and Third-party
+  inspector (engineer) is missing and returns the project's roles.
+
 ## Authorization (carried over from the July 2026 hardening)
 
 * Every object is reached through its project; non-members get **404** with

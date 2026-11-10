@@ -10,6 +10,8 @@ Block 9.5 (PRD v2.63 §5) — new routes, no legacy counterpart:
 
     GET    /projects/{id}/signoff-roles           → roles, with how many lines need each
     POST   /projects/{id}/signoff-roles           → 201 role          (owner)
+    POST   /projects/{id}/signoff-roles/defaults  → roles after adding the missing
+                                                    default three (owner, 13.6)
     PUT    /signoff-roles/{id}                    → role              (owner)
     DELETE /signoff-roles/{id}                    → 204; 409 while lines need it (owner)
 
@@ -20,7 +22,8 @@ Block 9.5 (PRD v2.63 §5) — new routes, no legacy counterpart:
     GET    /itps/{id}                             → ITP with lines, roles, signatures, pins
     PUT    /itps/{id}                             → title / area / status
     DELETE /itps/{id}                             → 204; 409 once anything is signed
-    PUT    /itp-items/{id}                        → record a line's result / notes
+    PUT    /itp-items/{id}                        → record a line's result / notes /
+                                                    measured value
     POST   /itp-items/{id}/signatures             → 201 in-app sign-off of a line
 
 Rules enforced here (the data model leaves them to the API layer):
@@ -33,6 +36,11 @@ Rules enforced here (the data model leaves them to the API layer):
   or a hold point is waiting (``app/api/itp_state.py``).
 * Signed lines keep their result; a complete or voided ITP is read-only until
   reopened.
+* **Line evidence (13.6).** A line whose template sets ``photoRequired``
+  cannot be passed, nor signed, until at least one photo is on file
+  (``photos.itp_item_id``; uploaded with ``/photos/presign`` → S3 →
+  ``/photos``). Number / text lines take a measured value next to the result;
+  a number outside the line's min / max is flagged, not refused.
 * Same-project checks: an ITP's area, a role and a pin's line all belong to
   the ITP's project, else 404.
 """
@@ -69,7 +77,7 @@ from app.api.itp_state import (
     signature_public,
 )
 from app.core.auth import AuthUser
-from app.core.itp import TemplateError, parse_template_body
+from app.core.itp import DEFAULT_ROLES, TemplateError, parse_template_body
 from app.models import (
     ItpItem,
     ItpItemPublic,
@@ -345,6 +353,23 @@ def create_signoff_role(
     return _role_public(session, role)
 
 
+@router.post(
+    "/projects/{project_id}/signoff-roles/defaults",
+    response_model=list[SignoffRolePublic],
+)
+def add_default_signoff_roles(
+    project_id: int, session: SessionDep, current_user: CurrentUser
+) -> Any:
+    """Add whichever of Contractor / Owner's representative / Third-party
+    inspector the project does not have yet (owner review 2026-11-10)."""
+    get_authorized_project(session, project_id, current_user, roles=MANAGE_ROLES)
+    for name, party in DEFAULT_ROLES:
+        if not _role_name_taken(session, project_id, name):
+            session.add(SignoffRole(project_id=project_id, role_name=name, party=party))
+    session.commit()
+    return list_signoff_roles(project_id, session, current_user)
+
+
 @router.put("/signoff-roles/{role_id}", response_model=SignoffRolePublic)
 def update_signoff_role(
     role_id: int,
@@ -446,6 +471,14 @@ def _import(
             requirement=parsed_item.requirement,
             classification=parsed_item.classification,
             sort_order=(index + 1) * 10,
+            acceptance_criteria=parsed_item.acceptance_criteria,
+            reference_doc=parsed_item.reference,
+            record_required=parsed_item.record_required,
+            photo_required=parsed_item.photo_required,
+            value_type=parsed_item.value_type,
+            value_unit=parsed_item.unit,
+            value_min=parsed_item.min_value,
+            value_max=parsed_item.max_value,
         )
         db.add(item)
         db.flush()
@@ -642,6 +675,36 @@ def delete_project_itp(
 # ── Lines: record results, sign off ─────────────────────────────────────────
 
 
+def _ensure_recordable(state: Any) -> None:
+    if state.blocked_by is not None:
+        raise conflict(
+            f"Waiting for hold point “{state.blocked_by.requirement}” to be "
+            "signed off before this line can be recorded"
+        )
+    if state.signatures:
+        raise conflict("This line is signed; its result can no longer change")
+
+
+def normalise_measured_value(item: ItpItem, raw: str | None) -> str | None:
+    """Trim; a number line takes a number (``1,250.5`` → ``1250.5``)."""
+    value = (raw or "").strip()
+    if not value:
+        return None
+    if item.value_type is None:
+        raise unprocessable("This line does not take a measured value")
+    if item.value_type == "number":
+        try:
+            number = float(value.replace(",", ""))
+        except ValueError as exc:
+            raise unprocessable(f"“{value}” is not a number") from exc
+        if number != number or number in (float("inf"), float("-inf")):
+            raise unprocessable(f"“{value}” is not a number")
+        if number.is_integer() and abs(number) < 1e15:
+            return str(int(number))
+        return repr(number)
+    return value
+
+
 def _ensure_editable(itp: ProjectItp) -> None:
     if itp.status == "complete":
         raise conflict("This ITP is complete; reopen it to change results")
@@ -665,14 +728,18 @@ def update_itp_item(
     _ensure_editable(itp)
     state = load_itp_state(session, itp).item(item_id)
     new_status = updates.get("status")
+    if "measured_value" in updates:
+        value = normalise_measured_value(item, updates["measured_value"])
+        if value != item.measured_value:
+            _ensure_recordable(state)
+            item.measured_value = value
     if new_status is not None and new_status != item.status:
-        if state.blocked_by is not None:
+        _ensure_recordable(state)
+        if new_status == "pass" and item.photo_required and not state.photo_count:
             raise conflict(
-                f"Waiting for hold point “{state.blocked_by.requirement}” to be "
-                "signed off before this line can be recorded"
+                "This line needs a photo on file before it can pass — take or "
+                "upload one first"
             )
-        if state.signatures:
-            raise conflict("This line is signed; its result can no longer change")
         item.status = new_status
         if itp.status == "not_started":
             itp.status = "in_progress"
@@ -722,6 +789,8 @@ def sign_itp_item(
         )
     if item.status not in ("pass", "na"):
         raise conflict("Record this line as Pass or N/A before it is signed")
+    if item.photo_required and item.status == "pass" and not state.photo_count:
+        raise conflict("This line needs a photo on file before it can be signed")
     if role.signer_email:
         if (current_user.email or "").casefold() != role.signer_email.casefold():
             raise HTTPException(
