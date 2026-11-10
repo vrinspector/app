@@ -1,11 +1,16 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { UserPlus, Users, X } from "lucide-react"
+import { Mail, UserPlus, Users, X } from "lucide-react"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 
-import { type MemberPublic, ProjectsService } from "@/client"
+import {
+  type EmailLogPublic,
+  EmailsService,
+  type MemberPublic,
+  ProjectsService,
+} from "@/client"
 import { ConfirmDialog } from "@/components/Common/ConfirmDialog"
 import { EmptyState, QueryState } from "@/components/Common/States"
 import { StatusBadge } from "@/components/Common/StatusBadge"
@@ -25,7 +30,7 @@ import useAuth from "@/hooks/useAuth"
 import useCustomToast from "@/hooks/useCustomToast"
 import { findOwnMembership } from "@/hooks/useProjectRole"
 import { formatDate } from "@/lib/format"
-import { membersQuery, projectKeys } from "@/lib/queries"
+import { inviteEmailsQuery, membersQuery, projectKeys } from "@/lib/queries"
 import { extractErrorMessage } from "@/utils"
 
 /*
@@ -42,6 +47,14 @@ import { extractErrorMessage } from "@/utils"
  * The API records `invited_by` from the verified identity and sends a 403 to
  * a non-owner, so the buttons are hidden for inspectors and viewers rather
  * than relied on.
+ *
+ * Increment 13.5: adding a member also emails them an invite. Owners see
+ * each invite's outcome under the member ("Invite emailed …", "Invite email
+ * failed", "Email is off on this server") from the owner-only send log, and
+ * can send it again with "Resend invite" until the person signs in:
+ *
+ *   GET  /projects/{id}/emails?email_type=member_invite   (owner)
+ *   POST /projects/{id}/members/{member_id}/invite-email  → 202 (429 if just sent)
  */
 
 const INVITE_ROLES = [
@@ -108,6 +121,27 @@ function MemberList({ projectId, members, canManage }: MemberListProps) {
   const { showSuccessToast, showErrorToast } = useCustomToast()
   const [removing, setRemoving] = useState<MemberPublic | null>(null)
   const own = findOwnMembership(members, user)
+  const invites = useQuery({
+    ...inviteEmailsQuery(projectId),
+    enabled: canManage,
+  })
+  const latestInvite = latestInviteByMember(invites.data)
+
+  const resendMutation = useMutation({
+    mutationFn: (member: MemberPublic) =>
+      EmailsService.resendMemberInvite({
+        path: { project_id: projectId, member_id: member.id },
+      }),
+    onSuccess: (_data, member) => {
+      showSuccessToast(
+        `Invite sent again to ${member.email ?? member.user_email}`,
+      )
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.inviteEmails(projectId),
+      })
+    },
+    onError: (error: Error) => showErrorToast(extractErrorMessage(error)),
+  })
 
   const removeMutation = useMutation({
     mutationFn: (member: MemberPublic) =>
@@ -173,7 +207,26 @@ function MemberList({ projectId, members, canManage }: MemberListProps) {
                     : ""}
                   {member.invited_by ? ` · by ${member.invited_by}` : ""}
                 </p>
+                {canManage && member.role !== "owner" ? (
+                  <InviteEmailStatus row={latestInvite.get(member.id)} />
+                ) : null}
               </div>
+              {canManage && member.role !== "owner" && !member.user_sub ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label={`Resend invite to ${email}`}
+                  data-testid="resend-invite"
+                  disabled={
+                    resendMutation.isPending &&
+                    resendMutation.variables?.id === member.id
+                  }
+                  onClick={() => resendMutation.mutate(member)}
+                >
+                  <Mail />
+                  <span className="hidden sm:inline">Resend invite</span>
+                </Button>
+              ) : null}
               {canManage && member.role !== "owner" ? (
                 <Button
                   variant="ghost"
@@ -214,6 +267,49 @@ function MemberList({ projectId, members, canManage }: MemberListProps) {
   )
 }
 
+/** Newest invite-log row per member id (the API returns newest first). */
+function latestInviteByMember(
+  rows: EmailLogPublic[] | undefined,
+): Map<number, EmailLogPublic> {
+  const latest = new Map<number, EmailLogPublic>()
+  for (const row of rows ?? []) {
+    if (row.related_id != null && !latest.has(row.related_id)) {
+      latest.set(row.related_id, row)
+    }
+  }
+  return latest
+}
+
+function InviteEmailStatus({ row }: { row: EmailLogPublic | undefined }) {
+  if (!row) return null
+  let text: string
+  let className = "text-muted-foreground"
+  switch (row.status) {
+    case "sent":
+      text = `Invite emailed ${formatDate(row.sent_at ?? row.created_at)}`
+      break
+    case "queued":
+      text = "Sending invite email…"
+      break
+    case "failed":
+      text = "Invite email failed — try Resend invite"
+      className = "text-destructive"
+      break
+    default:
+      text = "Invite not emailed — email is off on this server"
+  }
+  return (
+    <p
+      className={`truncate text-xs ${className}`}
+      data-testid="invite-email-status"
+      data-status={row.status}
+      title={row.error ?? undefined}
+    >
+      {text}
+    </p>
+  )
+}
+
 function InviteForm({ projectId }: { projectId: number }) {
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
@@ -229,10 +325,13 @@ function InviteForm({ projectId }: { projectId: number }) {
         body: { email: values.email, role: values.role },
       }),
     onSuccess: () => {
-      showSuccessToast("Member invited")
+      showSuccessToast("Member added — invite email on its way")
       form.reset({ email: "", role: form.getValues("role") })
       queryClient.invalidateQueries({
         queryKey: projectKeys.members(projectId),
+      })
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.inviteEmails(projectId),
       })
     },
     onError: (error: Error) => showErrorToast(extractErrorMessage(error)),
@@ -301,7 +400,8 @@ function InviteForm({ projectId }: { projectId: number }) {
         </div>
         <p className="text-xs text-muted-foreground">
           Inspectors log inspections, findings and photos; viewers can only
-          read. The person signs in with this email address.
+          read. We email the person an invite with a link to the project; they
+          sign in with this email address.
         </p>
       </form>
     </Form>

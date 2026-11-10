@@ -51,6 +51,8 @@ const api = vi.hoisted(() => ({
   listPhotos: vi.fn(),
   listReports: vi.fn(),
   generateReport: vi.fn(),
+  listProjectEmails: vi.fn(),
+  resendMemberInvite: vi.fn(),
 }))
 
 vi.mock("@/client", () => ({
@@ -66,6 +68,10 @@ vi.mock("@/client", () => ({
     readInspection: api.readInspection,
   },
   DrawingsService: { listDrawings: api.listDrawings },
+  EmailsService: {
+    listProjectEmails: api.listProjectEmails,
+    resendMemberInvite: api.resendMemberInvite,
+  },
   FindingsService: { listFindings: api.listFindings },
   PhotosService: { listPhotos: api.listPhotos },
   ReportsService: {
@@ -202,6 +208,28 @@ beforeEach(() => {
   api.listFindings.mockResolvedValue(ok([]))
   api.listPhotos.mockResolvedValue(ok([]))
   api.listReports.mockResolvedValue(ok([]))
+  api.listProjectEmails.mockResolvedValue(ok([]))
+})
+
+const inviteLog = (
+  id: number,
+  memberId: number,
+  status: string,
+  extra: Record<string, unknown> = {},
+) => ({
+  id,
+  public_id: `eml_${id}`,
+  project_id: 7,
+  email_type: "member_invite",
+  related_id: memberId,
+  recipient: "someone@example.com",
+  subject: "You've been added to Landfill Gas Project on VR Inspector",
+  status,
+  error: null as string | null,
+  triggered_by: "stacey@example.com",
+  created_at: "2026-11-09T12:00:00Z",
+  sent_at: status === "sent" ? "2026-11-09T12:00:02Z" : null,
+  ...extra,
 })
 
 describe("members panel", () => {
@@ -340,6 +368,117 @@ describe("members panel", () => {
     expect(section).toBeInTheDocument()
     // The role is unknown with an empty list, so the invite form stays.
     expect(screen.getByTestId("invite-form")).toBeInTheDocument()
+  })
+})
+
+describe("invite emails (increment 13.5)", () => {
+  it("shows each member's latest invite outcome to the owner", async () => {
+    api.listProjectEmails.mockResolvedValue(
+      ok([
+        // newest first: the inspector's latest invite failed after an earlier send
+        inviteLog(3, 2, "failed", { error: "SMTPServerDisconnected: gone" }),
+        inviteLog(2, 3, "skipped"),
+        inviteLog(1, 2, "sent"),
+      ]),
+    )
+    renderApp("/projects/7")
+    await screen.findByTestId("member-list")
+
+    await waitFor(() =>
+      expect(screen.getAllByTestId("invite-email-status")).toHaveLength(2),
+    )
+    expect(api.listProjectEmails).toHaveBeenCalledWith({
+      path: { project_id: 7 },
+      query: { email_type: "member_invite" },
+    })
+    const rows = screen.getAllByTestId("member-row")
+    expect(within(rows[0]).queryByTestId("invite-email-status")).toBeNull()
+    expect(within(rows[0]).queryByTestId("resend-invite")).toBeNull()
+    const inspectorStatus = within(rows[1]).getByTestId("invite-email-status")
+    expect(inspectorStatus).toHaveTextContent("Invite email failed")
+    expect(inspectorStatus).toHaveAttribute(
+      "title",
+      "SMTPServerDisconnected: gone",
+    )
+    expect(
+      within(rows[2]).getByTestId("invite-email-status"),
+    ).toHaveTextContent("email is off on this server")
+  })
+
+  it("resends an invite and refreshes the log; explains the cooldown", async () => {
+    api.listProjectEmails.mockResolvedValue(ok([inviteLog(1, 2, "failed")]))
+    api.resendMemberInvite.mockImplementation(async () => {
+      api.listProjectEmails.mockResolvedValue(
+        ok([inviteLog(2, 2, "sent"), inviteLog(1, 2, "failed")]),
+      )
+      return ok(inviteLog(2, 2, "queued"))
+    })
+    renderApp("/projects/7")
+    await screen.findByTestId("member-list")
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: "Resend invite to field@example.com",
+      }),
+    )
+    await waitFor(() =>
+      expect(api.resendMemberInvite).toHaveBeenCalledWith({
+        path: { project_id: 7, member_id: 2 },
+      }),
+    )
+    expect(
+      await screen.findByText("Invite sent again to field@example.com"),
+    ).toBeInTheDocument()
+    await waitFor(() =>
+      expect(
+        within(screen.getAllByTestId("member-row")[1]).getByTestId(
+          "invite-email-status",
+        ),
+      ).toHaveAttribute("data-status", "sent"),
+    )
+
+    api.resendMemberInvite.mockRejectedValue(
+      apiError(
+        429,
+        "An invite was just sent to this member. Try again in a minute.",
+      ),
+    )
+    await userEvent.click(
+      screen.getByRole("button", {
+        name: "Resend invite to field@example.com",
+      }),
+    )
+    expect(
+      await screen.findByText(
+        "An invite was just sent to this member. Try again in a minute.",
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it("does not offer resend once the member has signed in", async () => {
+    api.listMembers.mockResolvedValue(
+      ok([ownerSelf, { ...fieldInspector, user_sub: "auth0|field" }, viewer]),
+    )
+    renderApp("/projects/7")
+    await screen.findByTestId("member-list")
+    const rows = screen.getAllByTestId("member-row")
+    expect(within(rows[1]).queryByTestId("resend-invite")).toBeNull()
+    expect(within(rows[2]).getByTestId("resend-invite")).toBeInTheDocument()
+  })
+
+  it("never asks inspectors' sessions for the owner-only email log", async () => {
+    api.listMembers.mockResolvedValue(
+      ok([
+        member(1, "boss@example.com", "owner", { user_sub: "auth0|boss" }),
+        member(2, "stacey@example.com", "inspector", {
+          user_sub: "auth0|stacey",
+        }),
+      ]),
+    )
+    renderApp("/projects/7")
+    await screen.findByTestId("member-list")
+    expect(screen.queryByTestId("resend-invite")).toBeNull()
+    expect(api.listProjectEmails).not.toHaveBeenCalled()
   })
 })
 

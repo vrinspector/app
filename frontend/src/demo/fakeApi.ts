@@ -16,6 +16,7 @@ import axios, {
 import type {
   DashboardPublic,
   DrawingPublic,
+  EmailLogPublic,
   FindingPublic,
   InspectionPublic,
   MemberPublic,
@@ -248,8 +249,57 @@ on("POST", "/projects/{project_id}/members", ({ params, body }) => {
     created_at: stamp(),
   }
   db.members.push(created)
+  logInvite(id, created)
   return created
 })
+// Increment 13.5: the demo never sends mail; it records what would be sent.
+function logInvite(projectId: number, member: MemberPublic): EmailLogPublic {
+  const project = db.projects.find((p) => p.id === projectId)
+  const row: EmailLogPublic = {
+    id: nextId(db.emails),
+    public_id: nextPublicId(),
+    project_id: projectId,
+    email_type: "member_invite",
+    related_id: member.id,
+    recipient: member.user_email,
+    subject: `You've been added to ${project?.name ?? "a project"} on VR Inspector`,
+    status: "sent",
+    error: null,
+    triggered_by: me,
+    created_at: stamp(),
+    sent_at: stamp(),
+  }
+  db.emails.unshift(row)
+  return row
+}
+on("GET", "/projects/{project_id}/emails", ({ params, query }) => {
+  const id = num(params[0])
+  find(db.projects, id, "Project")
+  const type = query.get("email_type")
+  return db.emails.filter(
+    (e) => e.project_id === id && (!type || e.email_type === type),
+  )
+})
+on(
+  "POST",
+  "/projects/{project_id}/members/{member_id}/invite-email",
+  ({ params }) => {
+    const id = num(params[0])
+    const member = find(db.members, num(params[1]), "Member")
+    if (member.project_id !== id) notFound("Member")
+    if (member.role === "owner") {
+      throw new HttpError(400, "Project owners are not sent invites")
+    }
+    const last = db.emails.find((e) => e.related_id === member.id)
+    if (last && Date.now() - Date.parse(last.created_at) < 60_000) {
+      throw new HttpError(
+        429,
+        "An invite was just sent to this member. Try again in a minute.",
+      )
+    }
+    return logInvite(id, member)
+  },
+)
 on("DELETE", "/projects/{project_id}/members/{member_id}", ({ params }) => {
   find(db.members, num(params[1]), "Member")
   remove(db.members, (m) => m.id !== num(params[1]))

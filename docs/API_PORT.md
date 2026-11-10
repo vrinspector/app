@@ -209,6 +209,43 @@ an area, ITP, line or role of a project the caller cannot see is 404 with
 account is "Template not found". Owner decisions 39–46 are in
 `docs/SCREENS.md`.
 
+## Outbound email (increment 13.5)
+
+Block 7.1 (SES invitation emails, deferred on staging) pulled forward as one
+outbound-email service, `app/core/email.py`; routes in
+`app/api/routes/emails.py`.
+
+    POST /projects/{id}/members                       unchanged body and response; now also emails the invite
+    GET  /projects/{id}/emails[?email_type&related_id] owner; send-log rows, newest first (≤ 200)
+    POST /projects/{id}/members/{mid}/invite-email     owner; 202 + the new log row
+                                                      400 for an owner row, 404 unknown / other project,
+                                                      429 within 60 s of a queued/sent invite
+
+* **Send log first, delivery after.** The request writes an `email_send_log`
+  row (`queued`, or `skipped` when SMTP is not configured) and returns;
+  delivery runs as a FastAPI background task with its own session and moves
+  the row to `sent` (with `sent_at` and our `Message-ID`) or `failed` (with
+  the reason). A slow or broken mail server never fails or delays an invite.
+* **Transport** is plain SMTP (`smtplib`): STARTTLS when `SMTP_TLS`,
+  implicit TLS when `SMTP_SSL`, login when `SMTP_USER` is set, timeout
+  `SMTP_TIMEOUT_SECONDS`. AWS SES's SMTP interface takes exactly this, so
+  production is configuration only. Optional `EMAILS_REPLY_TO` and
+  `SES_CONFIGURATION_SET` (sent as `X-SES-CONFIGURATION-SET` for bounce /
+  complaint tracking). Links use `APP_PUBLIC_URL` (defaults to
+  `FRONTEND_HOST`).
+* **Templates.** Branded HTML from React Email in `packages/react-email/`
+  (v2.51 palette: forest-green band, gold rule and button, copper labels),
+  exported to `backend/app/email-templates/` with Jinja placeholders and
+  rendered with autoescaping; plain-text twins in `backend/app/email-text/`.
+  Every email is multipart (text + HTML).
+* **Local dev and CI** send to Mailpit (the maintained MailCatcher successor
+  the template already ships in `compose.override.yml` and
+  `test-backend.yml`; web inbox on http://localhost:8025). The test suite
+  swaps in an in-memory outbox and never reaches a mail server, except one
+  test that sends through Mailpit when it is running (CI).
+* The template's unused `send_email` / `test_email` helpers and the
+  `emails` package were removed in favour of this service.
+
 ## Authorization (carried over from the July 2026 hardening)
 
 * Every object is reached through its project; non-members get **404** with
@@ -264,3 +301,22 @@ can already see the project).
 boto3 reads them from the runtime (instance role or `AWS_*` environment
 variables on the server). The test suite substitutes an in-memory S3 client
 and never reaches AWS.
+
+Email (increment 13.5) — owner action at RG-3, nothing real is committed:
+
+| Setting | Production (AWS SES SMTP) | Local / CI |
+|---|---|---|
+| `SMTP_HOST` | `email-smtp.<region>.amazonaws.com` | `localhost` / `mailpit` |
+| `SMTP_PORT` | `587` (or `465` with `SMTP_SSL=true`) | `1025` |
+| `SMTP_TLS` | `true` (STARTTLS) | `false` |
+| `SMTP_USER` / `SMTP_PASSWORD` | SES SMTP credentials (not the AWS access key pair) | empty |
+| `EMAILS_FROM_EMAIL` | an address on the SES-verified domain | `info@example.com` |
+| `EMAILS_FROM_NAME` | optional, defaults to `PROJECT_NAME` | — |
+| `EMAILS_REPLY_TO` | optional monitored inbox | — |
+| `SES_CONFIGURATION_SET` | optional, for bounce / complaint events | — |
+| `APP_PUBLIC_URL` | the web app's public URL (links in emails) | `FRONTEND_HOST` |
+
+SES must also have the sending domain verified (DKIM records) and the
+account moved out of the SES sandbox before it will mail arbitrary
+addresses. With `SMTP_HOST` empty the app runs normally and logs each email
+as `skipped`.

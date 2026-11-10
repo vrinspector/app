@@ -11,13 +11,18 @@ Legacy contract (deployed SPA, July 2026):
     POST   /projects/{id}/members         → 201 member  body {email, role}
     DELETE /projects/{id}/members/{mid}   → 204
 
+Rebuild increment 13.5 (Block 7.1 pulled forward): adding a member also sends
+them an invite email (see ``app.core.email``). The response shape is unchanged;
+delivery runs after the response as a background task and is recorded in the
+email send log (``GET /projects/{id}/emails``, ``app.api.routes.emails``).
+
 Creating a project makes the caller its ``owner`` member; everything else is
 visible only to members (404 object-hiding for non-members).
 """
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, status
 from sqlmodel import col, select
 
 from app.api.authz import (
@@ -29,7 +34,9 @@ from app.api.authz import (
     require_project_member,
 )
 from app.api.deps import CurrentUser, SessionDep
+from app.core import email as email_service
 from app.models import (
+    EmailSendLog,
     MemberInvite,
     MemberPublic,
     Project,
@@ -154,11 +161,13 @@ def invite_member(
     payload: MemberInvite,
     session: SessionDep,
     current_user: CurrentUser,
+    background_tasks: BackgroundTasks,
 ) -> Any:
-    """Add a member by email. The invitee's Auth0 ``sub`` is recorded the first
-    time they open the project. (Block 7.1 — SES invitation emails — remains
-    deferred, as on staging.)"""
-    get_authorized_project(session, project_id, current_user, roles=MANAGE_ROLES)
+    """Add a member by email and send them an invite email. The invitee's
+    Auth0 ``sub`` is recorded the first time they open the project."""
+    project = get_authorized_project(
+        session, project_id, current_user, roles=MANAGE_ROLES
+    )
     email = str(payload.email).strip().lower()
     existing = session.exec(
         select(ProjectMember)
@@ -179,7 +188,38 @@ def invite_member(
     session.add(member)
     session.commit()
     session.refresh(member)
-    return MemberPublic.from_member(member)
+    result = MemberPublic.from_member(member)
+    send_member_invite(
+        session, background_tasks, project=project, member=member, user=current_user
+    )
+    return result
+
+
+def send_member_invite(
+    session: SessionDep,
+    background_tasks: BackgroundTasks,
+    *,
+    project: Project,
+    member: ProjectMember,
+    user: CurrentUser,
+) -> EmailSendLog:
+    """Log the member's invite email and schedule its delivery."""
+    inviter = current_email(user)
+    rendered = email_service.member_invite_email(
+        project=project, member=member, inviter=inviter
+    )
+    log = email_service.queue_email(
+        session,
+        email_type="member_invite",
+        recipient=member.user_email,
+        rendered=rendered,
+        project_id=project.id,
+        related_id=member.id,
+        triggered_by=inviter,
+    )
+    if log.status == "queued" and log.id is not None:
+        background_tasks.add_task(email_service.deliver, log.id, rendered)
+    return log
 
 
 @router.delete(

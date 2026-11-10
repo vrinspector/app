@@ -7,6 +7,8 @@ import {
   DashboardService,
   type DrawingPublic,
   DrawingsService,
+  type EmailLogPublic,
+  EmailsService,
   type FindingPublic,
   FindingsService,
   type InspectionPublic,
@@ -73,6 +75,8 @@ export const projectKeys = {
   all: ["projects"] as const,
   detail: (projectId: number) => ["projects", projectId] as const,
   members: (projectId: number) => ["projects", projectId, "members"] as const,
+  inviteEmails: (projectId: number) =>
+    ["projects", projectId, "emails", "member_invite"] as const,
   inspections: (projectId: number) =>
     ["projects", projectId, "inspections"] as const,
   drawings: (projectId: number) => ["projects", projectId, "drawings"] as const,
@@ -137,6 +141,23 @@ export const membersQuery = (projectId: number) =>
     queryFn: async () =>
       (await ProjectsService.listMembers({ path: { project_id: projectId } }))
         .data ?? [],
+  })
+
+/** Owner-only: the member-invite rows of the project's email send log
+ * (newest first). While any row is still `queued` the list re-reads every
+ * two seconds so "Sending invite…" settles into "emailed" or "failed". */
+export const inviteEmailsQuery = (projectId: number) =>
+  queryOptions<EmailLogPublic[]>({
+    queryKey: projectKeys.inviteEmails(projectId),
+    queryFn: async () =>
+      (
+        await EmailsService.listProjectEmails({
+          path: { project_id: projectId },
+          query: { email_type: "member_invite" },
+        })
+      ).data ?? [],
+    refetchInterval: (query) =>
+      query.state.data?.some((row) => row.status === "queued") ? 2000 : false,
   })
 
 export const inspectionsQuery = (projectId: number) =>

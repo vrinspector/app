@@ -88,14 +88,38 @@ class Settings(BaseSettings):
     # 15 minutes, so ten minutes keeps a crew's repeated opens to one call.
     WEATHER_CACHE_SECONDS: int = 600
 
+    # --- Outbound email (increment 13.5; Block 7.1 pulled forward) ---
+    # One SMTP service for every email the app sends. Production target is
+    # AWS SES over SMTP (host email-smtp.<region>.amazonaws.com, port 587,
+    # STARTTLS, SES SMTP credentials) — all supplied by the environment at
+    # RG-3; nothing real is ever committed. Local dev and CI use Mailpit (the
+    # maintained MailCatcher successor) on port 1025 without TLS. With no
+    # SMTP_HOST / EMAILS_FROM_EMAIL the app still works: each email is logged
+    # with status "skipped" instead of being sent.
     SMTP_TLS: bool = True
     SMTP_SSL: bool = False
     SMTP_PORT: int = 587
     SMTP_HOST: str | None = None
     SMTP_USER: str | None = None
     SMTP_PASSWORD: str | None = None
+    SMTP_TIMEOUT_SECONDS: float = 10.0
     EMAILS_FROM_EMAIL: EmailStr | None = None
     EMAILS_FROM_NAME: str | None = None
+    # Optional Reply-To (e.g. a monitored support inbox).
+    EMAILS_REPLY_TO: EmailStr | None = None
+    # Optional SES configuration set (bounce / complaint tracking); sent as the
+    # X-SES-CONFIGURATION-SET header only when set.
+    SES_CONFIGURATION_SET: str | None = None
+    # Public address of the web app, used for links inside emails. Defaults to
+    # FRONTEND_HOST.
+    APP_PUBLIC_URL: str | None = None
+    # A member's invite email can be re-sent at most once per this many seconds.
+    INVITE_RESEND_COOLDOWN_SECONDS: int = 60
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def app_public_url(self) -> str:
+        return (self.APP_PUBLIC_URL or self.FRONTEND_HOST).rstrip("/")
 
     @model_validator(mode="after")
     def _set_default_emails_from(self) -> Self:

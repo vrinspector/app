@@ -9,7 +9,7 @@ export const Link = ({ children, href }: LinkProps) => (
 )
 
 const linkStyle = {
-  color: "#00695c",
+  color: "#2e3d2e",
   textDecoration: "underline",
   wordBreak: "break-all" as const,
 }

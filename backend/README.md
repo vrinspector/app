@@ -136,7 +136,9 @@ To preview the emails while editing them, start the dev server from the root of 
 $ bun run email:dev
 ```
 
-Values coming from the backend are declared as Jinja placeholders in the component props, for example `username = "{{ username }}"`. The context for each email is built in `generate_*_email()` in `./backend/app/utils.py`, so a new placeholder needs to be added there too.
+After changing a component, re-export with `bun run email:export` and commit the regenerated HTML.
+
+Values coming from the backend are declared as Jinja placeholders in the component props, for example `project_name = "{{ project_name }}"`. The context for each email is built in `./backend/app/core/email.py` (e.g. `member_invite_email()`), so a new placeholder needs to be added there too, and in the plain-text twin in `./backend/app/email-text/<name>.txt` (every email is sent as text + HTML). Sending goes through the send log and a background task — see "Outbound email" in `docs/API_PORT.md`.
 
 Once you are done, regenerate the templates used by the application:
 

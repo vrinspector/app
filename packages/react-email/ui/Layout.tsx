@@ -34,16 +34,15 @@ export const Layout = ({
         <Container style={containerStyle}>
           <Row>
             <Column style={contentStyle}>
-              <Section>
-                <Hr style={brandRuleStyle} />
+              <Section style={bandStyle}>
                 <Text style={brandStyle}>{project_name}</Text>
+                <Hr style={brandRuleStyle} />
               </Section>
-              <Section>{children}</Section>
-              <Hr style={footerRuleStyle} />
-              <Section>
+              <Section style={innerStyle}>{children}</Section>
+              <Section style={innerStyle}>
+                <Hr style={footerRuleStyle} />
                 <Text style={footerStyle}>
-                  © {new Date().getFullYear()} {project_name}. All rights
-                  reserved.
+                  {project_name} · Field Inspect LLC
                 </Text>
               </Section>
             </Column>
@@ -57,9 +56,11 @@ export const Layout = ({
 const fontFamily =
   '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif'
 
+// VR Inspector v2.51 palette (frontend/src/index.css): forest green band,
+// gold rule and calls to action, copper labels, charcoal text on off-white.
 const bodyStyle = {
-  backgroundColor: "#f4f7f6",
-  color: "#1e293b",
+  backgroundColor: "#f7f5f0",
+  color: "#2b2b2b",
   fontFamily,
   margin: "0",
   padding: "32px 12px",
@@ -67,8 +68,9 @@ const bodyStyle = {
 
 const containerStyle = {
   backgroundColor: "#ffffff",
-  border: "1px solid #dce7e5",
+  border: "1px solid #e4dfd3",
   borderRadius: "8px",
+  overflow: "hidden" as const,
   boxSizing: "border-box" as const,
   margin: "0 auto",
   maxWidth: "560px",
@@ -76,35 +78,44 @@ const containerStyle = {
 }
 
 const contentStyle = {
-  padding: "40px 36px 32px",
+  padding: "0 0 28px",
+}
+
+const bandStyle = {
+  backgroundColor: "#2e3d2e",
+  padding: "22px 36px 18px",
+}
+
+const innerStyle = {
+  padding: "0 36px",
 }
 
 const brandRuleStyle = {
   border: "0",
-  borderTop: "3px solid #00897b",
-  margin: "0 0 16px",
-  width: "32px",
+  borderTop: "3px solid #b8960c",
+  margin: "10px 0 0",
+  width: "40px",
 }
 
 const brandStyle = {
-  color: "#334155",
-  fontSize: "13px",
+  color: "#f7f5f0",
+  fontSize: "14px",
   fontWeight: "700",
-  letterSpacing: "1px",
+  letterSpacing: "1.5px",
   lineHeight: "20px",
-  margin: "0 0 32px",
+  margin: "0",
   textTransform: "uppercase" as const,
 }
 
 const footerRuleStyle = {
   border: "0",
-  borderTop: "1px solid #dce7e5",
-  margin: "36px 0 18px",
+  borderTop: "1px solid #e4dfd3",
+  margin: "28px 0 16px",
   width: "100%",
 }
 
 const footerStyle = {
-  color: "#64748b",
+  color: "#6b6b6b",
   fontSize: "12px",
   lineHeight: "20px",
   margin: "0",
