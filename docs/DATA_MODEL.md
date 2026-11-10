@@ -194,7 +194,7 @@ on the live database; `DOMAIN_TABLES` adds this one and the ITP tables below.
 
 Eight new tables (PRD v2.63 §5, owner decision 2026-11-08 for Areas) and one
 new nullable column on `inspection_pins`. Purely additive on the live database.
-No routes or screens yet: increment 13 builds them. `id` (SERIAL PK) and
+Routes and screens: increment 13 (`docs/API_PORT.md`, `docs/SCREENS.md`). `id` (SERIAL PK) and
 `public_id` (UUID) are on every table and omitted below.
 
 | Table | Purpose | Columns |
@@ -228,7 +228,7 @@ Rules the database enforces:
 * **Tokens are stored only as a hash**, and every token opens exactly one ITP or
   one area.
 
-Left for the API layer in increments 13–14, like `photos.finding_id` and the
+Enforced in the API layer (increment 13; external tokens in 14), like `photos.finding_id` and the
 value vocabularies: an ITP's area, an area's parent, a role and a pin's item
 must belong to the same project; no parent-area cycles; a role that items still
 require cannot be deleted (it would quietly clear the hold point); a hold point

@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { dashboardReadDashboardData, dashboardReadDashboardResponses, drawingsCreateDrawingData, drawingsCreateDrawingErrors, drawingsCreateDrawingResponses, drawingsCreatePinData, drawingsCreatePinErrors, drawingsCreatePinResponses, drawingsDeleteDrawingData, drawingsDeleteDrawingErrors, drawingsDeleteDrawingResponses, drawingsDeletePinData, drawingsDeletePinErrors, drawingsDeletePinResponses, drawingsListDrawingsData, drawingsListDrawingsErrors, drawingsListDrawingsResponses, drawingsListPinsData, drawingsListPinsErrors, drawingsListPinsResponses, drawingsPresignDrawingUploadData, drawingsPresignDrawingUploadErrors, drawingsPresignDrawingUploadResponses, drawingsReadDrawingData, drawingsReadDrawingErrors, drawingsReadDrawingResponses, drawingsReadDrawingViewUrlData, drawingsReadDrawingViewUrlErrors, drawingsReadDrawingViewUrlResponses, drawingsReadPinData, drawingsReadPinErrors, drawingsReadPinResponses, drawingsUpdateDrawingData, drawingsUpdateDrawingDimensionsData, drawingsUpdateDrawingDimensionsErrors, drawingsUpdateDrawingDimensionsResponses, drawingsUpdateDrawingErrors, drawingsUpdateDrawingResponses, drawingsUpdatePinData, drawingsUpdatePinErrors, drawingsUpdatePinResponses, findingsCreateFindingData, findingsCreateFindingErrors, findingsCreateFindingResponses, findingsDeleteFindingData, findingsDeleteFindingErrors, findingsDeleteFindingResponses, findingsListFindingsData, findingsListFindingsErrors, findingsListFindingsResponses, findingsReadFindingData, findingsReadFindingErrors, findingsReadFindingResponses, findingsResolveFindingData, findingsResolveFindingErrors, findingsResolveFindingResponses, findingsSetFindingStatusData, findingsSetFindingStatusErrors, findingsSetFindingStatusResponses, findingsUpdateFindingData, findingsUpdateFindingErrors, findingsUpdateFindingResponses, inspectionsCreateInspectionData, inspectionsCreateInspectionErrors, inspectionsCreateInspectionResponses, inspectionsDeleteInspectionData, inspectionsDeleteInspectionErrors, inspectionsDeleteInspectionResponses, inspectionsListInspectionsData, inspectionsListInspectionsErrors, inspectionsListInspectionsResponses, inspectionsReadInspectionData, inspectionsReadInspectionErrors, inspectionsReadInspectionResponses, inspectionsReopenInspectionData, inspectionsReopenInspectionErrors, inspectionsReopenInspectionResponses, inspectionsSignoffInspectionData, inspectionsSignoffInspectionErrors, inspectionsSignoffInspectionResponses, inspectionsUpdateInspectionData, inspectionsUpdateInspectionErrors, inspectionsUpdateInspectionResponses, photosDeletePhotoData, photosDeletePhotoErrors, photosDeletePhotoResponses, photosListPhotosData, photosListPhotosErrors, photosListPhotosResponses, photosPresignPhotoUploadData, photosPresignPhotoUploadErrors, photosPresignPhotoUploadResponses, photosReadPhotoData, photosReadPhotoErrors, photosReadPhotoResponses, photosRegisterPhotoData, photosRegisterPhotoErrors, photosRegisterPhotoResponses, projectsCreateProjectData, projectsCreateProjectErrors, projectsCreateProjectResponses, projectsDeleteProjectData, projectsDeleteProjectErrors, projectsDeleteProjectResponses, projectsInviteMemberData, projectsInviteMemberErrors, projectsInviteMemberResponses, projectsListMembersData, projectsListMembersErrors, projectsListMembersResponses, projectsListProjectsData, projectsListProjectsResponses, projectsReadProjectData, projectsReadProjectErrors, projectsReadProjectResponses, projectsRemoveMemberData, projectsRemoveMemberErrors, projectsRemoveMemberResponses, projectsUpdateProjectData, projectsUpdateProjectErrors, projectsUpdateProjectResponses, reportsGenerateReportData, reportsGenerateReportErrors, reportsGenerateReportResponses, reportsListReportsData, reportsListReportsErrors, reportsListReportsResponses, reportsReadReportData, reportsReadReportErrors, reportsReadReportResponses, usersReadUserMeData, usersReadUserMeResponses, utilsHealthCheckData, utilsHealthCheckResponses, weatherReadWeatherData, weatherReadWeatherErrors, weatherReadWeatherResponses } from './types.gen';
+import type { areasBulkCreateAreasData, areasBulkCreateAreasErrors, areasBulkCreateAreasResponses, areasCreateAreaData, areasCreateAreaErrors, areasCreateAreaResponses, areasDeleteAreaData, areasDeleteAreaErrors, areasDeleteAreaResponses, areasListAreasData, areasListAreasErrors, areasListAreasResponses, areasReadAreaData, areasReadAreaErrors, areasReadAreaResponses, areasReorderAreasData, areasReorderAreasErrors, areasReorderAreasResponses, areasUpdateAreaData, areasUpdateAreaErrors, areasUpdateAreaResponses, dashboardReadDashboardData, dashboardReadDashboardResponses, drawingsCreateDrawingData, drawingsCreateDrawingErrors, drawingsCreateDrawingResponses, drawingsCreatePinData, drawingsCreatePinErrors, drawingsCreatePinResponses, drawingsDeleteDrawingData, drawingsDeleteDrawingErrors, drawingsDeleteDrawingResponses, drawingsDeletePinData, drawingsDeletePinErrors, drawingsDeletePinResponses, drawingsListDrawingsData, drawingsListDrawingsErrors, drawingsListDrawingsResponses, drawingsListPinsData, drawingsListPinsErrors, drawingsListPinsResponses, drawingsPresignDrawingUploadData, drawingsPresignDrawingUploadErrors, drawingsPresignDrawingUploadResponses, drawingsReadDrawingData, drawingsReadDrawingErrors, drawingsReadDrawingResponses, drawingsReadDrawingViewUrlData, drawingsReadDrawingViewUrlErrors, drawingsReadDrawingViewUrlResponses, drawingsReadPinData, drawingsReadPinErrors, drawingsReadPinResponses, drawingsUpdateDrawingData, drawingsUpdateDrawingDimensionsData, drawingsUpdateDrawingDimensionsErrors, drawingsUpdateDrawingDimensionsResponses, drawingsUpdateDrawingErrors, drawingsUpdateDrawingResponses, drawingsUpdatePinData, drawingsUpdatePinErrors, drawingsUpdatePinResponses, findingsCreateFindingData, findingsCreateFindingErrors, findingsCreateFindingResponses, findingsDeleteFindingData, findingsDeleteFindingErrors, findingsDeleteFindingResponses, findingsListFindingsData, findingsListFindingsErrors, findingsListFindingsResponses, findingsReadFindingData, findingsReadFindingErrors, findingsReadFindingResponses, findingsResolveFindingData, findingsResolveFindingErrors, findingsResolveFindingResponses, findingsSetFindingStatusData, findingsSetFindingStatusErrors, findingsSetFindingStatusResponses, findingsUpdateFindingData, findingsUpdateFindingErrors, findingsUpdateFindingResponses, inspectionsCreateInspectionData, inspectionsCreateInspectionErrors, inspectionsCreateInspectionResponses, inspectionsDeleteInspectionData, inspectionsDeleteInspectionErrors, inspectionsDeleteInspectionResponses, inspectionsListInspectionsData, inspectionsListInspectionsErrors, inspectionsListInspectionsResponses, inspectionsReadInspectionData, inspectionsReadInspectionErrors, inspectionsReadInspectionResponses, inspectionsReopenInspectionData, inspectionsReopenInspectionErrors, inspectionsReopenInspectionResponses, inspectionsSignoffInspectionData, inspectionsSignoffInspectionErrors, inspectionsSignoffInspectionResponses, inspectionsUpdateInspectionData, inspectionsUpdateInspectionErrors, inspectionsUpdateInspectionResponses, itpsBulkCreateProjectItpsData, itpsBulkCreateProjectItpsErrors, itpsBulkCreateProjectItpsResponses, itpsCreateProjectItpData, itpsCreateProjectItpErrors, itpsCreateProjectItpResponses, itpsCreateSignoffRoleData, itpsCreateSignoffRoleErrors, itpsCreateSignoffRoleResponses, itpsCreateTemplateData, itpsCreateTemplateErrors, itpsCreateTemplateResponses, itpsDeleteProjectItpData, itpsDeleteProjectItpErrors, itpsDeleteProjectItpResponses, itpsDeleteSignoffRoleData, itpsDeleteSignoffRoleErrors, itpsDeleteSignoffRoleResponses, itpsListProjectItpItemsData, itpsListProjectItpItemsErrors, itpsListProjectItpItemsResponses, itpsListProjectItpsData, itpsListProjectItpsErrors, itpsListProjectItpsResponses, itpsListSignoffRolesData, itpsListSignoffRolesErrors, itpsListSignoffRolesResponses, itpsListTemplatesData, itpsListTemplatesErrors, itpsListTemplatesResponses, itpsReadProjectItpData, itpsReadProjectItpErrors, itpsReadProjectItpResponses, itpsReadTemplateData, itpsReadTemplateErrors, itpsReadTemplateResponses, itpsSignItpItemData, itpsSignItpItemErrors, itpsSignItpItemResponses, itpsUpdateItpItemData, itpsUpdateItpItemErrors, itpsUpdateItpItemResponses, itpsUpdateProjectItpData, itpsUpdateProjectItpErrors, itpsUpdateProjectItpResponses, itpsUpdateSignoffRoleData, itpsUpdateSignoffRoleErrors, itpsUpdateSignoffRoleResponses, itpsUpdateTemplateData, itpsUpdateTemplateErrors, itpsUpdateTemplateResponses, itpsUpdateTemplateStatusData, itpsUpdateTemplateStatusErrors, itpsUpdateTemplateStatusResponses, photosDeletePhotoData, photosDeletePhotoErrors, photosDeletePhotoResponses, photosListPhotosData, photosListPhotosErrors, photosListPhotosResponses, photosPresignPhotoUploadData, photosPresignPhotoUploadErrors, photosPresignPhotoUploadResponses, photosReadPhotoData, photosReadPhotoErrors, photosReadPhotoResponses, photosRegisterPhotoData, photosRegisterPhotoErrors, photosRegisterPhotoResponses, projectsCreateProjectData, projectsCreateProjectErrors, projectsCreateProjectResponses, projectsDeleteProjectData, projectsDeleteProjectErrors, projectsDeleteProjectResponses, projectsInviteMemberData, projectsInviteMemberErrors, projectsInviteMemberResponses, projectsListMembersData, projectsListMembersErrors, projectsListMembersResponses, projectsListProjectsData, projectsListProjectsResponses, projectsReadProjectData, projectsReadProjectErrors, projectsReadProjectResponses, projectsRemoveMemberData, projectsRemoveMemberErrors, projectsRemoveMemberResponses, projectsUpdateProjectData, projectsUpdateProjectErrors, projectsUpdateProjectResponses, reportsGenerateReportData, reportsGenerateReportErrors, reportsGenerateReportResponses, reportsListReportsData, reportsListReportsErrors, reportsListReportsResponses, reportsReadReportData, reportsReadReportErrors, reportsReadReportResponses, usersReadUserMeData, usersReadUserMeResponses, utilsHealthCheckData, utilsHealthCheckResponses, weatherReadWeatherData, weatherReadWeatherErrors, weatherReadWeatherResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -685,6 +685,380 @@ export class WeatherService {
             security: [{ scheme: 'bearer', type: 'http' }],
             url: '/api/v1/weather',
             ...options
+        });
+    }
+}
+
+export class ItpsService {
+    /**
+     * List Templates
+     *
+     * The caller's masters, latest version of each, most recently changed first.
+     */
+    public static listTemplates<ThrowOnError extends boolean = true>(options?: Options<itpsListTemplatesData, ThrowOnError>) {
+        return (options?.client ?? client).get<itpsListTemplatesResponses, itpsListTemplatesErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/itp-templates',
+            ...options
+        });
+    }
+    
+    /**
+     * Create Template
+     */
+    public static createTemplate<ThrowOnError extends boolean = true>(options: Options<itpsCreateTemplateData, ThrowOnError>) {
+        return (options.client ?? client).post<itpsCreateTemplateResponses, itpsCreateTemplateErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/itp-templates',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Read Template
+     */
+    public static readTemplate<ThrowOnError extends boolean = true>(options: Options<itpsReadTemplateData, ThrowOnError>) {
+        return (options.client ?? client).get<itpsReadTemplateResponses, itpsReadTemplateErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/itp-templates/{template_id}',
+            ...options
+        });
+    }
+    
+    /**
+     * Update Template
+     *
+     * Editing a master adds the next version; project copies are untouched.
+     */
+    public static updateTemplate<ThrowOnError extends boolean = true>(options: Options<itpsUpdateTemplateData, ThrowOnError>) {
+        return (options.client ?? client).put<itpsUpdateTemplateResponses, itpsUpdateTemplateErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/itp-templates/{template_id}',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Update Template Status
+     */
+    public static updateTemplateStatus<ThrowOnError extends boolean = true>(options: Options<itpsUpdateTemplateStatusData, ThrowOnError>) {
+        return (options.client ?? client).patch<itpsUpdateTemplateStatusResponses, itpsUpdateTemplateStatusErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/itp-templates/{template_id}/status',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * List Signoff Roles
+     */
+    public static listSignoffRoles<ThrowOnError extends boolean = true>(options: Options<itpsListSignoffRolesData, ThrowOnError>) {
+        return (options.client ?? client).get<itpsListSignoffRolesResponses, itpsListSignoffRolesErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/projects/{project_id}/signoff-roles',
+            ...options
+        });
+    }
+    
+    /**
+     * Create Signoff Role
+     */
+    public static createSignoffRole<ThrowOnError extends boolean = true>(options: Options<itpsCreateSignoffRoleData, ThrowOnError>) {
+        return (options.client ?? client).post<itpsCreateSignoffRoleResponses, itpsCreateSignoffRoleErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/projects/{project_id}/signoff-roles',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Delete Signoff Role
+     */
+    public static deleteSignoffRole<ThrowOnError extends boolean = true>(options: Options<itpsDeleteSignoffRoleData, ThrowOnError>) {
+        return (options.client ?? client).delete<itpsDeleteSignoffRoleResponses, itpsDeleteSignoffRoleErrors, ThrowOnError>({
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/signoff-roles/{role_id}',
+            ...options
+        });
+    }
+    
+    /**
+     * Update Signoff Role
+     */
+    public static updateSignoffRole<ThrowOnError extends boolean = true>(options: Options<itpsUpdateSignoffRoleData, ThrowOnError>) {
+        return (options.client ?? client).put<itpsUpdateSignoffRoleResponses, itpsUpdateSignoffRoleErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/signoff-roles/{role_id}',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * List Project Itps
+     */
+    public static listProjectItps<ThrowOnError extends boolean = true>(options: Options<itpsListProjectItpsData, ThrowOnError>) {
+        return (options.client ?? client).get<itpsListProjectItpsResponses, itpsListProjectItpsErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/projects/{project_id}/itps',
+            ...options
+        });
+    }
+    
+    /**
+     * Create Project Itp
+     */
+    public static createProjectItp<ThrowOnError extends boolean = true>(options: Options<itpsCreateProjectItpData, ThrowOnError>) {
+        return (options.client ?? client).post<itpsCreateProjectItpResponses, itpsCreateProjectItpErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/projects/{project_id}/itps',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Bulk Create Project Itps
+     *
+     * Bulk apply one master to many areas: one frozen copy per area, all or none.
+     */
+    public static bulkCreateProjectItps<ThrowOnError extends boolean = true>(options: Options<itpsBulkCreateProjectItpsData, ThrowOnError>) {
+        return (options.client ?? client).post<itpsBulkCreateProjectItpsResponses, itpsBulkCreateProjectItpsErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/projects/{project_id}/itps/bulk',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * List Project Itp Items
+     */
+    public static listProjectItpItems<ThrowOnError extends boolean = true>(options: Options<itpsListProjectItpItemsData, ThrowOnError>) {
+        return (options.client ?? client).get<itpsListProjectItpItemsResponses, itpsListProjectItpItemsErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/projects/{project_id}/itp-items',
+            ...options
+        });
+    }
+    
+    /**
+     * Delete Project Itp
+     */
+    public static deleteProjectItp<ThrowOnError extends boolean = true>(options: Options<itpsDeleteProjectItpData, ThrowOnError>) {
+        return (options.client ?? client).delete<itpsDeleteProjectItpResponses, itpsDeleteProjectItpErrors, ThrowOnError>({
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/itps/{itp_id}',
+            ...options
+        });
+    }
+    
+    /**
+     * Read Project Itp
+     */
+    public static readProjectItp<ThrowOnError extends boolean = true>(options: Options<itpsReadProjectItpData, ThrowOnError>) {
+        return (options.client ?? client).get<itpsReadProjectItpResponses, itpsReadProjectItpErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/itps/{itp_id}',
+            ...options
+        });
+    }
+    
+    /**
+     * Update Project Itp
+     */
+    public static updateProjectItp<ThrowOnError extends boolean = true>(options: Options<itpsUpdateProjectItpData, ThrowOnError>) {
+        return (options.client ?? client).put<itpsUpdateProjectItpResponses, itpsUpdateProjectItpErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/itps/{itp_id}',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Update Itp Item
+     */
+    public static updateItpItem<ThrowOnError extends boolean = true>(options: Options<itpsUpdateItpItemData, ThrowOnError>) {
+        return (options.client ?? client).put<itpsUpdateItpItemResponses, itpsUpdateItpItemErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/itp-items/{item_id}',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Sign Itp Item
+     *
+     * In-app sign-off of one line for one of its required roles.
+     *
+     * A role with a signer email is signed only by the member signed in with
+     * that email (any project role, so a client engineer invited as a viewer
+     * can sign); a role without one is signed by a project owner. External
+     * no-account links are increment 14.
+     */
+    public static signItpItem<ThrowOnError extends boolean = true>(options: Options<itpsSignItpItemData, ThrowOnError>) {
+        return (options.client ?? client).post<itpsSignItpItemResponses, itpsSignItpItemErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/itp-items/{item_id}/signatures',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+}
+
+export class AreasService {
+    /**
+     * List Areas
+     */
+    public static listAreas<ThrowOnError extends boolean = true>(options: Options<areasListAreasData, ThrowOnError>) {
+        return (options.client ?? client).get<areasListAreasResponses, areasListAreasErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/projects/{project_id}/areas',
+            ...options
+        });
+    }
+    
+    /**
+     * Create Area
+     */
+    public static createArea<ThrowOnError extends boolean = true>(options: Options<areasCreateAreaData, ThrowOnError>) {
+        return (options.client ?? client).post<areasCreateAreaResponses, areasCreateAreaErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/projects/{project_id}/areas',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Bulk Create Areas
+     *
+     * ``{prefix: "Level", start: 1, end: 12}`` → Level 1 … Level 12, in order.
+     */
+    public static bulkCreateAreas<ThrowOnError extends boolean = true>(options: Options<areasBulkCreateAreasData, ThrowOnError>) {
+        return (options.client ?? client).post<areasBulkCreateAreasResponses, areasBulkCreateAreasErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/projects/{project_id}/areas/bulk',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Reorder Areas
+     *
+     * The full list of the project's area ids, in the order wanted.
+     */
+    public static reorderAreas<ThrowOnError extends boolean = true>(options: Options<areasReorderAreasData, ThrowOnError>) {
+        return (options.client ?? client).put<areasReorderAreasResponses, areasReorderAreasErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/projects/{project_id}/areas/order',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Delete Area
+     */
+    public static deleteArea<ThrowOnError extends boolean = true>(options: Options<areasDeleteAreaData, ThrowOnError>) {
+        return (options.client ?? client).delete<areasDeleteAreaResponses, areasDeleteAreaErrors, ThrowOnError>({
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/areas/{area_id}',
+            ...options
+        });
+    }
+    
+    /**
+     * Read Area
+     */
+    public static readArea<ThrowOnError extends boolean = true>(options: Options<areasReadAreaData, ThrowOnError>) {
+        return (options.client ?? client).get<areasReadAreaResponses, areasReadAreaErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/areas/{area_id}',
+            ...options
+        });
+    }
+    
+    /**
+     * Update Area
+     */
+    public static updateArea<ThrowOnError extends boolean = true>(options: Options<areasUpdateAreaData, ThrowOnError>) {
+        return (options.client ?? client).put<areasUpdateAreaResponses, areasUpdateAreaErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/areas/{area_id}',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
         });
     }
 }

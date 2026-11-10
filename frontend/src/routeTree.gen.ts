@@ -14,10 +14,14 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
 import { Route as LayoutHelpRouteImport } from './routes/_layout/help'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
+import { Route as LayoutItpTemplatesIndexRouteImport } from './routes/_layout/itp-templates/index'
+import { Route as LayoutItpTemplatesTemplateIdRouteImport } from './routes/_layout/itp-templates/$templateId'
 import { Route as LayoutProjectsIndexRouteImport } from './routes/_layout/projects/index'
 import { Route as LayoutProjectsProjectIdIndexRouteImport } from './routes/_layout/projects/$projectId/index'
+import { Route as LayoutProjectsProjectIdAreasAreaIdRouteImport } from './routes/_layout/projects/$projectId/areas/$areaId'
 import { Route as LayoutProjectsProjectIdDrawingsDrawingIdRouteImport } from './routes/_layout/projects/$projectId/drawings/$drawingId'
 import { Route as LayoutProjectsProjectIdInspectionsInspectionIdRouteImport } from './routes/_layout/projects/$projectId/inspections/$inspectionId'
+import { Route as LayoutProjectsProjectIdItpsItpIdRouteImport } from './routes/_layout/projects/$projectId/itps/$itpId'
 
 const LayoutRoute = LayoutRouteImport.update({
   id: '/_layout',
@@ -43,6 +47,17 @@ const LayoutSettingsRoute = LayoutSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutItpTemplatesIndexRoute = LayoutItpTemplatesIndexRouteImport.update({
+  id: '/itp-templates/',
+  path: '/itp-templates/',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutItpTemplatesTemplateIdRoute =
+  LayoutItpTemplatesTemplateIdRouteImport.update({
+    id: '/itp-templates/$templateId',
+    path: '/itp-templates/$templateId',
+    getParentRoute: () => LayoutRoute,
+  } as any)
 const LayoutProjectsIndexRoute = LayoutProjectsIndexRouteImport.update({
   id: '/projects/',
   path: '/projects/',
@@ -52,6 +67,12 @@ const LayoutProjectsProjectIdIndexRoute =
   LayoutProjectsProjectIdIndexRouteImport.update({
     id: '/projects/$projectId/',
     path: '/projects/$projectId/',
+    getParentRoute: () => LayoutRoute,
+  } as any)
+const LayoutProjectsProjectIdAreasAreaIdRoute =
+  LayoutProjectsProjectIdAreasAreaIdRouteImport.update({
+    id: '/projects/$projectId/areas/$areaId',
+    path: '/projects/$projectId/areas/$areaId',
     getParentRoute: () => LayoutRoute,
   } as any)
 const LayoutProjectsProjectIdDrawingsDrawingIdRoute =
@@ -66,26 +87,40 @@ const LayoutProjectsProjectIdInspectionsInspectionIdRoute =
     path: '/projects/$projectId/inspections/$inspectionId',
     getParentRoute: () => LayoutRoute,
   } as any)
+const LayoutProjectsProjectIdItpsItpIdRoute =
+  LayoutProjectsProjectIdItpsItpIdRouteImport.update({
+    id: '/projects/$projectId/itps/$itpId',
+    path: '/projects/$projectId/itps/$itpId',
+    getParentRoute: () => LayoutRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof LayoutIndexRoute
   '/login': typeof LoginRoute
   '/help': typeof LayoutHelpRoute
   '/settings': typeof LayoutSettingsRoute
+  '/itp-templates/$templateId': typeof LayoutItpTemplatesTemplateIdRoute
+  '/itp-templates/': typeof LayoutItpTemplatesIndexRoute
   '/projects/': typeof LayoutProjectsIndexRoute
   '/projects/$projectId/': typeof LayoutProjectsProjectIdIndexRoute
+  '/projects/$projectId/areas/$areaId': typeof LayoutProjectsProjectIdAreasAreaIdRoute
   '/projects/$projectId/drawings/$drawingId': typeof LayoutProjectsProjectIdDrawingsDrawingIdRoute
   '/projects/$projectId/inspections/$inspectionId': typeof LayoutProjectsProjectIdInspectionsInspectionIdRoute
+  '/projects/$projectId/itps/$itpId': typeof LayoutProjectsProjectIdItpsItpIdRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/help': typeof LayoutHelpRoute
   '/settings': typeof LayoutSettingsRoute
   '/': typeof LayoutIndexRoute
+  '/itp-templates/$templateId': typeof LayoutItpTemplatesTemplateIdRoute
+  '/itp-templates': typeof LayoutItpTemplatesIndexRoute
   '/projects': typeof LayoutProjectsIndexRoute
   '/projects/$projectId': typeof LayoutProjectsProjectIdIndexRoute
+  '/projects/$projectId/areas/$areaId': typeof LayoutProjectsProjectIdAreasAreaIdRoute
   '/projects/$projectId/drawings/$drawingId': typeof LayoutProjectsProjectIdDrawingsDrawingIdRoute
   '/projects/$projectId/inspections/$inspectionId': typeof LayoutProjectsProjectIdInspectionsInspectionIdRoute
+  '/projects/$projectId/itps/$itpId': typeof LayoutProjectsProjectIdItpsItpIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -94,10 +129,14 @@ export interface FileRoutesById {
   '/_layout/help': typeof LayoutHelpRoute
   '/_layout/settings': typeof LayoutSettingsRoute
   '/_layout/': typeof LayoutIndexRoute
+  '/_layout/itp-templates/$templateId': typeof LayoutItpTemplatesTemplateIdRoute
+  '/_layout/itp-templates/': typeof LayoutItpTemplatesIndexRoute
   '/_layout/projects/': typeof LayoutProjectsIndexRoute
   '/_layout/projects/$projectId/': typeof LayoutProjectsProjectIdIndexRoute
+  '/_layout/projects/$projectId/areas/$areaId': typeof LayoutProjectsProjectIdAreasAreaIdRoute
   '/_layout/projects/$projectId/drawings/$drawingId': typeof LayoutProjectsProjectIdDrawingsDrawingIdRoute
   '/_layout/projects/$projectId/inspections/$inspectionId': typeof LayoutProjectsProjectIdInspectionsInspectionIdRoute
+  '/_layout/projects/$projectId/itps/$itpId': typeof LayoutProjectsProjectIdItpsItpIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -106,20 +145,28 @@ export interface FileRouteTypes {
     | '/login'
     | '/help'
     | '/settings'
+    | '/itp-templates/$templateId'
+    | '/itp-templates/'
     | '/projects/'
     | '/projects/$projectId/'
+    | '/projects/$projectId/areas/$areaId'
     | '/projects/$projectId/drawings/$drawingId'
     | '/projects/$projectId/inspections/$inspectionId'
+    | '/projects/$projectId/itps/$itpId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
     | '/help'
     | '/settings'
     | '/'
+    | '/itp-templates/$templateId'
+    | '/itp-templates'
     | '/projects'
     | '/projects/$projectId'
+    | '/projects/$projectId/areas/$areaId'
     | '/projects/$projectId/drawings/$drawingId'
     | '/projects/$projectId/inspections/$inspectionId'
+    | '/projects/$projectId/itps/$itpId'
   id:
     | '__root__'
     | '/_layout'
@@ -127,10 +174,14 @@ export interface FileRouteTypes {
     | '/_layout/help'
     | '/_layout/settings'
     | '/_layout/'
+    | '/_layout/itp-templates/$templateId'
+    | '/_layout/itp-templates/'
     | '/_layout/projects/'
     | '/_layout/projects/$projectId/'
+    | '/_layout/projects/$projectId/areas/$areaId'
     | '/_layout/projects/$projectId/drawings/$drawingId'
     | '/_layout/projects/$projectId/inspections/$inspectionId'
+    | '/_layout/projects/$projectId/itps/$itpId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -175,6 +226,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutSettingsRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/itp-templates/': {
+      id: '/_layout/itp-templates/'
+      path: '/itp-templates'
+      fullPath: '/itp-templates/'
+      preLoaderRoute: typeof LayoutItpTemplatesIndexRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/itp-templates/$templateId': {
+      id: '/_layout/itp-templates/$templateId'
+      path: '/itp-templates/$templateId'
+      fullPath: '/itp-templates/$templateId'
+      preLoaderRoute: typeof LayoutItpTemplatesTemplateIdRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/projects/': {
       id: '/_layout/projects/'
       path: '/projects'
@@ -187,6 +252,13 @@ declare module '@tanstack/react-router' {
       path: '/projects/$projectId'
       fullPath: '/projects/$projectId/'
       preLoaderRoute: typeof LayoutProjectsProjectIdIndexRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/projects/$projectId/areas/$areaId': {
+      id: '/_layout/projects/$projectId/areas/$areaId'
+      path: '/projects/$projectId/areas/$areaId'
+      fullPath: '/projects/$projectId/areas/$areaId'
+      preLoaderRoute: typeof LayoutProjectsProjectIdAreasAreaIdRouteImport
       parentRoute: typeof LayoutRoute
     }
     '/_layout/projects/$projectId/drawings/$drawingId': {
@@ -203,6 +275,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutProjectsProjectIdInspectionsInspectionIdRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/projects/$projectId/itps/$itpId': {
+      id: '/_layout/projects/$projectId/itps/$itpId'
+      path: '/projects/$projectId/itps/$itpId'
+      fullPath: '/projects/$projectId/itps/$itpId'
+      preLoaderRoute: typeof LayoutProjectsProjectIdItpsItpIdRouteImport
+      parentRoute: typeof LayoutRoute
+    }
   }
 }
 
@@ -210,22 +289,31 @@ interface LayoutRouteChildren {
   LayoutHelpRoute: typeof LayoutHelpRoute
   LayoutSettingsRoute: typeof LayoutSettingsRoute
   LayoutIndexRoute: typeof LayoutIndexRoute
+  LayoutItpTemplatesTemplateIdRoute: typeof LayoutItpTemplatesTemplateIdRoute
+  LayoutItpTemplatesIndexRoute: typeof LayoutItpTemplatesIndexRoute
   LayoutProjectsIndexRoute: typeof LayoutProjectsIndexRoute
   LayoutProjectsProjectIdIndexRoute: typeof LayoutProjectsProjectIdIndexRoute
+  LayoutProjectsProjectIdAreasAreaIdRoute: typeof LayoutProjectsProjectIdAreasAreaIdRoute
   LayoutProjectsProjectIdDrawingsDrawingIdRoute: typeof LayoutProjectsProjectIdDrawingsDrawingIdRoute
   LayoutProjectsProjectIdInspectionsInspectionIdRoute: typeof LayoutProjectsProjectIdInspectionsInspectionIdRoute
+  LayoutProjectsProjectIdItpsItpIdRoute: typeof LayoutProjectsProjectIdItpsItpIdRoute
 }
 
 const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutHelpRoute: LayoutHelpRoute,
   LayoutSettingsRoute: LayoutSettingsRoute,
   LayoutIndexRoute: LayoutIndexRoute,
+  LayoutItpTemplatesTemplateIdRoute: LayoutItpTemplatesTemplateIdRoute,
+  LayoutItpTemplatesIndexRoute: LayoutItpTemplatesIndexRoute,
   LayoutProjectsIndexRoute: LayoutProjectsIndexRoute,
   LayoutProjectsProjectIdIndexRoute: LayoutProjectsProjectIdIndexRoute,
+  LayoutProjectsProjectIdAreasAreaIdRoute:
+    LayoutProjectsProjectIdAreasAreaIdRoute,
   LayoutProjectsProjectIdDrawingsDrawingIdRoute:
     LayoutProjectsProjectIdDrawingsDrawingIdRoute,
   LayoutProjectsProjectIdInspectionsInspectionIdRoute:
     LayoutProjectsProjectIdInspectionsInspectionIdRoute,
+  LayoutProjectsProjectIdItpsItpIdRoute: LayoutProjectsProjectIdItpsItpIdRoute,
 }
 
 const LayoutRouteWithChildren =

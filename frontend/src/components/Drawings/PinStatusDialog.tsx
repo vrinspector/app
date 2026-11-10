@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useId, useState } from "react"
 
-import { DrawingsService, type PinPublic } from "@/client"
+import { DrawingsService, type ItpItemRef, type PinPublic } from "@/client"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -37,6 +37,8 @@ import { extractErrorMessage } from "@/utils"
 
 interface PinStatusDialogProps {
   drawingId: number
+  /** Increment 13: the new pin marks this ITP line (no finding is logged). */
+  itpItem?: ItpItemRef | null
   /** The tapped point; `null` keeps the dialog closed. */
   point: PointPercent | null
   /** 1-indexed page for PDFs; always 1 for raster drawings. */
@@ -49,6 +51,7 @@ interface PinStatusDialogProps {
 
 export function PinStatusDialog({
   drawingId,
+  itpItem = null,
   point,
   pageNumber,
   isPdf,
@@ -57,7 +60,8 @@ export function PinStatusDialog({
 }: PinStatusDialogProps) {
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
-  const [logFinding, setLogFinding] = useState(pinThenFindingPreferred)
+  const [logFindingPreferred, setLogFinding] = useState(pinThenFindingPreferred)
+  const logFinding = itpItem === null && logFindingPreferred
   const switchId = useId()
 
   const mutation = useMutation({
@@ -70,6 +74,7 @@ export function PinStatusDialog({
           y_pct: point.y_pct,
           status,
           page_number: pageNumber,
+          ...(itpItem ? { itp_item_id: itpItem.id } : {}),
         },
       })
       return response.data as PinPublic
@@ -79,7 +84,9 @@ export function PinStatusDialog({
         c ? [...c, pin] : [pin],
       )
       queryClient.invalidateQueries({ queryKey: drawingKeys.pins(drawingId) })
-      if (!logFinding) showSuccessToast("Pin placed")
+      if (!logFinding) {
+        showSuccessToast(itpItem ? "Pin placed for the ITP line" : "Pin placed")
+      }
       onClose()
       onPlaced?.(pin, { logFinding })
     },
@@ -99,9 +106,11 @@ export function PinStatusDialog({
             Select pin status{isPdf ? ` — page ${pageNumber}` : ""}
           </DialogTitle>
           <DialogDescription>
-            {logFinding
-              ? "The pin is saved at the spot you tapped, then the finding form opens with the camera ready."
-              : "The pin is saved at the spot you tapped. You can add a label, notes or a finding afterwards."}
+            {itpItem
+              ? `The pin is saved at the spot you tapped and marks the ITP line “${itpItem.requirement}”.`
+              : logFinding
+                ? "The pin is saved at the spot you tapped, then the finding form opens with the camera ready."
+                : "The pin is saved at the spot you tapped. You can add a label, notes or a finding afterwards."}
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-2">
@@ -121,11 +130,15 @@ export function PinStatusDialog({
         </div>
         <label
           htmlFor={switchId}
-          className="flex cursor-pointer items-center gap-2 text-sm"
+          className={
+            itpItem
+              ? "hidden"
+              : "flex cursor-pointer items-center gap-2 text-sm"
+          }
         >
           <Checkbox
             id={switchId}
-            checked={logFinding}
+            checked={logFindingPreferred}
             disabled={mutation.isPending}
             onCheckedChange={(checked) => {
               const on = checked === true

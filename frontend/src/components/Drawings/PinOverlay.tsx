@@ -1,4 +1,4 @@
-import type { PinPublic } from "@/client"
+import type { ItpItemRef, PinPublic } from "@/client"
 import { type PointPercent, pinLabel, pointToPercent } from "@/lib/drawings"
 import { cn } from "@/lib/utils"
 import { pinStatusOption } from "@/lib/vocab"
@@ -17,6 +17,8 @@ import { pinStatusOption } from "@/lib/vocab"
 
 interface PinOverlayProps {
   pins: PinPublic[]
+  /** Block 9.5: ITP lines by id, so a pin that marks one shows it. */
+  itpItems?: Map<number, ItpItemRef>
   pinMode: boolean
   /** Set while a pan or pinch is in progress so the release is not a placement. */
   suppressClickRef: React.MutableRefObject<boolean>
@@ -27,6 +29,7 @@ interface PinOverlayProps {
 
 export function PinOverlay({
   pins,
+  itpItems,
   pinMode,
   suppressClickRef,
   onPlace,
@@ -62,6 +65,7 @@ export function PinOverlay({
           key={pin.id}
           pin={pin}
           label={pinLabel(pin, index)}
+          itpItem={pin.itp_item_id ? itpItems?.get(pin.itp_item_id) : undefined}
           selected={pin.id === selectedPinId}
           onSelect={() => onSelect(pin)}
         />
@@ -73,12 +77,29 @@ export function PinOverlay({
 interface PinMarkerProps {
   pin: PinPublic
   label: string
+  itpItem?: ItpItemRef
   selected: boolean
   onSelect: () => void
 }
 
-export function PinMarker({ pin, label, selected, onSelect }: PinMarkerProps) {
+/*
+ * Increment 13 (PRD v2.63 §5, "pins render a distinct hold-point style when
+ * linked"): a pin that marks an ITP line gets a square outline in the
+ * classification's colour — brick while a hold point waits for sign-off,
+ * green once released — and its accessible name says so.
+ */
+export function PinMarker({
+  pin,
+  label,
+  itpItem,
+  selected,
+  onSelect,
+}: PinMarkerProps) {
   const status = pinStatusOption(pin.status)
+  const isHold = itpItem?.classification === "hold"
+  const itpText = itpItem
+    ? ` — ITP ${isHold ? "hold point" : itpItem.classification}${isHold ? (itpItem.released ? " (released)" : " (waiting for sign-off)") : ""}: ${itpItem.requirement}`
+    : ""
   return (
     <button
       type="button"
@@ -86,7 +107,11 @@ export function PinMarker({ pin, label, selected, onSelect }: PinMarkerProps) {
       data-pin-id={pin.id}
       data-pin-status={pin.status}
       data-pin-marker
-      aria-label={`Pin ${label}: ${status.label}${pin.label ? ` — ${pin.label}` : ""}`}
+      data-itp={
+        itpItem ? (isHold ? "hold" : itpItem.classification) : undefined
+      }
+      data-itp-released={itpItem ? String(itpItem.released) : undefined}
+      aria-label={`Pin ${label}: ${status.label}${pin.label ? ` — ${pin.label}` : ""}${itpText}`}
       aria-pressed={selected}
       onClick={(event) => {
         event.stopPropagation()
@@ -98,6 +123,13 @@ export function PinMarker({ pin, label, selected, onSelect }: PinMarkerProps) {
       <span
         className={cn(
           "flex h-6 min-w-6 items-center justify-center rounded-full border-2 border-white px-1 text-[10px] font-bold whitespace-nowrap text-white shadow-[0_2px_6px_rgba(0,0,0,.6)] transition-transform",
+          itpItem && "rounded-sm outline-3 outline-offset-1",
+          itpItem &&
+            (isHold
+              ? itpItem.released
+                ? "outline-status-positive-fg"
+                : "outline-status-critical-fg"
+              : "outline-status-attention-fg"),
           selected && "scale-125 ring-2 ring-vri-gold",
         )}
         style={{ background: status.color }}

@@ -1136,6 +1136,8 @@ class DrawingViewUrl(SQLModel):
 
 class PinCreate(SQLModel):
     finding_id: int | None = None
+    # Increment 13: the ITP item this pin marks (same project only).
+    itp_item_id: int | None = None
     tag_number: str | None = Field(default=None, max_length=100)
     label: str | None = Field(default=None, max_length=255)
     # Zoom-independent percentages of the rendered page (NUMERIC(6,3)).
@@ -1148,6 +1150,8 @@ class PinCreate(SQLModel):
 
 class PinUpdate(SQLModel):
     finding_id: int | None = None
+    # ``null`` unlinks the ITP item, like ``finding_id``.
+    itp_item_id: int | None = None
     tag_number: str | None = Field(default=None, max_length=100)
     label: str | None = Field(default=None, max_length=255)
     status: PinStatus | None = None
@@ -1169,6 +1173,7 @@ class PinPublic(SQLModel):
     page_number: int
     created_by: str | None
     created_at: datetime
+    itp_item_id: int | None = None
 
 
 class DashboardSummary(SQLModel):
@@ -1232,3 +1237,262 @@ class ReportPublic(SQLModel):
     # read ``download_url`` from the generate response; every report row
     # carries one so earlier versions can be re-downloaded.
     download_url: str | None = None
+
+
+# --- Increment 13: Block 9.5 ITP screens + Areas -------------------------------
+#
+# New routes (no legacy counterpart). Shapes are the rebuild's own; the same
+# 404 object-hiding applies: an area, ITP, item or role is reached through its
+# project, and a master template only by the account that created it.
+
+AreaType = Literal["level", "lot", "stage", "chainage", "other"]
+ItpTemplateStatus = Literal["draft", "published", "archived"]
+ProjectItpStatus = Literal["not_started", "in_progress", "complete", "voided"]
+ItpItemClassification = Literal["hold", "witness", "surveillance", "record"]
+ItpItemStatus = Literal["pending", "pass", "fail", "na"]
+SignoffParty = Literal["contractor", "client", "engineer"]
+
+
+class AreaCreate(SQLModel):
+    name: str = Field(min_length=1, max_length=255)
+    area_type: AreaType = "other"
+    parent_area_id: int | None = None
+
+
+class AreaBulkCreate(SQLModel):
+    """A numbered series: ``Level 1`` … ``Level 12``."""
+
+    prefix: str = Field(min_length=1, max_length=200)
+    start: int = Field(ge=0, le=100000)
+    end: int = Field(ge=0, le=100000)
+    area_type: AreaType = "other"
+    parent_area_id: int | None = None
+
+
+class AreaUpdate(SQLModel):
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    area_type: AreaType | None = None
+    # ``null`` moves the area to the top level.
+    parent_area_id: int | None = None
+
+
+class AreaOrder(SQLModel):
+    area_ids: list[int]
+
+
+class AreaPublic(SQLModel):
+    id: int
+    public_id: uuid.UUID
+    project_id: int
+    parent_area_id: int | None
+    name: str
+    area_type: str
+    sort_order: int
+    created_by: str | None
+    created_at: datetime
+    updated_at: datetime
+    # Roll-up of the area's ITPs.
+    itp_count: int = 0
+    complete_count: int = 0
+    item_count: int = 0
+    done_count: int = 0
+    open_hold_count: int = 0
+    signed: bool = False
+
+
+class ItpTemplateCreate(SQLModel):
+    name: str = Field(min_length=1, max_length=255)
+    description: str | None = None
+    status: ItpTemplateStatus = "draft"
+    body: dict[str, Any]
+
+
+class ItpTemplateUpdate(SQLModel):
+    """Content changes add the next version; the edited row is left as it was."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    description: str | None = None
+    body: dict[str, Any] | None = None
+
+
+class ItpTemplateStatusUpdate(SQLModel):
+    status: ItpTemplateStatus
+
+
+class ItpTemplateVersion(SQLModel):
+    id: int
+    version: int
+    status: str
+    created_at: datetime
+
+
+class ItpTemplateSummary(SQLModel):
+    id: int
+    public_id: uuid.UUID
+    template_key: uuid.UUID
+    version: int
+    name: str
+    description: str | None
+    status: str
+    item_count: int
+    hold_count: int
+    role_names: list[str]
+    created_by: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class ItpTemplatePublic(ItpTemplateSummary):
+    body: dict[str, Any]
+    versions: list[ItpTemplateVersion]
+
+
+class SignoffRoleCreate(SQLModel):
+    role_name: str = Field(min_length=1, max_length=255)
+    party: SignoffParty = "contractor"
+    signer_email: EmailStr | None = None
+
+
+class SignoffRoleUpdate(SQLModel):
+    role_name: str | None = Field(default=None, min_length=1, max_length=255)
+    party: SignoffParty | None = None
+    # ``null`` clears the email.
+    signer_email: EmailStr | None = None
+
+
+class SignoffRolePublic(SQLModel):
+    id: int
+    public_id: uuid.UUID
+    project_id: int
+    role_name: str
+    party: str
+    signer_email: str | None
+    created_at: datetime
+    item_count: int = 0
+
+
+class ProjectItpCreate(SQLModel):
+    template_id: int
+    area_id: int | None = None
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+
+
+class ProjectItpBulkCreate(SQLModel):
+    """Bulk apply: one frozen copy per selected area."""
+
+    template_id: int
+    area_ids: list[int] = Field(min_length=1, max_length=200)
+
+
+class ProjectItpUpdate(SQLModel):
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+    # ``null`` makes the ITP whole-project.
+    area_id: int | None = None
+    status: ProjectItpStatus | None = None
+
+
+class ItpItemUpdate(SQLModel):
+    status: ItpItemStatus | None = None
+    notes: str | None = None
+
+
+class ItpSignatureCreate(SQLModel):
+    signoff_role_id: int
+    signer_name: str | None = Field(default=None, max_length=255)
+    gps_lat: float | None = Field(default=None, ge=-90, le=90)
+    gps_lng: float | None = Field(default=None, ge=-180, le=180)
+
+
+class ItpRoleRef(SQLModel):
+    id: int
+    role_name: str
+    party: str
+    signer_email: str | None
+
+
+class ItpSignaturePublic(SQLModel):
+    id: int
+    itp_item_id: int | None
+    signoff_role_id: int | None
+    role_name: str
+    party: str
+    signer_name: str | None
+    signer_email: str
+    method: str
+    signed_at: datetime
+    gps_lat: float | None
+    gps_lng: float | None
+
+
+class ItpPinRef(SQLModel):
+    id: int
+    drawing_id: int
+    drawing_title: str | None
+    page_number: int
+    label: str | None
+    tag_number: str | None
+    status: str
+
+
+class ItpItemPublic(SQLModel):
+    id: int
+    public_id: uuid.UUID
+    project_itp_id: int
+    section: str | None
+    element_name: str | None
+    requirement: str
+    classification: str
+    status: str
+    notes: str | None
+    sort_order: int
+    updated_at: datetime
+    required_roles: list[ItpRoleRef]
+    signatures: list[ItpSignaturePublic]
+    # Hold point: every required role has signed. Always true for other lines.
+    released: bool
+    # The unreleased hold point earlier in the ITP that stops this line being
+    # recorded, if any.
+    blocked_by_item_id: int | None
+    pins: list[ItpPinRef]
+
+
+class ProjectItpSummary(SQLModel):
+    id: int
+    public_id: uuid.UUID
+    project_id: int
+    area_id: int | None
+    area_name: str | None
+    template_id: int | None
+    template_version: int | None
+    title: str
+    status: str
+    item_count: int
+    done_count: int
+    fail_count: int
+    hold_count: int
+    open_hold_count: int
+    signature_count: int
+    created_by: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class ProjectItpPublic(ProjectItpSummary):
+    body: dict[str, Any]
+    items: list[ItpItemPublic]
+    # Plain-language reasons the ITP cannot be marked complete yet.
+    completion_blockers: list[str]
+
+
+class ItpItemRef(SQLModel):
+    """One line of any of a project's ITPs, for the pin dialog's picker."""
+
+    id: int
+    project_itp_id: int
+    itp_title: str
+    area_name: str | None
+    section: str | None
+    requirement: str
+    classification: str
+    status: str
+    released: bool

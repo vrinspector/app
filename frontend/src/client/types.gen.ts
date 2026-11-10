@@ -5,6 +5,150 @@ export type ClientOptions = {
 };
 
 /**
+ * AreaBulkCreate
+ *
+ * A numbered series: ``Level 1`` … ``Level 12``.
+ */
+export type AreaBulkCreate = {
+    /**
+     * Prefix
+     */
+    prefix: string;
+    /**
+     * Start
+     */
+    start: number;
+    /**
+     * End
+     */
+    end: number;
+    /**
+     * Area Type
+     */
+    area_type?: 'level' | 'lot' | 'stage' | 'chainage' | 'other';
+    /**
+     * Parent Area Id
+     */
+    parent_area_id?: number | null;
+};
+
+/**
+ * AreaCreate
+ */
+export type AreaCreate = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Area Type
+     */
+    area_type?: 'level' | 'lot' | 'stage' | 'chainage' | 'other';
+    /**
+     * Parent Area Id
+     */
+    parent_area_id?: number | null;
+};
+
+/**
+ * AreaOrder
+ */
+export type AreaOrder = {
+    /**
+     * Area Ids
+     */
+    area_ids: Array<number>;
+};
+
+/**
+ * AreaPublic
+ */
+export type AreaPublic = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Public Id
+     */
+    public_id: string;
+    /**
+     * Project Id
+     */
+    project_id: number;
+    /**
+     * Parent Area Id
+     */
+    parent_area_id: number | null;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Area Type
+     */
+    area_type: string;
+    /**
+     * Sort Order
+     */
+    sort_order: number;
+    /**
+     * Created By
+     */
+    created_by: string | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+    /**
+     * Itp Count
+     */
+    itp_count?: number;
+    /**
+     * Complete Count
+     */
+    complete_count?: number;
+    /**
+     * Item Count
+     */
+    item_count?: number;
+    /**
+     * Done Count
+     */
+    done_count?: number;
+    /**
+     * Open Hold Count
+     */
+    open_hold_count?: number;
+    /**
+     * Signed
+     */
+    signed?: boolean;
+};
+
+/**
+ * AreaUpdate
+ */
+export type AreaUpdate = {
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Area Type
+     */
+    area_type?: 'level' | 'lot' | 'stage' | 'chainage' | 'other' | null;
+    /**
+     * Parent Area Id
+     */
+    parent_area_id?: number | null;
+};
+
+/**
  * DashboardInspection
  */
 export type DashboardInspection = {
@@ -610,6 +754,466 @@ export type InspectionUpdate = {
 };
 
 /**
+ * ItpItemPublic
+ */
+export type ItpItemPublic = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Public Id
+     */
+    public_id: string;
+    /**
+     * Project Itp Id
+     */
+    project_itp_id: number;
+    /**
+     * Section
+     */
+    section: string | null;
+    /**
+     * Element Name
+     */
+    element_name: string | null;
+    /**
+     * Requirement
+     */
+    requirement: string;
+    /**
+     * Classification
+     */
+    classification: string;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Notes
+     */
+    notes: string | null;
+    /**
+     * Sort Order
+     */
+    sort_order: number;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+    /**
+     * Required Roles
+     */
+    required_roles: Array<ItpRoleRef>;
+    /**
+     * Signatures
+     */
+    signatures: Array<ItpSignaturePublic>;
+    /**
+     * Released
+     */
+    released: boolean;
+    /**
+     * Blocked By Item Id
+     */
+    blocked_by_item_id: number | null;
+    /**
+     * Pins
+     */
+    pins: Array<ItpPinRef>;
+};
+
+/**
+ * ItpItemRef
+ *
+ * One line of any of a project's ITPs, for the pin dialog's picker.
+ */
+export type ItpItemRef = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Project Itp Id
+     */
+    project_itp_id: number;
+    /**
+     * Itp Title
+     */
+    itp_title: string;
+    /**
+     * Area Name
+     */
+    area_name: string | null;
+    /**
+     * Section
+     */
+    section: string | null;
+    /**
+     * Requirement
+     */
+    requirement: string;
+    /**
+     * Classification
+     */
+    classification: string;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Released
+     */
+    released: boolean;
+};
+
+/**
+ * ItpItemUpdate
+ */
+export type ItpItemUpdate = {
+    /**
+     * Status
+     */
+    status?: 'pending' | 'pass' | 'fail' | 'na' | null;
+    /**
+     * Notes
+     */
+    notes?: string | null;
+};
+
+/**
+ * ItpPinRef
+ */
+export type ItpPinRef = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Drawing Id
+     */
+    drawing_id: number;
+    /**
+     * Drawing Title
+     */
+    drawing_title: string | null;
+    /**
+     * Page Number
+     */
+    page_number: number;
+    /**
+     * Label
+     */
+    label: string | null;
+    /**
+     * Tag Number
+     */
+    tag_number: string | null;
+    /**
+     * Status
+     */
+    status: string;
+};
+
+/**
+ * ItpRoleRef
+ */
+export type ItpRoleRef = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Role Name
+     */
+    role_name: string;
+    /**
+     * Party
+     */
+    party: string;
+    /**
+     * Signer Email
+     */
+    signer_email: string | null;
+};
+
+/**
+ * ItpSignatureCreate
+ */
+export type ItpSignatureCreate = {
+    /**
+     * Signoff Role Id
+     */
+    signoff_role_id: number;
+    /**
+     * Signer Name
+     */
+    signer_name?: string | null;
+    /**
+     * Gps Lat
+     */
+    gps_lat?: number | null;
+    /**
+     * Gps Lng
+     */
+    gps_lng?: number | null;
+};
+
+/**
+ * ItpSignaturePublic
+ */
+export type ItpSignaturePublic = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Itp Item Id
+     */
+    itp_item_id: number | null;
+    /**
+     * Signoff Role Id
+     */
+    signoff_role_id: number | null;
+    /**
+     * Role Name
+     */
+    role_name: string;
+    /**
+     * Party
+     */
+    party: string;
+    /**
+     * Signer Name
+     */
+    signer_name: string | null;
+    /**
+     * Signer Email
+     */
+    signer_email: string;
+    /**
+     * Method
+     */
+    method: string;
+    /**
+     * Signed At
+     */
+    signed_at: string;
+    /**
+     * Gps Lat
+     */
+    gps_lat: number | null;
+    /**
+     * Gps Lng
+     */
+    gps_lng: number | null;
+};
+
+/**
+ * ItpTemplateCreate
+ */
+export type ItpTemplateCreate = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Description
+     */
+    description?: string | null;
+    /**
+     * Status
+     */
+    status?: 'draft' | 'published' | 'archived';
+    /**
+     * Body
+     */
+    body: {
+        [key: string]: unknown;
+    };
+};
+
+/**
+ * ItpTemplatePublic
+ */
+export type ItpTemplatePublic = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Public Id
+     */
+    public_id: string;
+    /**
+     * Template Key
+     */
+    template_key: string;
+    /**
+     * Version
+     */
+    version: number;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Description
+     */
+    description: string | null;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Item Count
+     */
+    item_count: number;
+    /**
+     * Hold Count
+     */
+    hold_count: number;
+    /**
+     * Role Names
+     */
+    role_names: Array<string>;
+    /**
+     * Created By
+     */
+    created_by: string | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+    /**
+     * Body
+     */
+    body: {
+        [key: string]: unknown;
+    };
+    /**
+     * Versions
+     */
+    versions: Array<ItpTemplateVersion>;
+};
+
+/**
+ * ItpTemplateStatusUpdate
+ */
+export type ItpTemplateStatusUpdate = {
+    /**
+     * Status
+     */
+    status: 'draft' | 'published' | 'archived';
+};
+
+/**
+ * ItpTemplateSummary
+ */
+export type ItpTemplateSummary = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Public Id
+     */
+    public_id: string;
+    /**
+     * Template Key
+     */
+    template_key: string;
+    /**
+     * Version
+     */
+    version: number;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Description
+     */
+    description: string | null;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Item Count
+     */
+    item_count: number;
+    /**
+     * Hold Count
+     */
+    hold_count: number;
+    /**
+     * Role Names
+     */
+    role_names: Array<string>;
+    /**
+     * Created By
+     */
+    created_by: string | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+};
+
+/**
+ * ItpTemplateUpdate
+ *
+ * Content changes add the next version; the edited row is left as it was.
+ */
+export type ItpTemplateUpdate = {
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Description
+     */
+    description?: string | null;
+    /**
+     * Body
+     */
+    body?: {
+        [key: string]: unknown;
+    } | null;
+};
+
+/**
+ * ItpTemplateVersion
+ */
+export type ItpTemplateVersion = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Version
+     */
+    version: number;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Created At
+     */
+    created_at: string;
+};
+
+/**
  * MemberInvite
  */
 export type MemberInvite = {
@@ -782,6 +1386,10 @@ export type PinCreate = {
      */
     finding_id?: number | null;
     /**
+     * Itp Item Id
+     */
+    itp_item_id?: number | null;
+    /**
      * Tag Number
      */
     tag_number?: string | null;
@@ -873,6 +1481,10 @@ export type PinPublic = {
      * Created At
      */
     created_at: string;
+    /**
+     * Itp Item Id
+     */
+    itp_item_id?: number | null;
 };
 
 /**
@@ -883,6 +1495,10 @@ export type PinUpdate = {
      * Finding Id
      */
     finding_id?: number | null;
+    /**
+     * Itp Item Id
+     */
+    itp_item_id?: number | null;
     /**
      * Tag Number
      */
@@ -925,6 +1541,228 @@ export type ProjectCreate = {
      * Created By
      */
     created_by?: string | null;
+};
+
+/**
+ * ProjectItpBulkCreate
+ *
+ * Bulk apply: one frozen copy per selected area.
+ */
+export type ProjectItpBulkCreate = {
+    /**
+     * Template Id
+     */
+    template_id: number;
+    /**
+     * Area Ids
+     */
+    area_ids: Array<number>;
+};
+
+/**
+ * ProjectItpCreate
+ */
+export type ProjectItpCreate = {
+    /**
+     * Template Id
+     */
+    template_id: number;
+    /**
+     * Area Id
+     */
+    area_id?: number | null;
+    /**
+     * Title
+     */
+    title?: string | null;
+};
+
+/**
+ * ProjectItpPublic
+ */
+export type ProjectItpPublic = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Public Id
+     */
+    public_id: string;
+    /**
+     * Project Id
+     */
+    project_id: number;
+    /**
+     * Area Id
+     */
+    area_id: number | null;
+    /**
+     * Area Name
+     */
+    area_name: string | null;
+    /**
+     * Template Id
+     */
+    template_id: number | null;
+    /**
+     * Template Version
+     */
+    template_version: number | null;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Item Count
+     */
+    item_count: number;
+    /**
+     * Done Count
+     */
+    done_count: number;
+    /**
+     * Fail Count
+     */
+    fail_count: number;
+    /**
+     * Hold Count
+     */
+    hold_count: number;
+    /**
+     * Open Hold Count
+     */
+    open_hold_count: number;
+    /**
+     * Signature Count
+     */
+    signature_count: number;
+    /**
+     * Created By
+     */
+    created_by: string | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+    /**
+     * Body
+     */
+    body: {
+        [key: string]: unknown;
+    };
+    /**
+     * Items
+     */
+    items: Array<ItpItemPublic>;
+    /**
+     * Completion Blockers
+     */
+    completion_blockers: Array<string>;
+};
+
+/**
+ * ProjectItpSummary
+ */
+export type ProjectItpSummary = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Public Id
+     */
+    public_id: string;
+    /**
+     * Project Id
+     */
+    project_id: number;
+    /**
+     * Area Id
+     */
+    area_id: number | null;
+    /**
+     * Area Name
+     */
+    area_name: string | null;
+    /**
+     * Template Id
+     */
+    template_id: number | null;
+    /**
+     * Template Version
+     */
+    template_version: number | null;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Item Count
+     */
+    item_count: number;
+    /**
+     * Done Count
+     */
+    done_count: number;
+    /**
+     * Fail Count
+     */
+    fail_count: number;
+    /**
+     * Hold Count
+     */
+    hold_count: number;
+    /**
+     * Open Hold Count
+     */
+    open_hold_count: number;
+    /**
+     * Signature Count
+     */
+    signature_count: number;
+    /**
+     * Created By
+     */
+    created_by: string | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+};
+
+/**
+ * ProjectItpUpdate
+ */
+export type ProjectItpUpdate = {
+    /**
+     * Title
+     */
+    title?: string | null;
+    /**
+     * Area Id
+     */
+    area_id?: number | null;
+    /**
+     * Status
+     */
+    status?: 'not_started' | 'in_progress' | 'complete' | 'voided' | null;
 };
 
 /**
@@ -1053,6 +1891,80 @@ export type ReportPublic = {
      * Download Url
      */
     download_url?: string | null;
+};
+
+/**
+ * SignoffRoleCreate
+ */
+export type SignoffRoleCreate = {
+    /**
+     * Role Name
+     */
+    role_name: string;
+    /**
+     * Party
+     */
+    party?: 'contractor' | 'client' | 'engineer';
+    /**
+     * Signer Email
+     */
+    signer_email?: string | null;
+};
+
+/**
+ * SignoffRolePublic
+ */
+export type SignoffRolePublic = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Public Id
+     */
+    public_id: string;
+    /**
+     * Project Id
+     */
+    project_id: number;
+    /**
+     * Role Name
+     */
+    role_name: string;
+    /**
+     * Party
+     */
+    party: string;
+    /**
+     * Signer Email
+     */
+    signer_email: string | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Item Count
+     */
+    item_count?: number;
+};
+
+/**
+ * SignoffRoleUpdate
+ */
+export type SignoffRoleUpdate = {
+    /**
+     * Role Name
+     */
+    role_name?: string | null;
+    /**
+     * Party
+     */
+    party?: 'contractor' | 'client' | 'engineer' | null;
+    /**
+     * Signer Email
+     */
+    signer_email?: string | null;
 };
 
 /**
@@ -2492,3 +3404,769 @@ export type weatherReadWeatherResponses = {
 };
 
 export type weatherReadWeatherResponse = weatherReadWeatherResponses[keyof weatherReadWeatherResponses];
+
+export type itpsListTemplatesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Include Archived
+         */
+        include_archived?: boolean;
+    };
+    url: '/api/v1/itp-templates';
+};
+
+export type itpsListTemplatesErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type itpsListTemplatesError = itpsListTemplatesErrors[keyof itpsListTemplatesErrors];
+
+export type itpsListTemplatesResponses = {
+    /**
+     * Response Itps-List Templates
+     *
+     * Successful Response
+     */
+    200: Array<ItpTemplateSummary>;
+};
+
+export type itpsListTemplatesResponse = itpsListTemplatesResponses[keyof itpsListTemplatesResponses];
+
+export type itpsCreateTemplateData = {
+    body: ItpTemplateCreate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/itp-templates';
+};
+
+export type itpsCreateTemplateErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type itpsCreateTemplateError = itpsCreateTemplateErrors[keyof itpsCreateTemplateErrors];
+
+export type itpsCreateTemplateResponses = {
+    /**
+     * Successful Response
+     */
+    201: ItpTemplatePublic;
+};
+
+export type itpsCreateTemplateResponse = itpsCreateTemplateResponses[keyof itpsCreateTemplateResponses];
+
+export type itpsReadTemplateData = {
+    body?: never;
+    path: {
+        /**
+         * Template Id
+         */
+        template_id: number;
+    };
+    query?: never;
+    url: '/api/v1/itp-templates/{template_id}';
+};
+
+export type itpsReadTemplateErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type itpsReadTemplateError = itpsReadTemplateErrors[keyof itpsReadTemplateErrors];
+
+export type itpsReadTemplateResponses = {
+    /**
+     * Successful Response
+     */
+    200: ItpTemplatePublic;
+};
+
+export type itpsReadTemplateResponse = itpsReadTemplateResponses[keyof itpsReadTemplateResponses];
+
+export type itpsUpdateTemplateData = {
+    body: ItpTemplateUpdate;
+    path: {
+        /**
+         * Template Id
+         */
+        template_id: number;
+    };
+    query?: never;
+    url: '/api/v1/itp-templates/{template_id}';
+};
+
+export type itpsUpdateTemplateErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type itpsUpdateTemplateError = itpsUpdateTemplateErrors[keyof itpsUpdateTemplateErrors];
+
+export type itpsUpdateTemplateResponses = {
+    /**
+     * Successful Response
+     */
+    201: ItpTemplatePublic;
+};
+
+export type itpsUpdateTemplateResponse = itpsUpdateTemplateResponses[keyof itpsUpdateTemplateResponses];
+
+export type itpsUpdateTemplateStatusData = {
+    body: ItpTemplateStatusUpdate;
+    path: {
+        /**
+         * Template Id
+         */
+        template_id: number;
+    };
+    query?: never;
+    url: '/api/v1/itp-templates/{template_id}/status';
+};
+
+export type itpsUpdateTemplateStatusErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type itpsUpdateTemplateStatusError = itpsUpdateTemplateStatusErrors[keyof itpsUpdateTemplateStatusErrors];
+
+export type itpsUpdateTemplateStatusResponses = {
+    /**
+     * Successful Response
+     */
+    200: ItpTemplatePublic;
+};
+
+export type itpsUpdateTemplateStatusResponse = itpsUpdateTemplateStatusResponses[keyof itpsUpdateTemplateStatusResponses];
+
+export type itpsListSignoffRolesData = {
+    body?: never;
+    path: {
+        /**
+         * Project Id
+         */
+        project_id: number;
+    };
+    query?: never;
+    url: '/api/v1/projects/{project_id}/signoff-roles';
+};
+
+export type itpsListSignoffRolesErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type itpsListSignoffRolesError = itpsListSignoffRolesErrors[keyof itpsListSignoffRolesErrors];
+
+export type itpsListSignoffRolesResponses = {
+    /**
+     * Response Itps-List Signoff Roles
+     *
+     * Successful Response
+     */
+    200: Array<SignoffRolePublic>;
+};
+
+export type itpsListSignoffRolesResponse = itpsListSignoffRolesResponses[keyof itpsListSignoffRolesResponses];
+
+export type itpsCreateSignoffRoleData = {
+    body: SignoffRoleCreate;
+    path: {
+        /**
+         * Project Id
+         */
+        project_id: number;
+    };
+    query?: never;
+    url: '/api/v1/projects/{project_id}/signoff-roles';
+};
+
+export type itpsCreateSignoffRoleErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type itpsCreateSignoffRoleError = itpsCreateSignoffRoleErrors[keyof itpsCreateSignoffRoleErrors];
+
+export type itpsCreateSignoffRoleResponses = {
+    /**
+     * Successful Response
+     */
+    201: SignoffRolePublic;
+};
+
+export type itpsCreateSignoffRoleResponse = itpsCreateSignoffRoleResponses[keyof itpsCreateSignoffRoleResponses];
+
+export type itpsDeleteSignoffRoleData = {
+    body?: never;
+    path: {
+        /**
+         * Role Id
+         */
+        role_id: number;
+    };
+    query?: never;
+    url: '/api/v1/signoff-roles/{role_id}';
+};
+
+export type itpsDeleteSignoffRoleErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type itpsDeleteSignoffRoleError = itpsDeleteSignoffRoleErrors[keyof itpsDeleteSignoffRoleErrors];
+
+export type itpsDeleteSignoffRoleResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type itpsDeleteSignoffRoleResponse = itpsDeleteSignoffRoleResponses[keyof itpsDeleteSignoffRoleResponses];
+
+export type itpsUpdateSignoffRoleData = {
+    body: SignoffRoleUpdate;
+    path: {
+        /**
+         * Role Id
+         */
+        role_id: number;
+    };
+    query?: never;
+    url: '/api/v1/signoff-roles/{role_id}';
+};
+
+export type itpsUpdateSignoffRoleErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type itpsUpdateSignoffRoleError = itpsUpdateSignoffRoleErrors[keyof itpsUpdateSignoffRoleErrors];
+
+export type itpsUpdateSignoffRoleResponses = {
+    /**
+     * Successful Response
+     */
+    200: SignoffRolePublic;
+};
+
+export type itpsUpdateSignoffRoleResponse = itpsUpdateSignoffRoleResponses[keyof itpsUpdateSignoffRoleResponses];
+
+export type itpsListProjectItpsData = {
+    body?: never;
+    path: {
+        /**
+         * Project Id
+         */
+        project_id: number;
+    };
+    query?: {
+        /**
+         * Area Id
+         */
+        area_id?: number | null;
+    };
+    url: '/api/v1/projects/{project_id}/itps';
+};
+
+export type itpsListProjectItpsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type itpsListProjectItpsError = itpsListProjectItpsErrors[keyof itpsListProjectItpsErrors];
+
+export type itpsListProjectItpsResponses = {
+    /**
+     * Response Itps-List Project Itps
+     *
+     * Successful Response
+     */
+    200: Array<ProjectItpSummary>;
+};
+
+export type itpsListProjectItpsResponse = itpsListProjectItpsResponses[keyof itpsListProjectItpsResponses];
+
+export type itpsCreateProjectItpData = {
+    body: ProjectItpCreate;
+    path: {
+        /**
+         * Project Id
+         */
+        project_id: number;
+    };
+    query?: never;
+    url: '/api/v1/projects/{project_id}/itps';
+};
+
+export type itpsCreateProjectItpErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type itpsCreateProjectItpError = itpsCreateProjectItpErrors[keyof itpsCreateProjectItpErrors];
+
+export type itpsCreateProjectItpResponses = {
+    /**
+     * Successful Response
+     */
+    201: ProjectItpPublic;
+};
+
+export type itpsCreateProjectItpResponse = itpsCreateProjectItpResponses[keyof itpsCreateProjectItpResponses];
+
+export type itpsBulkCreateProjectItpsData = {
+    body: ProjectItpBulkCreate;
+    path: {
+        /**
+         * Project Id
+         */
+        project_id: number;
+    };
+    query?: never;
+    url: '/api/v1/projects/{project_id}/itps/bulk';
+};
+
+export type itpsBulkCreateProjectItpsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type itpsBulkCreateProjectItpsError = itpsBulkCreateProjectItpsErrors[keyof itpsBulkCreateProjectItpsErrors];
+
+export type itpsBulkCreateProjectItpsResponses = {
+    /**
+     * Response Itps-Bulk Create Project Itps
+     *
+     * Successful Response
+     */
+    201: Array<ProjectItpSummary>;
+};
+
+export type itpsBulkCreateProjectItpsResponse = itpsBulkCreateProjectItpsResponses[keyof itpsBulkCreateProjectItpsResponses];
+
+export type itpsListProjectItpItemsData = {
+    body?: never;
+    path: {
+        /**
+         * Project Id
+         */
+        project_id: number;
+    };
+    query?: never;
+    url: '/api/v1/projects/{project_id}/itp-items';
+};
+
+export type itpsListProjectItpItemsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type itpsListProjectItpItemsError = itpsListProjectItpItemsErrors[keyof itpsListProjectItpItemsErrors];
+
+export type itpsListProjectItpItemsResponses = {
+    /**
+     * Response Itps-List Project Itp Items
+     *
+     * Successful Response
+     */
+    200: Array<ItpItemRef>;
+};
+
+export type itpsListProjectItpItemsResponse = itpsListProjectItpItemsResponses[keyof itpsListProjectItpItemsResponses];
+
+export type itpsDeleteProjectItpData = {
+    body?: never;
+    path: {
+        /**
+         * Itp Id
+         */
+        itp_id: number;
+    };
+    query?: never;
+    url: '/api/v1/itps/{itp_id}';
+};
+
+export type itpsDeleteProjectItpErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type itpsDeleteProjectItpError = itpsDeleteProjectItpErrors[keyof itpsDeleteProjectItpErrors];
+
+export type itpsDeleteProjectItpResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type itpsDeleteProjectItpResponse = itpsDeleteProjectItpResponses[keyof itpsDeleteProjectItpResponses];
+
+export type itpsReadProjectItpData = {
+    body?: never;
+    path: {
+        /**
+         * Itp Id
+         */
+        itp_id: number;
+    };
+    query?: never;
+    url: '/api/v1/itps/{itp_id}';
+};
+
+export type itpsReadProjectItpErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type itpsReadProjectItpError = itpsReadProjectItpErrors[keyof itpsReadProjectItpErrors];
+
+export type itpsReadProjectItpResponses = {
+    /**
+     * Successful Response
+     */
+    200: ProjectItpPublic;
+};
+
+export type itpsReadProjectItpResponse = itpsReadProjectItpResponses[keyof itpsReadProjectItpResponses];
+
+export type itpsUpdateProjectItpData = {
+    body: ProjectItpUpdate;
+    path: {
+        /**
+         * Itp Id
+         */
+        itp_id: number;
+    };
+    query?: never;
+    url: '/api/v1/itps/{itp_id}';
+};
+
+export type itpsUpdateProjectItpErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type itpsUpdateProjectItpError = itpsUpdateProjectItpErrors[keyof itpsUpdateProjectItpErrors];
+
+export type itpsUpdateProjectItpResponses = {
+    /**
+     * Successful Response
+     */
+    200: ProjectItpPublic;
+};
+
+export type itpsUpdateProjectItpResponse = itpsUpdateProjectItpResponses[keyof itpsUpdateProjectItpResponses];
+
+export type itpsUpdateItpItemData = {
+    body: ItpItemUpdate;
+    path: {
+        /**
+         * Item Id
+         */
+        item_id: number;
+    };
+    query?: never;
+    url: '/api/v1/itp-items/{item_id}';
+};
+
+export type itpsUpdateItpItemErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type itpsUpdateItpItemError = itpsUpdateItpItemErrors[keyof itpsUpdateItpItemErrors];
+
+export type itpsUpdateItpItemResponses = {
+    /**
+     * Successful Response
+     */
+    200: ItpItemPublic;
+};
+
+export type itpsUpdateItpItemResponse = itpsUpdateItpItemResponses[keyof itpsUpdateItpItemResponses];
+
+export type itpsSignItpItemData = {
+    body: ItpSignatureCreate;
+    path: {
+        /**
+         * Item Id
+         */
+        item_id: number;
+    };
+    query?: never;
+    url: '/api/v1/itp-items/{item_id}/signatures';
+};
+
+export type itpsSignItpItemErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type itpsSignItpItemError = itpsSignItpItemErrors[keyof itpsSignItpItemErrors];
+
+export type itpsSignItpItemResponses = {
+    /**
+     * Successful Response
+     */
+    201: ItpSignaturePublic;
+};
+
+export type itpsSignItpItemResponse = itpsSignItpItemResponses[keyof itpsSignItpItemResponses];
+
+export type areasListAreasData = {
+    body?: never;
+    path: {
+        /**
+         * Project Id
+         */
+        project_id: number;
+    };
+    query?: never;
+    url: '/api/v1/projects/{project_id}/areas';
+};
+
+export type areasListAreasErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type areasListAreasError = areasListAreasErrors[keyof areasListAreasErrors];
+
+export type areasListAreasResponses = {
+    /**
+     * Response Areas-List Areas
+     *
+     * Successful Response
+     */
+    200: Array<AreaPublic>;
+};
+
+export type areasListAreasResponse = areasListAreasResponses[keyof areasListAreasResponses];
+
+export type areasCreateAreaData = {
+    body: AreaCreate;
+    path: {
+        /**
+         * Project Id
+         */
+        project_id: number;
+    };
+    query?: never;
+    url: '/api/v1/projects/{project_id}/areas';
+};
+
+export type areasCreateAreaErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type areasCreateAreaError = areasCreateAreaErrors[keyof areasCreateAreaErrors];
+
+export type areasCreateAreaResponses = {
+    /**
+     * Successful Response
+     */
+    201: AreaPublic;
+};
+
+export type areasCreateAreaResponse = areasCreateAreaResponses[keyof areasCreateAreaResponses];
+
+export type areasBulkCreateAreasData = {
+    body: AreaBulkCreate;
+    path: {
+        /**
+         * Project Id
+         */
+        project_id: number;
+    };
+    query?: never;
+    url: '/api/v1/projects/{project_id}/areas/bulk';
+};
+
+export type areasBulkCreateAreasErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type areasBulkCreateAreasError = areasBulkCreateAreasErrors[keyof areasBulkCreateAreasErrors];
+
+export type areasBulkCreateAreasResponses = {
+    /**
+     * Response Areas-Bulk Create Areas
+     *
+     * Successful Response
+     */
+    201: Array<AreaPublic>;
+};
+
+export type areasBulkCreateAreasResponse = areasBulkCreateAreasResponses[keyof areasBulkCreateAreasResponses];
+
+export type areasReorderAreasData = {
+    body: AreaOrder;
+    path: {
+        /**
+         * Project Id
+         */
+        project_id: number;
+    };
+    query?: never;
+    url: '/api/v1/projects/{project_id}/areas/order';
+};
+
+export type areasReorderAreasErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type areasReorderAreasError = areasReorderAreasErrors[keyof areasReorderAreasErrors];
+
+export type areasReorderAreasResponses = {
+    /**
+     * Response Areas-Reorder Areas
+     *
+     * Successful Response
+     */
+    200: Array<AreaPublic>;
+};
+
+export type areasReorderAreasResponse = areasReorderAreasResponses[keyof areasReorderAreasResponses];
+
+export type areasDeleteAreaData = {
+    body?: never;
+    path: {
+        /**
+         * Area Id
+         */
+        area_id: number;
+    };
+    query?: never;
+    url: '/api/v1/areas/{area_id}';
+};
+
+export type areasDeleteAreaErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type areasDeleteAreaError = areasDeleteAreaErrors[keyof areasDeleteAreaErrors];
+
+export type areasDeleteAreaResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type areasDeleteAreaResponse = areasDeleteAreaResponses[keyof areasDeleteAreaResponses];
+
+export type areasReadAreaData = {
+    body?: never;
+    path: {
+        /**
+         * Area Id
+         */
+        area_id: number;
+    };
+    query?: never;
+    url: '/api/v1/areas/{area_id}';
+};
+
+export type areasReadAreaErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type areasReadAreaError = areasReadAreaErrors[keyof areasReadAreaErrors];
+
+export type areasReadAreaResponses = {
+    /**
+     * Successful Response
+     */
+    200: AreaPublic;
+};
+
+export type areasReadAreaResponse = areasReadAreaResponses[keyof areasReadAreaResponses];
+
+export type areasUpdateAreaData = {
+    body: AreaUpdate;
+    path: {
+        /**
+         * Area Id
+         */
+        area_id: number;
+    };
+    query?: never;
+    url: '/api/v1/areas/{area_id}';
+};
+
+export type areasUpdateAreaErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type areasUpdateAreaError = areasUpdateAreaErrors[keyof areasUpdateAreaErrors];
+
+export type areasUpdateAreaResponses = {
+    /**
+     * Successful Response
+     */
+    200: AreaPublic;
+};
+
+export type areasUpdateAreaResponse = areasUpdateAreaResponses[keyof areasUpdateAreaResponses];

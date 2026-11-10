@@ -27,6 +27,8 @@ import {
 import { StatusBadge } from "@/components/Common/StatusBadge"
 import { DrawingsSection } from "@/components/Drawings/DrawingsSection"
 import { InspectionFormDialog } from "@/components/Inspections/InspectionFormDialog"
+import { AreasSection } from "@/components/Itps/AreasSection"
+import { ItpsSection } from "@/components/Itps/ItpsSection"
 import { MembersSection } from "@/components/Members/MembersSection"
 import { ProjectFormDialog } from "@/components/Projects/ProjectFormDialog"
 import { Button } from "@/components/ui/button"
@@ -67,7 +69,8 @@ export const Route = createFileRoute("/_layout/projects/$projectId/")({
  * Owners can edit or delete the project from the header menu. Drawings
  * (increment 09) follow the inspections, as on the legacy screen, and the
  * members panel (the legacy "👥 Members" modal, increment 10) closes the
- * screen.
+ * screen. Increment 13 adds the project's ITPs and Areas (Block 9.5) between
+ * the inspections and the drawings.
  */
 function ProjectScreen() {
   const { projectId: rawId } = Route.useParams()
@@ -206,6 +209,14 @@ function ProjectBody({ project }: { project: ProjectPublic }) {
         projectId={project.id}
         newInspectionButton={newInspectionButton}
       />
+
+      <ItpsSection
+        projectId={project.id}
+        canWrite={canWrite}
+        canManage={canManage}
+      />
+
+      <AreasSection projectId={project.id} canWrite={canWrite} />
 
       <DrawingsSection projectId={project.id} canWrite={canWrite} />
 
