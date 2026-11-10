@@ -858,6 +858,50 @@ export type ItpItemPublic = {
      */
     updated_at: string;
     /**
+     * Acceptance Criteria
+     */
+    acceptance_criteria?: string | null;
+    /**
+     * Reference Doc
+     */
+    reference_doc?: string | null;
+    /**
+     * Record Required
+     */
+    record_required?: string | null;
+    /**
+     * Photo Required
+     */
+    photo_required?: boolean;
+    /**
+     * Photo Count
+     */
+    photo_count?: number;
+    /**
+     * Value Type
+     */
+    value_type?: string | null;
+    /**
+     * Value Unit
+     */
+    value_unit?: string | null;
+    /**
+     * Value Min
+     */
+    value_min?: number | null;
+    /**
+     * Value Max
+     */
+    value_max?: number | null;
+    /**
+     * Measured Value
+     */
+    measured_value?: string | null;
+    /**
+     * Out Of Tolerance
+     */
+    out_of_tolerance?: boolean | null;
+    /**
      * Required Roles
      */
     required_roles: Array<ItpRoleRef>;
@@ -935,6 +979,10 @@ export type ItpItemUpdate = {
      * Notes
      */
     notes?: string | null;
+    /**
+     * Measured Value
+     */
+    measured_value?: string | null;
 };
 
 /**
@@ -1332,7 +1380,11 @@ export type PhotoCreate = {
     /**
      * Inspection Id
      */
-    inspection_id: number;
+    inspection_id?: number | null;
+    /**
+     * Itp Item Id
+     */
+    itp_item_id?: number | null;
     /**
      * Finding Id
      */
@@ -1362,7 +1414,11 @@ export type PhotoPresignRequest = {
     /**
      * Inspection Id
      */
-    inspection_id: number;
+    inspection_id?: number | null;
+    /**
+     * Itp Item Id
+     */
+    itp_item_id?: number | null;
     /**
      * Filename
      */
@@ -1402,7 +1458,11 @@ export type PhotoPublic = {
     /**
      * Inspection Id
      */
-    inspection_id: number;
+    inspection_id: number | null;
+    /**
+     * Itp Item Id
+     */
+    itp_item_id?: number | null;
     /**
      * Finding Id
      */
@@ -2818,15 +2878,19 @@ export type photosPresignPhotoUploadResponse = photosPresignPhotoUploadResponses
 export type photosListPhotosData = {
     body?: never;
     path?: never;
-    query: {
+    query?: {
         /**
          * Inspection Id
          */
-        inspection_id: number;
+        inspection_id?: number | null;
         /**
          * Finding Id
          */
         finding_id?: number | null;
+        /**
+         * Itp Item Id
+         */
+        itp_item_id?: number | null;
     };
     url: '/api/v1/photos';
 };
@@ -3669,6 +3733,38 @@ export type itpsCreateSignoffRoleResponses = {
 };
 
 export type itpsCreateSignoffRoleResponse = itpsCreateSignoffRoleResponses[keyof itpsCreateSignoffRoleResponses];
+
+export type itpsAddDefaultSignoffRolesData = {
+    body?: never;
+    path: {
+        /**
+         * Project Id
+         */
+        project_id: number;
+    };
+    query?: never;
+    url: '/api/v1/projects/{project_id}/signoff-roles/defaults';
+};
+
+export type itpsAddDefaultSignoffRolesErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type itpsAddDefaultSignoffRolesError = itpsAddDefaultSignoffRolesErrors[keyof itpsAddDefaultSignoffRolesErrors];
+
+export type itpsAddDefaultSignoffRolesResponses = {
+    /**
+     * Response Itps-Add Default Signoff Roles
+     *
+     * Successful Response
+     */
+    200: Array<SignoffRolePublic>;
+};
+
+export type itpsAddDefaultSignoffRolesResponse = itpsAddDefaultSignoffRolesResponses[keyof itpsAddDefaultSignoffRolesResponses];
 
 export type itpsDeleteSignoffRoleData = {
     body?: never;

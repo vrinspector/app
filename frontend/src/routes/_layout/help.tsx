@@ -294,12 +294,15 @@ function Help() {
           <p>
             Build a master inspection and test plan once under{" "}
             <strong>ITP templates</strong>: its sections, lines, whether each
-            line is a hold point, witness point, surveillance or record, and
-            which roles sign it. On a project, <strong>Apply template</strong>{" "}
-            makes the project's own copy — for the whole project or, in one
-            action, one copy per area (a level, lot, stage or chainage; add a
-            numbered series such as Level 1–12 with{" "}
-            <strong>Add a series</strong>). Editing the master later never
+            line is a <strong>Hold</strong> (H), <strong>Witness</strong> (W),{" "}
+            <strong>Review</strong> (R) or <strong>Information</strong> (I)
+            point, its acceptance criteria, reference document and the record
+            required, and which roles sign it — by default the Contractor, the
+            Owner's representative and a Third-party inspector. On a project,{" "}
+            <strong>Apply template</strong> makes the project's own copy — for
+            the whole project or, in one action, one copy per area (a level,
+            lot, stage or chainage; add a numbered series such as Level 1–12
+            with <strong>Add a series</strong>). Editing the master later never
             changes a copy already in use.
           </p>
           <p>
@@ -311,6 +314,16 @@ function Help() {
             recorded, nothing has failed and every hold point is released.{" "}
             <strong>Mark on drawing</strong> places a pin for a line, and the
             pin shows the line's hold-point state on the sheet.
+          </p>
+          <p>
+            Every line can carry evidence. <strong>Take photo</strong> or{" "}
+            <strong>Upload</strong> adds photos to the line; a line marked{" "}
+            <em>Photo required</em> cannot pass or be signed until one is on
+            file, and then shows <strong>Photo on file</strong>. Lines that
+            record a measurement — clear cover, slump, air, concrete temperature
+            — have a box for the value with its unit (US customary by default),
+            entered alongside Pass or Fail; a value outside the line's limits is
+            flagged <strong>Out of tolerance</strong>.
           </p>
         </HelpSection>
 

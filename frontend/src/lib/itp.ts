@@ -11,7 +11,8 @@
 
 import type { StatusTone } from "@/components/Common/StatusBadge"
 
-export type Classification = "hold" | "witness" | "surveillance" | "record"
+export type Classification = "hold" | "witness" | "review" | "information"
+export type ValueType = "number" | "text"
 export type ItemStatus = "pending" | "pass" | "fail" | "na"
 export type AreaType = "level" | "lot" | "stage" | "chainage" | "other"
 export type ItpStatus = "not_started" | "in_progress" | "complete" | "voided"
@@ -33,18 +34,39 @@ export const CLASSIFICATIONS: Record<
     tone: "attention",
     help: "The named party is notified and may attend; work may continue.",
   },
-  surveillance: {
-    label: "Surveillance",
-    short: "S",
-    tone: "neutral",
-    help: "Checked by the inspector during the work.",
-  },
-  record: {
-    label: "Record",
+  review: {
+    label: "Review",
     short: "R",
     tone: "settled",
-    help: "A result or document is recorded.",
+    help: "A document or record is reviewed and accepted.",
   },
+  information: {
+    label: "Information",
+    short: "I",
+    tone: "neutral",
+    help: "Checked and noted by the inspector; no one is held up.",
+  },
+}
+
+/** Words used before increment 13.6, still read in template bodies. */
+const LEGACY_CLASSIFICATIONS: Record<string, Classification> = {
+  surveillance: "information",
+  record: "review",
+}
+const CLASSIFICATION_LETTERS: Record<string, Classification> = {
+  h: "hold",
+  w: "witness",
+  r: "review",
+  i: "information",
+}
+
+/** hold / witness / review / information, H / W / R / I or an old word. */
+export function normaliseClassification(value: unknown): Classification | null {
+  if (typeof value !== "string") return null
+  let key = value.trim().toLowerCase()
+  key = CLASSIFICATION_LETTERS[key] ?? key
+  key = LEGACY_CLASSIFICATIONS[key] ?? key
+  return key in CLASSIFICATIONS ? (key as Classification) : null
 }
 
 export const CLASSIFICATION_VALUES = Object.keys(
@@ -53,8 +75,8 @@ export const CLASSIFICATION_VALUES = Object.keys(
 
 export function classificationInfo(value: string | null | undefined) {
   return (
-    CLASSIFICATIONS[(value as Classification) ?? "record"] ??
-    CLASSIFICATIONS.record
+    CLASSIFICATIONS[normaliseClassification(value) ?? "information"] ??
+    CLASSIFICATIONS.information
   )
 }
 
@@ -77,11 +99,56 @@ export const AREA_TYPE_OPTIONS: { value: AreaType; label: string }[] = [
   { value: "other", label: "Other" },
 ]
 
+/*
+ * The stored party words stay contractor / client / engineer; owner review
+ * 2026-11-10 named the parties as US projects do.
+ */
 export const PARTY_OPTIONS: { value: Party; label: string }[] = [
   { value: "contractor", label: "Contractor" },
-  { value: "client", label: "Client" },
-  { value: "engineer", label: "Engineer" },
+  { value: "client", label: "Owner's representative" },
+  { value: "engineer", label: "Third-party inspector" },
 ]
+
+export function partyLabel(value: string): string {
+  return PARTY_OPTIONS.find((p) => p.value === value)?.label ?? value
+}
+
+/** The three roles a project starts from (`POST …/signoff-roles/defaults`). */
+export const DEFAULT_ROLES: ParsedRole[] = [
+  { name: "Contractor", party: "contractor" },
+  { name: "Owner's representative", party: "client" },
+  { name: "Third-party inspector", party: "engineer" },
+]
+const DEFAULT_PARTIES = new Map(
+  DEFAULT_ROLES.map((r) => [r.name.toLowerCase(), r.party]),
+)
+const defaultParty = (name: string): Party =>
+  DEFAULT_PARTIES.get(name.toLowerCase()) ?? "contractor"
+
+/** Common US customary units for measured values. */
+export const US_UNITS = ["in", "ft", "psi", "°F", "%", "pcf", "yd³", "lb"]
+
+/** "2.5 in", or the bare value when the line has no unit. */
+export function formatMeasured(
+  value: string | null | undefined,
+  unit: string | null | undefined,
+): string {
+  if (!value) return ""
+  return unit ? `${value} ${unit}` : value
+}
+
+/** "1.5–3 in", "≥ 1.5 in", "≤ 3 in", or "" when the line has no limits. */
+export function toleranceLabel(
+  min: number | null | undefined,
+  max: number | null | undefined,
+  unit: string | null | undefined,
+): string {
+  const u = unit ? ` ${unit}` : ""
+  if (min != null && max != null) return `${min}–${max}${u}`
+  if (min != null) return `≥ ${min}${u}`
+  if (max != null) return `≤ ${max}${u}`
+  return ""
+}
 
 export const ITP_STATUS_TONE: Record<string, StatusTone> = {
   not_started: "neutral",
@@ -118,6 +185,14 @@ export interface ParsedItem {
   requirement: string
   classification: Classification
   roles: string[]
+  acceptanceCriteria: string | null
+  reference: string | null
+  recordRequired: string | null
+  photoRequired: boolean
+  valueType: ValueType | null
+  unit: string | null
+  min: number | null
+  max: number | null
 }
 
 export interface ParsedTemplate {
@@ -155,10 +230,10 @@ function readRoles(raw: unknown): ParsedRole[] {
     let party: string
     if (typeof entry === "string") {
       name = entry.trim()
-      party = "contractor"
+      party = defaultParty(name)
     } else if (isObject(entry)) {
       name = text(entry.name) ?? ""
-      party = String(entry.party || "contractor")
+      party = String(entry.party || defaultParty(name))
     } else {
       throw new TemplateError("signoffRoles must be a list of {name, party}")
     }
@@ -201,6 +276,73 @@ function* walk(
   }
 }
 
+function readNumber(element: Json, key: string, label: string): number | null {
+  const raw = element[key]
+  if (raw === undefined || raw === null || raw === "") return null
+  const value = typeof raw === "boolean" ? Number.NaN : Number(raw)
+  if (!Number.isFinite(value)) {
+    throw new TemplateError(`“${label}”: ${key} must be a number`)
+  }
+  return value
+}
+
+function readShort(
+  element: Json,
+  key: string,
+  label: string,
+  limit: number,
+): string | null {
+  const value = text(element[key])
+  if (value !== null && value.length > limit) {
+    throw new TemplateError(
+      `“${label}”: ${key} is longer than ${limit} characters`,
+    )
+  }
+  return value
+}
+
+function readValueType(element: Json, label: string): ValueType | null {
+  const raw = element.valueType
+  if (raw !== undefined && raw !== null) {
+    const kind = typeof raw === "string" ? raw.trim().toLowerCase() : ""
+    if (!["number", "text", "none"].includes(kind)) {
+      throw new TemplateError(
+        `“${label}”: valueType must be number, text or none`,
+      )
+    }
+    return kind === "none" ? null : (kind as ValueType)
+  }
+  if (element.type === "text") {
+    return element.inputType === "number" ? "number" : "text"
+  }
+  if (element.type === "comment") return "text"
+  return null
+}
+
+/** Increment 13.6 line evidence; a port of `app/core/itp.py::_evidence`. */
+function readEvidence(element: Json, label: string) {
+  const photo = element.photoRequired ?? false
+  if (typeof photo !== "boolean") {
+    throw new TemplateError(`“${label}”: photoRequired must be true or false`)
+  }
+  const valueType = readValueType(element, label)
+  const min = readNumber(element, "min", label)
+  const max = readNumber(element, "max", label)
+  if (min !== null && max !== null && min > max) {
+    throw new TemplateError(`“${label}”: min is greater than max`)
+  }
+  return {
+    acceptanceCriteria: text(element.acceptanceCriteria),
+    reference: readShort(element, "reference", label, 255),
+    recordRequired: text(element.recordRequired),
+    photoRequired: photo,
+    valueType,
+    unit: valueType ? readShort(element, "unit", label, 40) : null,
+    min: valueType === "number" ? min : null,
+    max: valueType === "number" ? max : null,
+  }
+}
+
 export function parseTemplateBody(body: unknown): ParsedTemplate {
   if (!isObject(body))
     throw new TemplateError("The template must be a JSON object")
@@ -228,11 +370,8 @@ export function parseTemplateBody(body: unknown): ParsedTemplate {
       }
       names.add(name)
       const label = text(element.title) ?? name
-      const classification = element.classification
-      if (
-        typeof classification !== "string" ||
-        !CLASSIFICATION_VALUES.includes(classification as Classification)
-      ) {
+      const classification = normaliseClassification(element.classification)
+      if (classification === null) {
         problems.push(label)
         continue
       }
@@ -265,8 +404,9 @@ export function parseTemplateBody(body: unknown): ParsedTemplate {
         section: section ? section.slice(0, 255) : null,
         elementName: name.slice(0, 255),
         requirement: label,
-        classification: classification as Classification,
+        classification,
         roles: itemRoles,
+        ...readEvidence(element, label),
       })
     }
   }
@@ -278,7 +418,7 @@ export function parseTemplateBody(body: unknown): ParsedTemplate {
       .join(", ")
     const more = problems.length > 5 ? ` and ${problems.length - 5} more` : ""
     throw new TemplateError(
-      `Every question needs a classification (hold, witness, surveillance or record). Missing on ${shown}${more}`,
+      `Every question needs a classification (hold, witness, review or information). Missing on ${shown}${more}`,
     )
   }
   if (items.length === 0)
@@ -293,7 +433,7 @@ export function parseTemplateBody(body: unknown): ParsedTemplate {
     for (const role of item.roles) {
       if (!known.has(role.toLowerCase())) {
         known.add(role.toLowerCase())
-        roles.push({ name: role, party: "contractor" })
+        roles.push({ name: role, party: defaultParty(role) })
       }
     }
   }
@@ -332,14 +472,16 @@ export function checkTemplateText(
 
 /**
  * The template a new master starts from: a short concrete-pour ITP that
- * shows every feature (pages as sections, a panel, all four
- * classifications, a hold point that two roles release).
+ * shows every feature (pages as sections, all four H / W / R / I
+ * classifications, a hold point two roles release with a required photo,
+ * acceptance criteria / reference / record, and measured values in US
+ * customary units). Increment 13.7 replaces it with the starter library.
  */
 export const STARTER_TEMPLATE = {
   title: "Concrete pour",
   signoffRoles: [
-    { name: "Site engineer", party: "contractor" },
-    { name: "Client engineer", party: "client" },
+    { name: "Contractor", party: "contractor" },
+    { name: "Owner's representative", party: "client" },
   ],
   pages: [
     {
@@ -351,7 +493,10 @@ export const STARTER_TEMPLATE = {
           name: "formwork",
           title: "Formwork set out and checked against drawings",
           choices: ["Pass", "Fail", "N/A"],
-          classification: "surveillance",
+          classification: "information",
+          acceptanceCriteria:
+            "Project-specific value required — verify before issue",
+          reference: "Formwork drawings",
         },
         {
           type: "radiogroup",
@@ -359,14 +504,24 @@ export const STARTER_TEMPLATE = {
           title: "Reinforcement inspected before pour",
           choices: ["Pass", "Fail", "N/A"],
           classification: "hold",
-          signoffRoles: ["Site engineer", "Client engineer"],
+          signoffRoles: ["Contractor", "Owner's representative"],
+          acceptanceCriteria:
+            "Bar size, spacing, laps and supports match the approved shop drawings",
+          reference: "ACI 301 §3.3; approved shop drawings",
+          recordRequired: "Photos of the mat with a tape in view",
+          photoRequired: true,
         },
         {
           type: "text",
           name: "cover",
-          title: "Cover to reinforcement (mm)",
+          title: "Clear cover to reinforcement",
           inputType: "number",
-          classification: "record",
+          classification: "review",
+          unit: "in",
+          min: 1.5,
+          acceptanceCriteria:
+            "Project-specific value required — verify before issue",
+          reference: "ACI 318 Table 20.5.1.3.1",
         },
       ],
     },
@@ -380,14 +535,17 @@ export const STARTER_TEMPLATE = {
           title: "Pour witnessed",
           choices: ["Pass", "Fail", "N/A"],
           classification: "witness",
-          signoffRoles: ["Client engineer"],
+          signoffRoles: ["Owner's representative"],
         },
         {
           type: "text",
           name: "cylinders",
-          title: "Test cylinders taken (count)",
+          title: "Test cylinders cast (count)",
           inputType: "number",
-          classification: "record",
+          classification: "review",
+          min: 1,
+          reference: "ASTM C31",
+          recordRequired: "Cylinder set IDs",
         },
       ],
     },

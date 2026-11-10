@@ -121,7 +121,7 @@ export function TemplateFormDialog({
           <DialogDescription>
             {editing
               ? `Saving creates version ${template.version + 1}. ITPs already applied to projects keep the version they were made from.`
-              : "Sections, lines, hold / witness / surveillance / record classifications and the roles that sign each line, as SurveyJS JSON."}
+              : "Sections, lines, Hold / Witness / Review / Information classifications, acceptance criteria and evidence, and the roles that sign each line, as SurveyJS JSON."}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -208,9 +208,20 @@ export function TemplateFormDialog({
             )}
             <p className="text-xs text-muted-foreground">
               Every question needs <code>"classification"</code> (hold, witness,
-              surveillance or record). Hold points list the roles that release
-              them in <code>"signoffRoles"</code>; declare roles and their party
-              (contractor, client, engineer) at the top.
+              review or information — or H, W, R, I). Hold points list the roles
+              that release them in <code>"signoffRoles"</code>; declare roles
+              and their party (contractor, client for the owner's
+              representative, engineer for a third-party inspector) at the top.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Optional on any question: <code>"acceptanceCriteria"</code>,{" "}
+              <code>"reference"</code>, <code>"recordRequired"</code>,{" "}
+              <code>"photoRequired": true</code> (no Pass or sign-off without a
+              photo), and for a measured value <code>"valueType"</code> (number
+              or text), <code>"unit"</code> (e.g. in, psi, °F),{" "}
+              <code>"min"</code> and <code>"max"</code>. A number question (
+              <code>"inputType": "number"</code>) takes a value without saying
+              so.
             </p>
           </div>
           <DialogFooter>

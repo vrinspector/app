@@ -714,3 +714,67 @@ in the demo at phone size (`tests/demo/invite-email.spec.ts`).
     records), request production access (leave the SES sandbox), create SES
     SMTP credentials, and put them in the server environment — the settings
     table is in `docs/API_PORT.md` → Configuration.
+
+## Increment 13.6 — ITP line evidence (owner review 2026-11-10)
+
+Every ITP line can now carry what it asks for and the evidence that answers it.
+
+- **Criteria under the title.** Acceptance criteria, reference document and
+  record required (template properties `acceptanceCriteria`, `reference`,
+  `recordRequired`) are copied onto the line at import and shown under the
+  line title (`LineCriteria`); they will print in the pack (increment 14).
+- **Photos on any line.** *Take photo* (rear camera) and *Upload* under the
+  result buttons, using the same presign → S3 → register flow as site photos
+  with `itp_item_id` in place of `inspection_id` (`useItpPhotoUpload`).
+  Thumbnails open the usual photo viewer. A line whose template sets
+  `photoRequired: true` shows **Photo required before Pass**, its Pass button
+  stays disabled until a photo is on file, and then shows **Photo on file**.
+  The API refuses Pass and sign-off on such a line without a photo.
+- **Measured values.** Number and text lines (`valueType`, or a SurveyJS
+  `text` / `comment` question) show a large entry box with the unit beside it
+  and the required range ("required ≥ 1.5 in"). The value is saved on Enter or
+  when the box loses focus, alongside Pass / Fail / N/A; a number outside
+  `min` / `max` is flagged **Out of tolerance** in brick (not refused).
+- **Vocabulary.** Hold (H) / Witness (W) / Review (R) / Information (I).
+  Stored `surveillance` → `information` and `record` → `review` (migration
+  `a9d4c2e7f318`); template bodies may still use the old words or the letters.
+- **Roles.** Parties are labelled Contractor / Owner's representative /
+  Third-party inspector (stored as contractor / client / engineer). The
+  Sign-off roles dialog offers **Add default roles** while any of the three is
+  missing. The starter template uses Contractor and Owner's representative and
+  US customary units (inches).
+
+### Tests (increment 13.6)
+
+- Backend: `tests/api/routes/test_itp_evidence.py` (7 tests: import copies
+  evidence and vocabulary, photo-required blocks Pass and sign-off, evidence
+  locked past a hold point / on signed lines / on voided ITPs, last required
+  photo cannot be deleted from a passed line, measured value normalising and
+  tolerance, photo parent rules, default roles), parser tests in
+  `tests/core/test_itp_template.py`, migration round trip in
+  `tests/alembic/test_data_layer_baseline.py`.
+- Frontend: parser tests in `src/lib/itp.test.ts`; Playwright demo walk
+  "line evidence: criteria, required photo, measured value with tolerance"
+  in `tests/demo/itp.spec.ts` at phone width.
+
+### Decisions for the owner (increment 13.6)
+
+53. **An ITP line photo belongs to the line, not to an inspection.** ITPs are
+    not tied to an inspection, so `photos.inspection_id` became nullable and a
+    check keeps every photo attached to exactly one of an inspection or an
+    ITP line. Line photos do not appear in the inspection photo grid, the
+    dashboard photo count or the inspection report.
+54. **Evidence locks with the line.** Photos and measured values can be added
+    or changed only while the line itself can be recorded: not past an
+    unreleased hold point, not once the line is signed, not on a complete or
+    voided ITP. The last photo of a passed photo-required line cannot be
+    deleted until the line is set back to pending.
+55. **Out of tolerance flags, it does not block.** The inspector still chooses
+    Pass or Fail; a flagged value with Pass stays visible to the signer.
+56. **Which lines take a value:** a template question with `valueType`
+    (number / text), or a SurveyJS `text` (number when `inputType: number`)
+    or `comment` question. `valueType: "none"` turns it off. Choice and
+    yes/no questions take a result only.
+57. **Default roles are offered, not forced.** A project gets the three default
+    roles from the *Add default roles* button or from a template that names
+    them; templates that name other roles still create those.

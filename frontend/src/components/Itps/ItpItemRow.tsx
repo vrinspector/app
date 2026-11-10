@@ -46,6 +46,7 @@ import { cn } from "@/lib/utils"
 import { extractErrorMessage } from "@/utils"
 
 import { ClassificationBadge } from "./ItpBadges"
+import { LineCriteria, LinePhotos, MeasuredValue } from "./ItpLineEvidence"
 
 /*
  * One ITP line, built for the field: three large Pass / Fail / N/A buttons,
@@ -56,6 +57,11 @@ import { ClassificationBadge } from "./ItpBadges"
  * lock and cannot be recorded; the hold line is released when every
  * required role has signed it. The API enforces all of this — the buttons
  * are disabled only so nobody taps into a refusal.
+ *
+ * Increment 13.6: the line's acceptance criteria / reference / record
+ * required under the title, a measured value next to the result for number
+ * and text lines, and evidence photos (a `photoRequired` line cannot pass
+ * until one is on file).
  */
 
 export interface SignerContext {
@@ -128,6 +134,7 @@ export function ItpItemRow({
   const signed = item.signatures.length > 0
   const canRecord = editable && who.canWrite && !blocked && !signed
   const isHold = item.classification === "hold"
+  const needsPhoto = Boolean(item.photo_required) && !item.photo_count
   const signedRoleIds = new Set(item.signatures.map((s) => s.signoff_role_id))
 
   return (
@@ -164,6 +171,8 @@ export function ItpItemRow({
         </div>
       </div>
 
+      <LineCriteria item={item} />
+
       {blocked ? (
         <p
           className="flex items-center gap-2 rounded-md bg-status-critical-bg px-3 py-2 text-sm text-status-critical-fg"
@@ -195,7 +204,16 @@ export function ItpItemRow({
                   "bg-destructive text-white hover:bg-destructive/90",
               )}
               aria-pressed={active}
-              disabled={!canRecord || update.isPending}
+              disabled={
+                !canRecord ||
+                update.isPending ||
+                (result.value === "pass" && !active && needsPhoto)
+              }
+              title={
+                result.value === "pass" && !active && needsPhoto
+                  ? "Add a photo before this line can pass"
+                  : undefined
+              }
               onClick={() =>
                 update.mutate({ status: active ? "pending" : result.value })
               }
@@ -207,6 +225,10 @@ export function ItpItemRow({
           )
         })}
       </fieldset>
+
+      <MeasuredValue item={item} canRecord={canRecord} onSaved={refresh} />
+
+      <LinePhotos item={item} canAdd={canRecord} onChanged={refresh} />
 
       {item.required_roles.length ? (
         <ul
@@ -243,7 +265,7 @@ export function ItpItemRow({
             const ready =
               itp.status !== "voided" &&
               !blocked &&
-              (item.status === "pass" || item.status === "na")
+              (item.status === "na" || (item.status === "pass" && !needsPhoto))
             return (
               <li key={role.id} className="flex flex-wrap items-center gap-2">
                 <span className="text-muted-foreground">

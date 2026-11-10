@@ -175,12 +175,17 @@ def get_authorized_photo(
     photo = db.get(Photo, photo_id)
     if photo is None:
         raise not_found("Photo not found")
-    inspection = db.get(Inspection, photo.inspection_id)
-    if inspection is None:  # pragma: no cover - FK guarantees the parent
+    project_id: int | None = None
+    if photo.inspection_id is not None:
+        inspection = db.get(Inspection, photo.inspection_id)
+        project_id = inspection.project_id if inspection is not None else None
+    elif photo.itp_item_id is not None:  # increment 13.6: ITP line evidence
+        item = db.get(ItpItem, photo.itp_item_id)
+        itp = db.get(ProjectItp, item.project_itp_id) if item is not None else None
+        project_id = itp.project_id if itp is not None else None
+    if project_id is None:  # pragma: no cover - FKs + check guarantee a parent
         raise not_found("Photo not found")
-    require_project_member(
-        db, inspection.project_id, user, roles=roles, detail="Photo not found"
-    )
+    require_project_member(db, project_id, user, roles=roles, detail="Photo not found")
     return photo
 
 

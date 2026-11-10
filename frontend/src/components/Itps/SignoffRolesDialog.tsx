@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input"
 import { LoadingButton } from "@/components/ui/loading-button"
 import { NativeSelect } from "@/components/ui/native-select"
 import useCustomToast from "@/hooks/useCustomToast"
-import { PARTY_OPTIONS, type Party } from "@/lib/itp"
+import { DEFAULT_ROLES, PARTY_OPTIONS, type Party } from "@/lib/itp"
 import { signoffRolesQuery } from "@/lib/queries"
 import { extractErrorMessage } from "@/utils"
 
@@ -78,7 +78,15 @@ export function SignoffRolesDialog({
             </ul>
           )}
         </QueryState>
-        {canManage ? <AddRole projectId={projectId} /> : null}
+        {canManage ? (
+          <>
+            <DefaultRolesButton
+              projectId={projectId}
+              roles={query.data ?? []}
+            />
+            <AddRole projectId={projectId} />
+          </>
+        ) : null}
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Close
@@ -86,6 +94,46 @@ export function SignoffRolesDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+/** Add whichever of the three default roles the project lacks (13.6). */
+function DefaultRolesButton({
+  projectId,
+  roles,
+}: {
+  projectId: number
+  roles: SignoffRolePublic[]
+}) {
+  const refresh = useRolesRefresh(projectId)
+  const { showErrorToast, showSuccessToast } = useCustomToast()
+  const have = new Set(roles.map((r) => r.role_name.toLowerCase()))
+  const missing = DEFAULT_ROLES.filter((d) => !have.has(d.name.toLowerCase()))
+  const add = useMutation({
+    mutationFn: () =>
+      ItpsService.addDefaultSignoffRoles({ path: { project_id: projectId } }),
+    onSuccess: () => {
+      showSuccessToast("Default roles added")
+      refresh()
+    },
+    onError: (error: Error) => showErrorToast(extractErrorMessage(error)),
+  })
+  if (!missing.length) return null
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-sm">
+      <span className="text-muted-foreground">
+        Not yet on this project: {missing.map((d) => d.name).join(", ")}
+      </span>
+      <LoadingButton
+        size="sm"
+        variant="outline"
+        loading={add.isPending}
+        onClick={() => add.mutate()}
+        data-testid="add-default-roles"
+      >
+        Add default roles
+      </LoadingButton>
+    </div>
   )
 }
 
@@ -166,7 +214,7 @@ function RoleRow({
 
   return (
     <li
-      className="grid gap-2 rounded-md border p-3 sm:grid-cols-[1fr_8rem_1fr_auto]"
+      className="grid gap-2 rounded-md border p-3 sm:grid-cols-[1fr_12rem_1fr_auto]"
       data-testid="role-row"
     >
       <Input
@@ -255,7 +303,7 @@ function AddRole({ projectId }: { projectId: number }) {
   })
   return (
     <form
-      className="grid gap-2 rounded-md border border-dashed p-3 sm:grid-cols-[1fr_8rem_1fr_auto]"
+      className="grid gap-2 rounded-md border border-dashed p-3 sm:grid-cols-[1fr_12rem_1fr_auto]"
       onSubmit={(event) => {
         event.preventDefault()
         if (name.trim()) add.mutate()

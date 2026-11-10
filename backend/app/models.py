@@ -31,6 +31,7 @@ from sqlalchemy import (
     CheckConstraint,
     Column,
     DateTime,
+    Float,
     ForeignKey,
     Integer,
     Numeric,
@@ -109,7 +110,13 @@ PIN_STATUSES = ("verified", "in_progress", "punch_item", "not_installed", "not_s
 AREA_TYPES = ("level", "lot", "stage", "chainage", "other")
 ITP_TEMPLATE_STATUSES = ("draft", "published", "archived")
 PROJECT_ITP_STATUSES = ("not_started", "in_progress", "complete", "voided")
-ITP_ITEM_CLASSIFICATIONS = ("hold", "witness", "surveillance", "record")
+# Increment 13.6 (owner review 2026-11-10): Hold / Witness / Review /
+# Information. Migration ``a9d4c2e7f318`` renamed the stored values
+# ``surveillance`` → ``information`` and ``record`` → ``review``; template
+# bodies keep the old words readable (``app/core/itp.py``).
+ITP_ITEM_CLASSIFICATIONS = ("hold", "witness", "review", "information")
+LEGACY_CLASSIFICATIONS = {"surveillance": "information", "record": "review"}
+ITP_VALUE_TYPES = ("number", "text")
 ITP_ITEM_STATUSES = ("pending", "pass", "fail", "na")
 SIGNOFF_PARTIES = ("contractor", "client", "engineer")
 ITP_SIGNATURE_METHODS = ("in_app", "external_link")
@@ -272,15 +279,32 @@ class Finding(SQLModel, table=True):
 class Photo(SQLModel, table=True):
     __tablename__ = "photos"
 
+    __table_args__ = (
+        CheckConstraint(
+            "num_nonnulls(inspection_id, itp_item_id) = 1",
+            name="ck_photos_one_parent",
+        ),
+    )
+
     id: int | None = Field(default=None, sa_column=_pk_column())
     public_id: uuid.UUID | None = Field(default=None, sa_column=_public_id_column())
-    inspection_id: int = Field(
+    # NULL only for ITP line evidence (increment 13.6): a photo belongs to
+    # exactly one of an inspection or an ITP line.
+    inspection_id: int | None = Field(
+        default=None,
         sa_column=Column(
             Integer,
             ForeignKey("inspections.id", ondelete="CASCADE"),
-            nullable=False,
+            nullable=True,
             index=True,
-        )
+        ),
+    )
+    # Increment 13.6: evidence photo for one ITP line (goes with the line).
+    itp_item_id: int | None = Field(
+        default=None,
+        sa_column=Column(
+            Integer, ForeignKey("itp_items.id", ondelete="CASCADE"), index=True
+        ),
     )
     # Increment 11a (capture loop): the finding this photo documents, when it
     # was taken for one. NULL for site photos; detached when the finding goes.
@@ -629,6 +653,21 @@ class ItpItem(SQLModel, table=True):
     sort_order: int = Field(
         default=0, sa_column=Column(Integer, nullable=False, server_default=text("0"))
     )
+    # Increment 13.6 — line evidence, copied from the template question.
+    acceptance_criteria: str | None = Field(default=None, sa_column=Column(Text))
+    reference_doc: str | None = Field(default=None, sa_column=Column(String(255)))
+    record_required: str | None = Field(default=None, sa_column=Column(Text))
+    photo_required: bool = Field(
+        default=False,
+        sa_column=Column(Boolean, nullable=False, server_default=text("false")),
+    )
+    # number | text — the line takes a measured value; NULL: result only.
+    value_type: str | None = Field(default=None, sa_column=Column(String(10)))
+    value_unit: str | None = Field(default=None, sa_column=Column(String(40)))
+    value_min: float | None = Field(default=None, sa_column=Column(Float))
+    value_max: float | None = Field(default=None, sa_column=Column(Float))
+    # What was entered on site, as typed (numbers normalised on save).
+    measured_value: str | None = Field(default=None, sa_column=Column(Text))
     created_at: datetime | None = Field(default=None, sa_column=_created_at_column())
     updated_at: datetime | None = Field(default=None, sa_column=_updated_at_column())
 
@@ -1078,7 +1117,9 @@ class FindingPublic(SQLModel):
 
 
 class PhotoPresignRequest(SQLModel):
-    inspection_id: int
+    # Exactly one of the two (increment 13.6 adds ITP line evidence).
+    inspection_id: int | None = None
+    itp_item_id: int | None = None
     filename: str = Field(min_length=1, max_length=255)
     content_type: str = Field(default="image/jpeg", max_length=100)
 
@@ -1089,7 +1130,9 @@ class PhotoPresignResponse(SQLModel):
 
 
 class PhotoCreate(SQLModel):
-    inspection_id: int
+    # Exactly one of ``inspection_id`` / ``itp_item_id`` (increment 13.6).
+    inspection_id: int | None = None
+    itp_item_id: int | None = None
     # Increment 11a: a finding of the same inspection this photo documents.
     finding_id: int | None = None
     s3_key: str = Field(min_length=1, max_length=512)
@@ -1102,7 +1145,8 @@ class PhotoCreate(SQLModel):
 class PhotoPublic(SQLModel):
     id: int
     public_id: uuid.UUID
-    inspection_id: int
+    inspection_id: int | None
+    itp_item_id: int | None = None
     finding_id: int | None = None
     s3_key: str
     filename: str | None
@@ -1323,7 +1367,7 @@ class ReportPublic(SQLModel):
 AreaType = Literal["level", "lot", "stage", "chainage", "other"]
 ItpTemplateStatus = Literal["draft", "published", "archived"]
 ProjectItpStatus = Literal["not_started", "in_progress", "complete", "voided"]
-ItpItemClassification = Literal["hold", "witness", "surveillance", "record"]
+ItpItemClassification = Literal["hold", "witness", "review", "information"]
 ItpItemStatus = Literal["pending", "pass", "fail", "na"]
 SignoffParty = Literal["contractor", "client", "engineer"]
 
@@ -1469,6 +1513,8 @@ class ProjectItpUpdate(SQLModel):
 class ItpItemUpdate(SQLModel):
     status: ItpItemStatus | None = None
     notes: str | None = None
+    # Increment 13.6: the measured value for a number / text line (null clears).
+    measured_value: str | None = Field(default=None, max_length=500)
 
 
 class ItpSignatureCreate(SQLModel):
@@ -1521,6 +1567,19 @@ class ItpItemPublic(SQLModel):
     notes: str | None
     sort_order: int
     updated_at: datetime
+    # Increment 13.6 — line evidence.
+    acceptance_criteria: str | None = None
+    reference_doc: str | None = None
+    record_required: str | None = None
+    photo_required: bool = False
+    photo_count: int = 0
+    value_type: str | None = None
+    value_unit: str | None = None
+    value_min: float | None = None
+    value_max: float | None = None
+    measured_value: str | None = None
+    # True / False for a number line with limits and a value; else null.
+    out_of_tolerance: bool | None = None
     required_roles: list[ItpRoleRef]
     signatures: list[ItpSignaturePublic]
     # Hold point: every required role has signed. Always true for other lines.
