@@ -4,12 +4,13 @@ import {
   AlertTriangle,
   Ban,
   CheckCircle2,
+  Lock,
   MoreHorizontal,
   Pencil,
   RotateCcw,
   Trash2,
 } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { Fragment, useEffect, useMemo, useState } from "react"
 
 import {
   type ItpItemPublic,
@@ -19,7 +20,11 @@ import {
 import { ConfirmDialog } from "@/components/Common/ConfirmDialog"
 import { PageHeader } from "@/components/Common/PageHeader"
 import { DetailState, NotFoundState } from "@/components/Common/States"
-import { ItpProgress, ItpStatusBadge } from "@/components/Itps/ItpBadges"
+import {
+  DocNumber,
+  ItpProgress,
+  ItpStatusBadge,
+} from "@/components/Itps/ItpBadges"
 import { ItpItemRow, type SignerContext } from "@/components/Itps/ItpItemRow"
 import { SurveyPreview } from "@/components/Itps/SurveyPreview"
 import { Button } from "@/components/ui/button"
@@ -147,6 +152,10 @@ function ItpBody({
     [itp.items],
   )
   const sections = useMemo(() => groupBySection(itp.items), [itp.items])
+  const lineIndex = useMemo(
+    () => new Map(itp.items.map((item, i) => [item.id, i])),
+    [itp.items],
+  )
   const results = useMemo(
     () =>
       Object.fromEntries(
@@ -210,7 +219,17 @@ function ItpBody({
   return (
     <>
       <PageHeader
-        eyebrow={project.data?.name ?? "ITP"}
+        eyebrow={
+          <>
+            {itp.doc_number ? (
+              <>
+                <DocNumber value={itp.doc_number} className="text-xs" />
+                <span aria-hidden="true"> · </span>
+              </>
+            ) : null}
+            {project.data?.name ?? "ITP"}
+          </>
+        }
         title={itp.title}
         description={joinMeta(
           itp.area_name ?? "Whole project",
@@ -353,36 +372,36 @@ function ItpBody({
           </TabsTrigger>
         </TabsList>
         <TabsContent value="checklist" className="flex flex-col gap-4 pt-2">
-          {sections.map(([section, items]) => (
-            <section key={section ?? "_"} className="flex flex-col gap-2">
-              {section ? (
-                <h2 className="text-base font-semibold text-vri-copper">
-                  {section}
-                </h2>
-              ) : null}
-              <ol className="divide-y rounded-lg border bg-card">
-                {items.map((item) => {
-                  const index = lineNumber++
-                  return (
-                    <ItpItemRow
-                      key={item.id}
-                      projectId={projectId}
-                      itp={itp}
-                      item={item}
-                      index={index}
-                      who={who}
-                      editable={editable}
-                      blockedBy={
-                        item.blocked_by_item_id
-                          ? byId.get(item.blocked_by_item_id)
-                          : undefined
-                      }
-                    />
-                  )
-                })}
-              </ol>
-            </section>
-          ))}
+          {sections.map(([section, items]) => {
+            const first = lineNumber
+            lineNumber += items.length
+            return (
+              <ChecklistSection
+                key={`${section ?? "_"}-${first}`}
+                title={section}
+                items={items}
+                firstIndex={first}
+                lineIndex={lineIndex}
+                byId={byId}
+                render={(item, index) => (
+                  <ItpItemRow
+                    key={item.id}
+                    projectId={projectId}
+                    itp={itp}
+                    item={item}
+                    index={index}
+                    who={who}
+                    editable={editable}
+                    blockedBy={
+                      item.blocked_by_item_id
+                        ? byId.get(item.blocked_by_item_id)
+                        : undefined
+                    }
+                  />
+                )}
+              />
+            )
+          })}
         </TabsContent>
         <TabsContent value="form" className="pt-2">
           <p className="mb-2 text-sm text-muted-foreground">
@@ -415,6 +434,94 @@ function ItpBody({
         onConfirm={() => deleteMutation.mutate()}
       />
     </>
+  )
+}
+
+/**
+ * Increment 13.8: one section of the checklist under a green header bar
+ * (serif title, lines recorded, "Sign-off required" while a hold point in it
+ * waits) and a single lock notice above the first locked line, instead of a
+ * banner on every locked line.
+ */
+function ChecklistSection({
+  title,
+  items,
+  firstIndex,
+  lineIndex,
+  byId,
+  render,
+}: {
+  title: string | null
+  items: ItpItemPublic[]
+  firstIndex: number
+  lineIndex: Map<number, number>
+  byId: Map<number, ItpItemPublic>
+  render: (item: ItpItemPublic, index: number) => React.ReactNode
+}) {
+  const done = items.filter((i) => i.status !== "pending").length
+  const openHolds = items.filter(
+    (i) => i.classification === "hold" && !i.released,
+  ).length
+  const firstLocked = items.find((i) => i.blocked_by_item_id)
+  const gate = firstLocked?.blocked_by_item_id
+    ? byId.get(firstLocked.blocked_by_item_id)
+    : undefined
+  const waitingFor = gate
+    ? gate.required_roles
+        .filter((r) => !gate.signatures.some((s) => s.signoff_role_id === r.id))
+        .map((r) => r.role_name)
+    : []
+
+  return (
+    <section
+      className="overflow-hidden rounded-lg border bg-card"
+      data-testid="itp-section"
+    >
+      <header
+        className="flex flex-wrap items-center gap-x-3 gap-y-1 bg-vri-green px-4 py-2.5 text-vri-offwhite"
+        data-testid="itp-section-header"
+      >
+        <h2 className="min-w-0 flex-1 font-heading text-base font-semibold">
+          {title ?? "Checklist"}
+        </h2>
+        {openHolds ? (
+          <span
+            className="inline-flex items-center gap-1 rounded-full bg-vri-brick px-2.5 py-0.5 text-xs font-semibold text-vri-offwhite"
+            data-testid="itp-section-signoff"
+          >
+            <Lock className="size-3" aria-hidden="true" />
+            Sign-off required
+          </span>
+        ) : null}
+        <span className="text-xs tabular-nums text-vri-offwhite/80">
+          {done} / {items.length}
+        </span>
+      </header>
+      <ol className="divide-y">
+        {items.map((item, i) => (
+          <Fragment key={item.id}>
+            {item === firstLocked && gate ? (
+              <li
+                className="flex items-start gap-2 bg-status-critical-bg px-4 py-2.5 text-sm text-status-critical-fg"
+                data-testid="itp-section-lock"
+              >
+                <Lock className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                <span>
+                  {item === items[0]
+                    ? "This section is locked"
+                    : `Locked from line ${firstIndex + i + 1}`}{" "}
+                  until the hold point on line{" "}
+                  {(lineIndex.get(gate.id) ?? 0) + 1}, “{gate.requirement}”, is
+                  signed off
+                  {waitingFor.length ? ` by ${waitingFor.join(" and ")}` : ""}.
+                </span>
+              </li>
+            ) : null}
+            {render(item, firstIndex + i)}
+          </Fragment>
+        ))}
+      </ol>
+    </section>
   )
 }
 

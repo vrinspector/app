@@ -26,6 +26,11 @@ import { Input } from "@/components/ui/input"
 import { LoadingButton } from "@/components/ui/loading-button"
 import { NativeSelect } from "@/components/ui/native-select"
 import useCustomToast from "@/hooks/useCustomToast"
+import {
+  derivedProjectCode,
+  itpDocNumber,
+  normaliseProjectCode,
+} from "@/lib/itp"
 import { projectKeys } from "@/lib/queries"
 import { PROJECT_STATUS_OPTIONS, PROJECT_STATUS_VALUES } from "@/lib/vocab"
 import { extractErrorMessage } from "@/utils"
@@ -35,6 +40,10 @@ import { extractErrorMessage } from "@/utils"
  * client/owner, location, status). Blank optional fields are sent as null,
  * as the SPA did; `created_by` is no longer sent because the API stamps the
  * verified identity itself (docs/API_PORT.md, Authorization).
+ *
+ * Increment 13.8 adds an optional ITP code — the PROJECT CODE in ITP document
+ * numbers (ITP-<CODE>-001). Left blank, one is derived from the name, and
+ * the field shows which.
  */
 
 const schema = z.object({
@@ -42,6 +51,13 @@ const schema = z.object({
   client: z.string().trim().max(200),
   location: z.string().trim().max(200),
   status: z.enum(PROJECT_STATUS_VALUES),
+  code: z
+    .string()
+    .max(30)
+    .refine((value) => !normaliseProjectCode(value).error, {
+      message:
+        "Letters, digits and hyphens only (up to 20); start and end with a letter or digit",
+    }),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -56,10 +72,17 @@ function toFormValues(project?: ProjectPublic): FormValues {
     )
       ? (project?.status as FormValues["status"])
       : "active",
+    code: project?.code ?? "",
   }
 }
 
 const nullIfBlank = (value: string) => (value.trim() ? value.trim() : null)
+
+function codeChange(typed: string, project?: ProjectPublic): { code?: string } {
+  const code = normaliseProjectCode(typed).code
+  if (code === (project?.code ?? null)) return {}
+  return { code: code ?? "" }
+}
 
 interface ProjectFormDialogProps {
   open: boolean
@@ -96,6 +119,9 @@ export function ProjectFormDialog({
         client: nullIfBlank(values.client),
         location: nullIfBlank(values.location),
         status: values.status,
+        // Sent only when it changes, so the legacy body stays as it was; ""
+        // clears a code on edit (the derived one is used again).
+        ...codeChange(values.code, project),
       }
       if (editing) {
         const response = await ProjectsService.updateProject({
@@ -180,6 +206,40 @@ export function ProjectFormDialog({
                   <FormMessage />
                 </FormItem>
               )}
+            />
+            <FormField
+              control={form.control}
+              name="code"
+              render={({ field }) => {
+                const typed = normaliseProjectCode(field.value)
+                const name = form.watch("name")
+                const code =
+                  typed.code && !typed.error
+                    ? typed.code
+                    : derivedProjectCode(name, project?.id ?? 0)
+                return (
+                  <FormItem>
+                    <FormLabel>ITP code (optional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder={derivedProjectCode(name, project?.id ?? 0)}
+                        autoCapitalize="characters"
+                        data-testid="project-code"
+                        {...field}
+                      />
+                    </FormControl>
+                    <p
+                      className="text-xs text-muted-foreground"
+                      data-testid="project-code-preview"
+                    >
+                      ITPs are numbered {itpDocNumber(code, 1)},{" "}
+                      {itpDocNumber(code, 2)} …
+                      {typed.code ? "" : " (from the project name)"}
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )
+              }}
             />
             <FormField
               control={form.control}

@@ -23,9 +23,20 @@ import { extractErrorMessage } from "@/utils"
 
 export type UploadStatus = "presigning" | "uploading" | "registering" | "error"
 
+/**
+ * When the picture was taken, as the device reports it (increment 13.8). A
+ * phone camera stamps the file at the shutter; a library pick carries the
+ * file's own date. The file itself goes to S3 untouched, EXIF and all.
+ */
+export function capturedAt(file: File): string | null {
+  return file.lastModified ? new Date(file.lastModified).toISOString() : null
+}
+
 export interface PhotoUpload {
   id: string
   file: File
+  /** Increment 13.8: the three-shot slot this photo is for (ITP lines). */
+  slot?: "context" | "intermediate" | "closeup"
   /** Object URL for the local preview; revoked when the item is removed. */
   previewUrl: string
   status: UploadStatus
@@ -151,6 +162,7 @@ export function usePhotoUpload(inspectionId: number) {
               filename,
               content_type: contentType,
               uploaded_by: user?.name ?? user?.email ?? null,
+              captured_at: capturedAt(upload.file),
             },
           })
         ).data as PhotoPublic

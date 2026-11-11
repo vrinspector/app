@@ -26,6 +26,8 @@ import type {
   ReportPublic,
 } from "@/client"
 
+import { derivedProjectCode, normaliseProjectCode } from "@/lib/itp"
+
 import { DEMO_USER } from "./auth0-stub"
 import { registerItpRoutes } from "./fakeItp"
 import { demoUploadUrl, forgetStoredFile, storedFileUrl } from "./fakeS3"
@@ -176,6 +178,18 @@ on("GET", "/weather", ({ query }) => ({
 
 // --- Projects & members ----------------------------------------------------
 on("GET", "/projects", () => db.projects)
+/** Increment 13.8: the code ITP numbers use, as the API works it out. */
+function projectCode(raw: unknown): string | null {
+  const { code, error } = normaliseProjectCode(
+    typeof raw === "string" ? raw : "",
+  )
+  if (error) throw new HttpError(422, `Project code: ${error}`)
+  return code
+}
+function refreshItpCode(project: ProjectPublic) {
+  ;(project as { itp_code: string }).itp_code =
+    project.code ?? derivedProjectCode(project.name, project.id)
+}
 on("POST", "/projects", ({ body }) => {
   const project: ProjectPublic = {
     id: nextId(db.projects),
@@ -187,7 +201,10 @@ on("POST", "/projects", ({ body }) => {
     created_by: me,
     created_at: stamp(),
     updated_at: stamp(),
+    code: projectCode(body.code),
+    itp_code: "",
   }
+  refreshItpCode(project)
   db.projects.push(project)
   db.members.push({
     id: nextId(db.members),
@@ -207,7 +224,10 @@ on("GET", "/projects/{project_id}", ({ params }) =>
 )
 on("PUT|PATCH", "/projects/{project_id}", ({ params, body }) => {
   const project = find(db.projects, num(params[0]), "Project")
-  Object.assign(project, body, { updated_at: stamp() })
+  const { code, itp_code: _, ...rest } = body
+  Object.assign(project, rest, { updated_at: stamp() })
+  if ("code" in body) project.code = projectCode(code)
+  refreshItpCode(project)
   return project
 })
 on("DELETE", "/projects/{project_id}", ({ params }) => {
@@ -506,6 +526,8 @@ on("POST", "/photos", ({ body }) => {
     if (!s3Key.startsWith(`photos/itp-items/${line.itpItemId}/`)) {
       notFound("Photo")
     }
+    const slot = (body.shot_slot as string | null | undefined) ?? null
+    if (slot !== null) itpRoutes.checkShotSlot(line.itpItemId, slot)
     const created: PhotoPublic = {
       id: nextId(db.photos),
       public_id: nextPublicId(),
@@ -517,6 +539,8 @@ on("POST", "/photos", ({ body }) => {
       content_type: (body.content_type as string) ?? "image/jpeg",
       uploaded_by: me,
       created_at: stamp(),
+      shot_slot: slot,
+      captured_at: (body.captured_at as string | null | undefined) ?? null,
       view_url: fileUrl(s3Key),
     }
     db.photos.push(created)
@@ -524,6 +548,12 @@ on("POST", "/photos", ({ body }) => {
   }
   const inspectionId = Number(body.inspection_id)
   find(db.inspections, inspectionId, "Inspection")
+  if (body.shot_slot) {
+    throw new HttpError(
+      422,
+      "Only a line that asks for the three-shot set takes a shot slot",
+    )
+  }
   // Increment 11a: a photo may be filed under a finding of the same inspection.
   let findingId: number | null = null
   if (body.finding_id !== undefined && body.finding_id !== null) {
@@ -544,6 +574,7 @@ on("POST", "/photos", ({ body }) => {
     content_type: (body.content_type as string) ?? "image/jpeg",
     uploaded_by: me,
     created_at: stamp(),
+    captured_at: (body.captured_at as string | null | undefined) ?? null,
     view_url: fileUrl(s3Key),
   }
   db.photos.push(created)
@@ -554,7 +585,7 @@ on("GET", "/photos/{photo_id}", ({ params }) =>
 )
 on("DELETE", "/photos/{photo_id}", ({ params }) => {
   const photo = find(db.photos, num(params[0]), "Photo")
-  if (photo.itp_item_id) itpRoutes.checkEvidenceDelete(photo.itp_item_id)
+  if (photo.itp_item_id) itpRoutes.checkEvidenceDelete(photo)
   forgetStoredFile(photo.s3_key)
   remove(db.photos, (p) => p.id !== photo.id)
   return null
@@ -742,6 +773,8 @@ const itpRoutes = registerItpRoutes({
         m.project_id === projectId && m.user_email === me && m.role === "owner",
     ),
   projectExists: (projectId) => db.projects.some((p) => p.id === projectId),
+  projectCode: (projectId) =>
+    db.projects.find((p) => p.id === projectId)?.itp_code ?? `P${projectId}`,
   pins: db.pins,
   photos: db.photos,
   drawingTitle: (id) => db.drawings.find((d) => d.id === id)?.title ?? null,

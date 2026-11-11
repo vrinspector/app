@@ -15,6 +15,7 @@ import type {
   ProjectPublic,
   ReportPublic,
 } from "@/client"
+import { derivedProjectCode } from "@/lib/itp"
 
 import cableTray from "./assets/cable-tray.jpg?url"
 import compressorSkid from "./assets/compressor-skid.jpg?url"
@@ -81,6 +82,9 @@ function project(
     created_by: me,
     created_at: ago(created),
     updated_at: ago(created),
+    // Increment 13.8: no own ITP code; numbers use one derived from the name.
+    code: null,
+    itp_code: derivedProjectCode(name, id),
   }
 }
 
@@ -213,14 +217,19 @@ function pin(
 
 export function createSeed(): DemoDb {
   const projects = [
-    project(
-      1,
-      "Cedar Hollow Landfill RNG",
-      "Sample Energy Partners",
-      "Sample County, NC",
-      "active",
-      40 * DAY,
-    ),
+    // The owner set the sample project's ITP code (13.8): ITP-CH-RNG-001 …
+    {
+      ...project(
+        1,
+        "Cedar Hollow Landfill RNG",
+        "Sample Energy Partners",
+        "Sample County, NC",
+        "active",
+        40 * DAY,
+      ),
+      code: "CH-RNG",
+      itp_code: "CH-RNG",
+    },
     project(
       2,
       "Brookside Dairy Digester",

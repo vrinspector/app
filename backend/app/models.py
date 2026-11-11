@@ -24,7 +24,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any, Literal
 
-from pydantic import EmailStr
+from pydantic import EmailStr, computed_field, field_validator
 from sqlalchemy import (
     BigInteger,
     Boolean,
@@ -42,6 +42,12 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlmodel import Field, Relationship, SQLModel
+
+from app.core.doc_numbers import (
+    CODE_MAX_LENGTH,
+    effective_project_code,
+    normalise_project_code,
+)
 
 
 def get_datetime_utc() -> datetime:
@@ -117,6 +123,10 @@ PROJECT_ITP_STATUSES = ("not_started", "in_progress", "complete", "voided")
 ITP_ITEM_CLASSIFICATIONS = ("hold", "witness", "review", "information")
 LEGACY_CLASSIFICATIONS = {"surveillance": "information", "record": "review"}
 ITP_VALUE_TYPES = ("number", "text")
+# Increment 13.8: a line may require the three-shot photo set (owner's field
+# guide Ch. 10) instead of a single photo. Slot order is the shooting order.
+ITP_PHOTO_SETS = ("three_shot",)
+THREE_SHOT_SLOTS = ("context", "intermediate", "closeup")
 ITP_ITEM_STATUSES = ("pending", "pass", "fail", "na")
 SIGNOFF_PARTIES = ("contractor", "client", "engineer")
 ITP_SIGNATURE_METHODS = ("in_app", "external_link")
@@ -145,6 +155,9 @@ class Project(SQLModel, table=True):
         default="active",
         sa_column=Column(String(20), nullable=False, server_default=text("'active'")),
     )
+    # Increment 13.8: short code used in ITP document numbers (ITP-<CODE>-<SEQ>).
+    # NULL: a code derived from the name is used (app/core/doc_numbers.py).
+    code: str | None = Field(default=None, sa_column=Column(String(CODE_MAX_LENGTH)))
     created_by: str | None = Field(default=None, sa_column=Column(String(255)))
     created_at: datetime | None = Field(default=None, sa_column=_created_at_column())
     updated_at: datetime | None = Field(default=None, sa_column=_updated_at_column())
@@ -284,6 +297,11 @@ class Photo(SQLModel, table=True):
             "num_nonnulls(inspection_id, itp_item_id) = 1",
             name="ck_photos_one_parent",
         ),
+        CheckConstraint(
+            "shot_slot IS NULL OR (itp_item_id IS NOT NULL AND shot_slot IN "
+            "('context', 'intermediate', 'closeup'))",
+            name="ck_photos_shot_slot",
+        ),
     )
 
     id: int | None = Field(default=None, sa_column=_pk_column())
@@ -319,6 +337,14 @@ class Photo(SQLModel, table=True):
     filename: str | None = Field(default=None, sa_column=Column(String(255)))
     content_type: str | None = Field(default=None, sa_column=Column(String(100)))
     uploaded_by: str | None = Field(default=None, sa_column=Column(String(255)))
+    # Increment 13.8 — three-shot set slot (context / intermediate / closeup)
+    # for ITP line evidence; NULL for an ordinary photo.
+    shot_slot: str | None = Field(default=None, sa_column=Column(String(20)))
+    # When the picture was taken, as the device reported it (the original
+    # file, EXIF included, is stored unchanged in S3). NULL when unknown.
+    captured_at: datetime | None = Field(
+        default=None, sa_column=Column(DateTime(timezone=True))
+    )
     created_at: datetime | None = Field(default=None, sa_column=_created_at_column())
 
     inspection: Inspection | None = Relationship(back_populates="photos")
@@ -580,6 +606,9 @@ class ProjectItp(SQLModel, table=True):
     """
 
     __tablename__ = "project_itps"
+    __table_args__ = (
+        UniqueConstraint("project_id", "seq", name="uq_project_itps_seq"),
+    )
 
     id: int | None = Field(default=None, sa_column=_pk_column())
     public_id: uuid.UUID | None = Field(default=None, sa_column=_public_id_column())
@@ -607,6 +636,9 @@ class ProjectItp(SQLModel, table=True):
         ),
     )
     template_version: int | None = Field(default=None, sa_column=Column(Integer))
+    # Increment 13.8: 1, 2, 3 … per project — the SEQ of the document number
+    # ITP-<PROJECT CODE>-<SEQ>. Given at creation; never reused or renumbered.
+    seq: int | None = Field(default=None, sa_column=Column(Integer))
     title: str = Field(sa_column=Column(String(255), nullable=False))
     status: str = Field(
         default="not_started",
@@ -661,6 +693,9 @@ class ItpItem(SQLModel, table=True):
         default=False,
         sa_column=Column(Boolean, nullable=False, server_default=text("false")),
     )
+    # Increment 13.8: "three_shot" — the line is evidenced only when it has a
+    # Context, an Intermediate and a Close-up-with-scale photo. NULL: none.
+    photo_set: str | None = Field(default=None, sa_column=Column(String(20)))
     # number | text — the line takes a measured value; NULL: result only.
     value_type: str | None = Field(default=None, sa_column=Column(String(10)))
     value_unit: str | None = Field(default=None, sa_column=Column(String(40)))
@@ -966,6 +1001,13 @@ class ProjectCreate(SQLModel):
     # Sent by the SPA (literal "Inspector"); the API records the verified
     # Auth0 identity instead, as the drawings router does for ``uploaded_by``.
     created_by: str | None = Field(default=None, max_length=255)
+    # Increment 13.8: optional code for ITP numbers; blank → derived from name.
+    code: str | None = Field(default=None, max_length=CODE_MAX_LENGTH + 10)
+
+    @field_validator("code")
+    @classmethod
+    def _code(cls, value: str | None) -> str | None:
+        return normalise_project_code(value)
 
 
 class ProjectUpdate(SQLModel):
@@ -973,6 +1015,13 @@ class ProjectUpdate(SQLModel):
     client: str | None = Field(default=None, max_length=255)
     location: str | None = Field(default=None, max_length=255)
     status: ProjectStatus | None = None
+    # Increment 13.8: "" or null clears it (the derived code is used again).
+    code: str | None = Field(default=None, max_length=CODE_MAX_LENGTH + 10)
+
+    @field_validator("code")
+    @classmethod
+    def _code(cls, value: str | None) -> str | None:
+        return normalise_project_code(value)
 
 
 class ProjectPublic(SQLModel):
@@ -985,6 +1034,14 @@ class ProjectPublic(SQLModel):
     created_by: str | None
     created_at: datetime
     updated_at: datetime
+    # Increment 13.8: the code an owner set (or null) …
+    code: str | None = None
+
+    # … and the one ITP numbers actually use.
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def itp_code(self) -> str:
+        return effective_project_code(self.code, self.name, self.id)
 
 
 class MemberInvite(SQLModel):
@@ -1140,6 +1197,10 @@ class PhotoCreate(SQLModel):
     content_type: str | None = Field(default=None, max_length=100)
     # Sent by the SPA (display name); the API records the verified identity.
     uploaded_by: str | None = Field(default=None, max_length=255)
+    # Increment 13.8: the three-shot slot this ITP line photo fills, and when
+    # the device says the picture was taken.
+    shot_slot: Literal["context", "intermediate", "closeup"] | None = None
+    captured_at: datetime | None = None
 
 
 class PhotoPublic(SQLModel):
@@ -1153,6 +1214,8 @@ class PhotoPublic(SQLModel):
     content_type: str | None
     uploaded_by: str | None
     created_at: datetime
+    shot_slot: str | None = None
+    captured_at: datetime | None = None
     # Presigned S3 GET URL, generated per response (never stored).
     view_url: str | None = None
 
@@ -1573,6 +1636,11 @@ class ItpItemPublic(SQLModel):
     record_required: str | None = None
     photo_required: bool = False
     photo_count: int = 0
+    # Increment 13.8: "three_shot" or null; the slots that have a photo; and
+    # whether the line's photo rule (single or set) is met.
+    photo_set: str | None = None
+    shot_slots: list[str] = []
+    evidenced: bool = True
     value_type: str | None = None
     value_unit: str | None = None
     value_min: float | None = None
@@ -1598,6 +1666,9 @@ class ProjectItpSummary(SQLModel):
     area_name: str | None
     template_id: int | None
     template_version: int | None
+    # Increment 13.8: ITP-<PROJECT CODE>-<SEQ>, e.g. ITP-LC4-007.
+    seq: int | None = None
+    doc_number: str | None = None
     title: str
     status: str
     item_count: int
@@ -1624,6 +1695,7 @@ class ItpItemRef(SQLModel):
     id: int
     project_itp_id: int
     itp_title: str
+    doc_number: str | None = None
     area_name: str | None
     section: str | None
     requirement: str

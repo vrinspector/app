@@ -276,6 +276,27 @@ Additive changes; no existing request changes meaning.
   Contractor (contractor), Owner's representative (client) and Third-party
   inspector (engineer) is missing and returns the project's roles.
 
+## ITP document numbers and the three-shot set (increment 13.8)
+
+Additive fields only; no route added or removed.
+
+- `POST /projects`, `PUT /projects/{id}` take an optional `code` (letters,
+  digits, hyphens, ≤ 20; spaces become hyphens; upper-cased; 422 otherwise).
+  On update `""` or `null` clears it. Every project response adds `code`
+  (as set, or null) and `itp_code` (the code numbers use: `code`, or one
+  derived from the name).
+- ITP summaries and details (`GET /projects/{id}/itps`, `GET /itps/{id}`,
+  the create / bulk / update responses) and `GET /projects/{id}/itp-items`
+  add `seq` and `doc_number` (`ITP-<itp_code>-<seq>`, e.g. `ITP-LC4-007`).
+- ITP lines add `photo_set` (`"three_shot"` or null), `shot_slots` (the
+  slots that have a photo, in shooting order) and `evidenced` (the line's
+  photo rule is met). Pass and sign-off on an unevidenced line → 409 naming
+  what is missing ("the three-shot photo set (still missing: Intermediate)").
+- `POST /photos` takes optional `shot_slot` (`context` / `intermediate` /
+  `closeup`; only for an ITP line whose template asks for the set, else 422)
+  and `captured_at`; photo responses return both. Deleting the only photo that
+  keeps a passed line evidenced (its last photo, or the last in a slot) → 409.
+
 ## Authorization (carried over from the July 2026 hardening)
 
 * Every object is reached through its project; non-members get **404** with

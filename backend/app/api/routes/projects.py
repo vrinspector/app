@@ -16,6 +16,11 @@ them an invite email (see ``app.core.email``). The response shape is unchanged;
 delivery runs after the response as a background task and is recorded in the
 email send log (``GET /projects/{id}/emails``, ``app.api.routes.emails``).
 
+Rebuild increment 13.8 adds an optional ``code`` to the create / update
+bodies (letters, digits, hyphens; upper-cased) and ``code`` + ``itp_code`` to
+the response: ``itp_code`` is the code ITP document numbers use — the owner's
+code, or one derived from the project name while none is set.
+
 Creating a project makes the caller its ``owner`` member; everything else is
 visible only to members (404 object-hiding for non-members).
 """
@@ -73,6 +78,7 @@ def create_project(
         client=payload.client,
         location=payload.location,
         status=payload.status,
+        code=payload.code,
         created_by=email,
     )
     session.add(project)
@@ -110,11 +116,15 @@ def update_project(
         session, project_id, current_user, roles=MANAGE_ROLES
     )
     updates = payload.model_dump(exclude_unset=True, exclude_none=True)
-    if not updates:
+    # Increment 13.8: the ITP code can be cleared ("" or null → derived code).
+    clears_code = "code" in payload.model_fields_set and payload.code is None
+    if not updates and not clears_code:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update"
         )
     project.sqlmodel_update(updates)
+    if clears_code:
+        project.code = None
     session.add(project)
     session.commit()
     session.refresh(project)

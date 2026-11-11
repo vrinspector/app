@@ -13,6 +13,10 @@
  *
  * Increment 13.7: the sample account's masters are the starter library
  * (`src/lib/itpLibrary.json`, the same file the API seeds new accounts from).
+ *
+ * Increment 13.8: document numbers (`seq`, `doc_number` from the project's
+ * ITP code), the three-shot photo set (`photo_set`, `shot_slots`,
+ * `evidenced`; photos carry `shot_slot`), and a failed sample line.
  */
 import type {
   AreaPublic,
@@ -27,7 +31,14 @@ import type {
   ProjectItpSummary,
   SignoffRolePublic,
 } from "@/client"
-import { DEFAULT_ROLES, parseTemplateBody, TemplateError } from "@/lib/itp"
+import {
+  DEFAULT_ROLES,
+  evidenceGap,
+  itpDocNumber,
+  parseTemplateBody,
+  TemplateError,
+  THREE_SHOT_SLOTS,
+} from "@/lib/itp"
 import { STARTER_LIBRARY } from "@/lib/itpLibrary"
 
 type Body = Record<string, unknown>
@@ -43,6 +54,8 @@ export interface ItpContext {
   me: string
   isOwner: (projectId: number) => boolean
   projectExists: (projectId: number) => boolean
+  /** The code the project's ITP numbers use (13.8). */
+  projectCode: (projectId: number) => string
   pins: PinPublic[]
   photos: PhotoPublic[]
   drawingTitle: (drawingId: number) => string | null
@@ -82,6 +95,7 @@ interface ItpRow {
   area_id: number | null
   template_id: number | null
   template_version: number | null
+  seq: number
   title: string
   status: string
   body: Body
@@ -106,6 +120,7 @@ interface ItemRow {
   reference_doc: string | null
   record_required: string | null
   photo_required: boolean
+  photo_set: string | null
   value_type: string | null
   value_unit: string | null
   value_min: number | null
@@ -165,10 +180,28 @@ export function registerItpRoutes(ctx: ItpContext) {
       const released = item.classification !== "hold" || missing.length === 0
       const blockedBy = gate
       if (!gate && !released) gate = item
-      const photoCount = ctx.photos.filter(
-        (p) => p.itp_item_id === item.id,
-      ).length
-      return { item, sigs, missing, released, blockedBy, photoCount }
+      const linePhotos = ctx.photos.filter((p) => p.itp_item_id === item.id)
+      const photoCount = linePhotos.length
+      const shotSlots = THREE_SHOT_SLOTS.map((s) => s.value).filter((slot) =>
+        linePhotos.some((p) => p.shot_slot === slot),
+      )
+      const evidenced =
+        evidenceGap({
+          photo_required: item.photo_required,
+          photo_count: photoCount,
+          photo_set: item.photo_set,
+          shot_slots: shotSlots,
+        }) === null
+      return {
+        item,
+        sigs,
+        missing,
+        released,
+        blockedBy,
+        photoCount,
+        shotSlots,
+        evidenced,
+      }
     })
   }
 
@@ -191,6 +224,9 @@ export function registerItpRoutes(ctx: ItpContext) {
       record_required: item.record_required,
       photo_required: item.photo_required,
       photo_count: s.photoCount,
+      photo_set: item.photo_set,
+      shot_slots: s.shotSlots,
+      evidenced: s.evidenced,
       value_type: item.value_type,
       value_unit: item.value_unit,
       value_min: item.value_min,
@@ -267,6 +303,8 @@ export function registerItpRoutes(ctx: ItpContext) {
       area_name: areas.find((a) => a.id === itp.area_id)?.name ?? null,
       template_id: itp.template_id,
       template_version: itp.template_version,
+      seq: itp.seq,
+      doc_number: itpDocNumber(ctx.projectCode(itp.project_id), itp.seq),
       title: itp.title,
       status: itp.status,
       item_count: states.length,
@@ -400,6 +438,10 @@ export function registerItpRoutes(ctx: ItpContext) {
       area_id: areaId,
       template_id: template.id,
       template_version: template.version,
+      seq:
+        itps
+          .filter((i) => i.project_id === projectId)
+          .reduce((max, i) => Math.max(max, i.seq), 0) + 1,
       title,
       status: "not_started",
       body: structuredClone(template.body),
@@ -425,6 +467,7 @@ export function registerItpRoutes(ctx: ItpContext) {
         reference_doc: p.reference,
         record_required: p.recordRequired,
         photo_required: p.photoRequired,
+        photo_set: p.photoSet,
         value_type: p.valueType,
         value_unit: p.unit,
         value_min: p.min,
@@ -740,6 +783,7 @@ export function registerItpRoutes(ctx: ItpContext) {
           id: s.item.id,
           project_itp_id: itp.id,
           itp_title: itp.title,
+          doc_number: itpDocNumber(ctx.projectCode(pid), itp.seq),
           area_name: areas.find((a) => a.id === itp.area_id)?.name ?? null,
           section: s.item.section,
           requirement: s.item.requirement,
@@ -851,14 +895,48 @@ export function registerItpRoutes(ctx: ItpContext) {
     if (state.sigs.length)
       fail(409, "This line is signed; its photos can no longer change")
   }
-  function checkEvidenceDelete(itemId: number) {
+  function checkEvidenceDelete(photo: PhotoPublic) {
+    const itemId = photo.itp_item_id as number
     checkEvidence(itemId)
-    const { item, state } = lineState(itemId)
-    if (item.photo_required && item.status === "pass" && state.photoCount <= 1)
+    const { item } = lineState(itemId)
+    if (item.status !== "pass" || !(item.photo_required || item.photo_set))
+      return
+    const others = ctx.photos.filter(
+      (p) => p.itp_item_id === itemId && p.id !== photo.id,
+    )
+    const gap = evidenceGap({
+      photo_required: item.photo_required,
+      photo_count: others.length,
+      photo_set: item.photo_set,
+      shot_slots: others.map((p) => p.shot_slot ?? "").filter(Boolean),
+    })
+    if (gap)
       fail(
         409,
         "This line passed with its required photo; set it back to pending before removing the last photo",
       )
+  }
+  /** Shot slots only on a line that asks for the three-shot set (13.8). */
+  function checkShotSlot(itemId: number, slot: string) {
+    const { item } = lineState(itemId)
+    if (
+      item.photo_set !== "three_shot" ||
+      !THREE_SHOT_SLOTS.some((s) => s.value === slot)
+    ) {
+      fail(
+        422,
+        "Only a line that asks for the three-shot set takes a shot slot",
+      )
+    }
+  }
+  const gapMessage = (state: ReturnType<typeof itemStates>[number]) => {
+    if (state.item.photo_set === "three_shot") {
+      const missing = THREE_SHOT_SLOTS.filter(
+        (s) => !state.shotSlots.includes(s.value),
+      ).map((s) => s.label)
+      return `the three-shot photo set (still missing: ${missing.join(", ")})`
+    }
+    return "a photo on file"
   }
 
   on("PUT", "/itp-items/{item_id}", ({ params, body }) => {
@@ -876,10 +954,10 @@ export function registerItpRoutes(ctx: ItpContext) {
     const status = body.status as string | undefined
     if (status && status !== item.status) {
       ensureRecordable(state)
-      if (status === "pass" && item.photo_required && !state.photoCount) {
+      if (status === "pass" && !state.evidenced) {
         fail(
           409,
-          "This line needs a photo on file before it can pass — take or upload one first",
+          `This line needs ${gapMessage(state)} before it can pass — take or upload the photo first`,
         )
       }
       item.status = status
@@ -909,8 +987,8 @@ export function registerItpRoutes(ctx: ItpContext) {
     if (item.status !== "pass" && item.status !== "na") {
       fail(409, "Record this line as Pass or N/A before it is signed")
     }
-    if (item.photo_required && item.status === "pass" && !state.photoCount) {
-      fail(409, "This line needs a photo on file before it can be signed")
+    if (item.status === "pass" && !state.evidenced) {
+      fail(409, `This line needs ${gapMessage(state)} before it can be signed`)
     }
     if (role.signer_email) {
       if (role.signer_email.toLowerCase() !== me.toLowerCase()) {
@@ -984,7 +1062,12 @@ export function registerItpRoutes(ctx: ItpContext) {
     stage1.id,
     `${concrete.name} — ${stage1.name}`,
   )
-  importItp(concrete, 1, stage2.id, `${concrete.name} — ${stage2.name}`)
+  const second = importItp(
+    concrete,
+    1,
+    stage2.id,
+    `${concrete.name} — ${stage2.name}`,
+  )
   const third = importItp(
     pressureTest,
     1,
@@ -1003,7 +1086,12 @@ export function registerItpRoutes(ctx: ItpContext) {
     return found
   }
   // Sample assets the demo already ships stand in for site photos.
-  const filePhoto = (itemId: number, s3Key: string, filename: string) => {
+  const filePhoto = (
+    itemId: number,
+    s3Key: string,
+    filename: string,
+    slot: string | null = null,
+  ) => {
     ctx.photos.push({
       id: ctx.photos.reduce((max, p) => Math.max(max, p.id), 0) + 1,
       public_id: ctx.nextPublicId(),
@@ -1015,6 +1103,8 @@ export function registerItpRoutes(ctx: ItpContext) {
       content_type: "image/jpeg",
       uploaded_by: me,
       created_at: stamp(),
+      shot_slot: slot,
+      captured_at: stamp(),
       view_url: null,
     })
   }
@@ -1025,7 +1115,16 @@ export function registerItpRoutes(ctx: ItpContext) {
     value: string | null = null,
   ) => {
     const line = lineOf(itp, name)
-    if (line.photo_required) {
+    if (line.photo_set === "three_shot") {
+      for (const slot of THREE_SHOT_SLOTS) {
+        filePhoto(
+          line.id,
+          "photos/demo/compressor-skid.jpg",
+          `${name}-${slot.value}.jpg`,
+          slot.value,
+        )
+      }
+    } else if (line.photo_required) {
       filePhoto(line.id, "photos/demo/compressor-skid.jpg", `${name}.jpg`)
     }
     line.status = "pass"
@@ -1070,6 +1169,17 @@ export function registerItpRoutes(ctx: ItpContext) {
   const padPin = ctx.pins.find((p) => p.id === 5)
   if (padPin) padPin.itp_item_id = barMarks.id
 
+  // Stage 2 concrete (13.8): submittals accepted, the forms failed and are
+  // being re-set — a failed line shows tinted with its note beneath.
+  record(second, "mix-design", "Mix 4000-AE, accepted rev 1")
+  record(second, "rebar-submittals", "Shop drawings S-202 rev A on site")
+  record(second, "subgrade", "Density report DR-09: 96 % of D1557")
+  const forms = lineOf(second, "form-dimensions")
+  forms.status = "fail"
+  forms.notes =
+    "East form 3/4 in out of line at gridline C — re-set and re-check before rebar"
+  second.status = "in_progress"
+
   // Stage 3 pressure test: checks done, the pressure hold passed at
   // 225 psig and waiting for both signatures.
   record(third, "test-package", "Test pack TP-CD-03 accepted")
@@ -1078,5 +1188,5 @@ export function registerItpRoutes(ctx: ItpContext) {
   record(third, "gauges", "Gauges G-114 / G-115, calibrated 2026-09")
   record(third, "test-pressure", "Hydrostatic, ambient 61 °F", "225")
 
-  return { checkPinItem, checkEvidence, checkEvidenceDelete }
+  return { checkPinItem, checkEvidence, checkEvidenceDelete, checkShotSlot }
 }

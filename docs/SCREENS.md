@@ -871,3 +871,80 @@ that every new account starts with.
 61. **Project-specific numbers are left blank on purpose.** Lines such as
     clear cover or test pressure take a measured value but carry no min / max
     until you edit the master; the starter will not guess a project's number.
+
+## Increment 13.8 — ITP look and feel (owner review 2026-11-10)
+
+The ITP screen was tightened after the owner compared it with HoldPoint; the
+green / cream / copper palette and serif headings stay.
+
+- **Document numbers.** Every project ITP has a number
+  `ITP-<PROJECT CODE>-<SEQ>` (e.g. `ITP-CH-RNG-002`), shown in copper
+  monospace above the title on ITP cards and in the ITP screen's eyebrow (and
+  later in the pack PDF). `SEQ` is 1, 2, 3 … per project, given when the ITP
+  is created and never reused. The PROJECT CODE is the new optional **ITP
+  code** field in *New project / Edit project* (letters, digits, hyphens; up
+  to 20; upper-cased as typed). Left blank, a code is derived from the project
+  name (initials of its words, or the first four letters of a one-word name)
+  and the field's hint shows the numbers that result ("ITPs are numbered
+  ITP-LC4-001, ITP-LC4-002 … (from the project name)").
+- **Section header bars.** Each template section is a card with a forest-green
+  header bar: serif section title, "done / total", and a brick **Sign-off
+  required** chip while a hold point in that section is unreleased.
+- **One lock notice per section.** Lines past an unreleased hold point no
+  longer each carry a banner. The section shows one notice above its first
+  locked line — "Locked from line 9 until the hold point on line 8, “Bar size
+  and grade”, is signed off by Third-party inspector" (or "This section is
+  locked …" when the whole section is) — and locked lines hide Pass / Fail /
+  N/A entirely and show a small lock in the gutter.
+- **Line cards.** Line number and an H / W / R / I letter chip sit in a fixed
+  left gutter (the chip's full name is its tooltip and accessible label; a
+  released hold point's chip turns green). Padding is tighter. A **failed
+  line is tinted brick** with its note directly under the result buttons
+  ("Failed: …"); tapping Fail on a line without a note opens the note box.
+- **Three-shot photos** (owner's field guide Ch. 10). A template question can
+  set `photoSet: "three_shot"`; the line then shows three labelled slots —
+  **Context** ("Wide shot that shows where this is …"), **Intermediate** ("The
+  element and what is around it …"), **Close-up with scale** ("Tight on the
+  detail with a tape, ruler or scale card in the frame") — each with Take and
+  Upload. The line reads "Three-shot set: n of 3 — needed before Pass" until
+  every slot has a photo, then "Three-shot set on file"; the API refuses Pass
+  and sign-off until then. Extra photos in a slot are allowed; unlabelled
+  photos show under "Other photos". The concrete starter's *Bar spacing* hold
+  point uses it (13.9 revisits the library).
+- **Capture metadata.** Photos are still uploaded byte-for-byte (EXIF intact
+  in S3). Every new photo now also records `captured_at` — the time the device
+  stamped on the file — next to the upload time.
+
+### Tests (increment 13.8)
+
+- Backend: `tests/api/routes/test_itp_look_and_feel.py` (numbers per project,
+  bulk apply continues the sequence, gaps are not reused, code set / relabel /
+  refused / cleared, owner only; three-shot pass and sign gating, slot rules,
+  `captured_at`, last-photo-in-slot protection), `tests/core/test_doc_numbers.py`
+  (derived codes, normalising, `photoSet` spellings), migration backfill and
+  guards in `tests/alembic/test_data_layer_baseline.py`.
+- Frontend: `src/lib/itp.test.ts` (codes, numbers, `photoSet`, evidence gap),
+  `src/test/projects.test.tsx` (ITP code field and preview); Playwright demo
+  walks in `tests/demo/itp.spec.ts` at phone width — the new "look and feel"
+  walk (numbers on cards and header, five section bars, three lock notices,
+  19 locked lines without buttons, the failed forms line, Fail opens the note,
+  editing the project code relabels the cards) and the three-shot set on
+  *Bar spacing* in the line-evidence walk.
+
+### Decisions for the owner (increment 13.8)
+
+62. **The number follows the project code.** It is worked out when shown, so
+    changing a project's ITP code relabels all of its ITPs; the sequence part
+    never changes. Say so if a number should be frozen once an ITP is issued
+    or signed.
+63. **Numbers count per project, gaps stay.** A deleted ITP's number is not
+    given out again (as in a document register). Voided ITPs keep theirs.
+64. **Derived code when none is set:** initials of the project name's words
+    (up to six), or the first four letters of a one-word name. The sample
+    project uses an owner-set code, CH-RNG.
+65. **Three-shot set replaces the single photo rule on a line** that asks for
+    it; extra photos in a slot are fine. Hints are one line each, from the
+    field guide's wording in spirit, not quoted.
+66. **Capture time is the device's file time.** A phone camera stamps it at
+    the shutter; a photo picked from the library carries the file's own date.
+    The original file (with any EXIF GPS / time) is kept unchanged in S3.

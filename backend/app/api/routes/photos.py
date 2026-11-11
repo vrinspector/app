@@ -27,6 +27,14 @@ past an unreleased hold point, not once the line is signed — and the last
 photo of a passed line that requires one cannot be deleted (set the line back
 to pending first).
 
+Increment 13.8 (three-shot set) adds two optional register fields:
+``shot_slot`` (``context`` / ``intermediate`` / ``closeup``) — only for a
+photo of an ITP line whose template asks for the three-shot set, 422
+otherwise — and ``captured_at``, when the device says the picture was taken.
+The uploaded file itself is never re-encoded, so its own EXIF metadata stays
+in S3 as it was taken. The last photo that keeps a passed line evidenced
+(its only photo, or the only one in a three-shot slot) cannot be deleted.
+
 Hardening carried over from the drawings router: the presigned key is bound
 to the inspection (``photos/inspections/{inspection_id}/{uuid}{ext}``) and a
 registration whose ``s3_key`` is outside that prefix is refused with 404.
@@ -37,7 +45,6 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, status
-from sqlalchemy import func
 from sqlmodel import Session, col, select
 
 from app.api.authz import (
@@ -49,7 +56,7 @@ from app.api.authz import (
     not_found,
 )
 from app.api.deps import CurrentUser, SessionDep
-from app.api.itp_state import load_itp_state
+from app.api.itp_state import evidence_met, load_itp_state
 from app.core.auth import AuthUser
 from app.core.storage import PHOTO_EXTENSIONS, storage
 from app.models import (
@@ -160,6 +167,17 @@ def register_photo(
             session, payload.inspection_id, current_user, roles=WRITE_ROLES
         )
         prefix = storage.photo_prefix(payload.inspection_id)
+    if payload.shot_slot is not None:
+        line = (
+            session.get(ItpItem, payload.itp_item_id)
+            if payload.itp_item_id is not None
+            else None
+        )
+        if line is None or line.photo_set != "three_shot":
+            raise HTTPException(
+                status_code=422,
+                detail="Only a line that asks for the three-shot set takes a shot slot",
+            )
     if not payload.s3_key.startswith(prefix):
         # Project-bound upload keys: a key outside the inspection's (or line's)
         # prefix is treated like an object the caller cannot see.
@@ -176,6 +194,8 @@ def register_photo(
         filename=payload.filename,
         content_type=payload.content_type,
         uploaded_by=current_email(current_user),
+        shot_slot=payload.shot_slot,
+        captured_at=payload.captured_at,
     )
     session.add(photo)
     session.commit()
@@ -215,13 +235,14 @@ def delete_photo(photo_id: int, session: SessionDep, current_user: CurrentUser) 
     photo = get_authorized_photo(session, photo_id, current_user, roles=WRITE_ROLES)
     if photo.itp_item_id is not None:
         item, _ = _authorized_line(session, photo.itp_item_id, current_user, write=True)
-        if item.photo_required and item.status == "pass":
-            remaining = session.exec(
-                select(func.count())
-                .select_from(Photo)
+        if item.status == "pass" and (item.photo_required or item.photo_set):
+            others = session.exec(
+                select(Photo.shot_slot)
                 .where(Photo.itp_item_id == item.id)
-            ).one()
-            if remaining <= 1:
+                .where(Photo.id != photo.id)
+            ).all()
+            slots = {slot for slot in others if slot is not None}
+            if not evidence_met(item, len(others), slots):
                 raise _conflict(
                     "This line passed with its required photo; set it back to "
                     "pending before removing the last photo"

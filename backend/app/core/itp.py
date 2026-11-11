@@ -21,6 +21,11 @@ copied onto the line at import:
   ``inputType: number`` is a number line and a plain ``text`` / ``comment``
   question a text line, without saying so; ``valueType: "none"`` opts out.
 
+Increment 13.8 adds ``photoSet: "three_shot"`` (also written ``three-shot``
+or ``threeShot``): the line needs the three-shot photo set — Context,
+Intermediate, Close-up with scale — before it can pass or be signed, instead
+of a single photo.
+
 The words used before 13.6 — ``surveillance`` and ``record`` — are still read
 (as ``information`` and ``review``), so older template bodies stay valid.
 
@@ -40,6 +45,7 @@ from typing import Any
 
 from app.models import (
     ITP_ITEM_CLASSIFICATIONS,
+    ITP_PHOTO_SETS,
     ITP_VALUE_TYPES,
     LEGACY_CLASSIFICATIONS,
     SIGNOFF_PARTIES,
@@ -86,6 +92,7 @@ class ParsedItem:
     reference: str | None = None
     record_required: str | None = None
     photo_required: bool = False
+    photo_set: str | None = None
     value_type: str | None = None
     unit: str | None = None
     min_value: float | None = None
@@ -220,10 +227,29 @@ def _value_type(element: dict[str, Any], label: str) -> str | None:
     return None
 
 
+def _photo_set(element: dict[str, Any], label: str) -> str | None:
+    raw = element.get("photoSet")
+    if raw is None or raw is False:
+        return None
+    kind = (
+        raw.strip().replace("-", "_").replace(" ", "_").casefold()
+        if isinstance(raw, str)
+        else None
+    )
+    if kind == "threeshot":
+        kind = "three_shot"
+    if kind in ("", "none"):
+        return None
+    if kind not in ITP_PHOTO_SETS:
+        raise TemplateError(f"“{label}”: photoSet must be three_shot or none")
+    return kind
+
+
 def _evidence(element: dict[str, Any], label: str) -> dict[str, Any]:
     photo = element.get("photoRequired", False)
     if not isinstance(photo, bool):
         raise TemplateError(f"“{label}”: photoRequired must be true or false")
+    photo_set = _photo_set(element, label)
     value_type = _value_type(element, label)
     low = _number(element, "min", label)
     high = _number(element, "max", label)
@@ -234,6 +260,7 @@ def _evidence(element: dict[str, Any], label: str) -> dict[str, Any]:
         "reference": _short(element, "reference", label, 255),
         "record_required": _text(element.get("recordRequired")),
         "photo_required": photo,
+        "photo_set": photo_set,
         "value_type": value_type,
         "unit": _short(element, "unit", label, 40) if value_type else None,
         "min_value": low if value_type == "number" else None,

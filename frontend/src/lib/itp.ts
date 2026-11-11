@@ -17,6 +17,99 @@ export type ItemStatus = "pending" | "pass" | "fail" | "na"
 export type AreaType = "level" | "lot" | "stage" | "chainage" | "other"
 export type ItpStatus = "not_started" | "in_progress" | "complete" | "voided"
 export type Party = "contractor" | "client" | "engineer"
+export type PhotoSet = "three_shot"
+export type ShotSlot = "context" | "intermediate" | "closeup"
+
+/*
+ * Increment 13.8 — the three-shot photo set (owner's field guide Ch. 10):
+ * one wide shot that says where, one that shows the element in its
+ * surroundings, one tight shot with a scale in frame. A line asking for the
+ * set is evidenced only when every slot has a photo.
+ */
+export const THREE_SHOT_SLOTS: {
+  value: ShotSlot
+  label: string
+  hint: string
+}[] = [
+  {
+    value: "context",
+    label: "Context",
+    hint: "Wide shot that shows where this is — gridlines, a landmark, the whole element.",
+  },
+  {
+    value: "intermediate",
+    label: "Intermediate",
+    hint: "The element and what is around it, close enough to see the work.",
+  },
+  {
+    value: "closeup",
+    label: "Close-up with scale",
+    hint: "Tight on the detail with a tape, ruler or scale card in the frame.",
+  },
+]
+
+export function shotLabel(slot: string | null | undefined): string | null {
+  return THREE_SHOT_SLOTS.find((s) => s.value === slot)?.label ?? null
+}
+
+/** What photo evidence a line still lacks, in words; null when it has it. */
+export function evidenceGap(item: {
+  photo_required?: boolean
+  photo_count?: number
+  photo_set?: string | null
+  shot_slots?: string[]
+}): string | null {
+  if (item.photo_set === "three_shot") {
+    const have = new Set(item.shot_slots ?? [])
+    const missing = THREE_SHOT_SLOTS.filter((s) => !have.has(s.value))
+    return missing.length
+      ? `Three-shot set: still missing ${missing.map((s) => s.label).join(", ")}`
+      : null
+  }
+  if (item.photo_required && !item.photo_count) return "Photo required"
+  return null
+}
+
+/** The project code ITP numbers use while an owner has not set one. */
+export function derivedProjectCode(name: string, id: number): string {
+  const words = name.match(/[A-Za-z0-9]+/g) ?? []
+  let code =
+    words.length >= 2
+      ? words
+          .map((w) => w[0])
+          .join("")
+          .slice(0, 6)
+      : (words[0] ?? "").slice(0, 4)
+  code = code.toUpperCase()
+  return code.length < 2 ? `P${id}` : code
+}
+
+/** Mirrors `normalise_project_code`: "" → null, else upper-case, hyphens. */
+export function normaliseProjectCode(raw: string): {
+  code: string | null
+  error: string | null
+} {
+  const code = raw
+    .trim()
+    .replace(/[\s_]+/g, "-")
+    .toUpperCase()
+  if (!code) return { code: null, error: null }
+  if (code.length > 20) {
+    return { code, error: "At most 20 characters" }
+  }
+  if (!/^[A-Z0-9](?:[A-Z0-9-]*[A-Z0-9])?$/.test(code)) {
+    return {
+      code,
+      error:
+        "Letters, digits and hyphens only; start and end with a letter or digit",
+    }
+  }
+  return { code, error: null }
+}
+
+export function itpDocNumber(code: string, seq: number): string {
+  return `ITP-${code}-${String(seq).padStart(3, "0")}`
+}
 
 export const CLASSIFICATIONS: Record<
   Classification,
@@ -189,6 +282,7 @@ export interface ParsedItem {
   reference: string | null
   recordRequired: string | null
   photoRequired: boolean
+  photoSet: PhotoSet | null
   valueType: ValueType | null
   unit: string | null
   min: number | null
@@ -319,12 +413,29 @@ function readValueType(element: Json, label: string): ValueType | null {
   return null
 }
 
+/** Increment 13.8; a port of `app/core/itp.py::_photo_set`. */
+function readPhotoSet(element: Json, label: string): PhotoSet | null {
+  const raw = element.photoSet
+  if (raw === undefined || raw === null || raw === false) return null
+  let kind =
+    typeof raw === "string"
+      ? raw.trim().replace(/[-\s]/g, "_").toLowerCase()
+      : null
+  if (kind === "threeshot") kind = "three_shot"
+  if (kind === "" || kind === "none") return null
+  if (kind !== "three_shot") {
+    throw new TemplateError(`“${label}”: photoSet must be three_shot or none`)
+  }
+  return kind
+}
+
 /** Increment 13.6 line evidence; a port of `app/core/itp.py::_evidence`. */
 function readEvidence(element: Json, label: string) {
   const photo = element.photoRequired ?? false
   if (typeof photo !== "boolean") {
     throw new TemplateError(`“${label}”: photoRequired must be true or false`)
   }
+  const photoSet = readPhotoSet(element, label)
   const valueType = readValueType(element, label)
   const min = readNumber(element, "min", label)
   const max = readNumber(element, "max", label)
@@ -336,6 +447,7 @@ function readEvidence(element: Json, label: string) {
     reference: readShort(element, "reference", label, 255),
     recordRequired: text(element.recordRequired),
     photoRequired: photo,
+    photoSet,
     valueType,
     unit: valueType ? readShort(element, "unit", label, 40) : null,
     min: valueType === "number" ? min : null,

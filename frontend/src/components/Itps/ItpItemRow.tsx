@@ -40,12 +40,12 @@ import { LoadingButton } from "@/components/ui/loading-button"
 import { Textarea } from "@/components/ui/textarea"
 import useCustomToast from "@/hooks/useCustomToast"
 import { formatDateTime } from "@/lib/format"
-import { ITEM_RESULTS, itemStatusLabel } from "@/lib/itp"
+import { evidenceGap, ITEM_RESULTS, itemStatusLabel } from "@/lib/itp"
 import { drawingsQuery, itpKeys } from "@/lib/queries"
 import { cn } from "@/lib/utils"
 import { extractErrorMessage } from "@/utils"
 
-import { ClassificationBadge } from "./ItpBadges"
+import { ClassificationChip } from "./ItpBadges"
 import { LineCriteria, LinePhotos, MeasuredValue } from "./ItpLineEvidence"
 
 /*
@@ -62,6 +62,13 @@ import { LineCriteria, LinePhotos, MeasuredValue } from "./ItpLineEvidence"
  * required under the title, a measured value next to the result for number
  * and text lines, and evidence photos (a `photoRequired` line cannot pass
  * until one is on file).
+ *
+ * Increment 13.8 (look and feel): line number and H / W / R / I chip sit in
+ * a fixed left gutter; a locked line shows no result buttons (the section
+ * shows one lock notice instead of a banner per line); a failed line is
+ * tinted brick with its note directly beneath, and tapping Fail opens the
+ * note at once; a three-shot line asks for Context / Intermediate /
+ * Close-up with scale.
  */
 
 export interface SignerContext {
@@ -125,6 +132,8 @@ export function ItpItemRow({
         showSuccessToast("Note saved")
         setNoteOpen(false)
       }
+      // A failed line asks at once for what was wrong (13.8).
+      if (body.status === "fail" && !item.notes) setNoteOpen(true)
       refresh()
     },
     onError: (error: Error) => showErrorToast(extractErrorMessage(error)),
@@ -134,34 +143,64 @@ export function ItpItemRow({
   const signed = item.signatures.length > 0
   const canRecord = editable && who.canWrite && !blocked && !signed
   const isHold = item.classification === "hold"
-  const needsPhoto = Boolean(item.photo_required) && !item.photo_count
+  const failed = item.status === "fail"
+  const gap = evidenceGap(item)
+  const needsPhoto = gap !== null
   const signedRoleIds = new Set(item.signatures.map((s) => s.signoff_role_id))
 
   return (
     <li
       className={cn(
-        "flex flex-col gap-3 px-4 py-4",
+        "grid grid-cols-[2.25rem_minmax(0,1fr)] gap-x-3 py-3 pr-3 pl-2 sm:pr-4 sm:pl-3",
         isHold && "border-l-4 border-l-status-critical-fg",
         isHold && item.released && "border-l-status-positive-fg",
+        failed && "bg-status-critical-bg/70",
+        blocked && "bg-muted/40",
       )}
       data-testid="itp-item"
       data-item-id={item.id}
       data-status={item.status}
       data-blocked={blocked ? "true" : "false"}
     >
-      <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
-        <span className="w-6 pt-0.5 text-sm text-muted-foreground">
+      <div
+        className="flex flex-col items-center gap-1.5"
+        data-testid="itp-item-gutter"
+      >
+        <span
+          className="text-sm font-semibold tabular-nums text-muted-foreground"
+          data-testid="itp-line-number"
+        >
           {index + 1}
         </span>
-        <p className="min-w-0 flex-1 font-medium">{item.requirement}</p>
-        <div className="flex flex-wrap items-center gap-2">
-          <ClassificationBadge value={item.classification} />
+        <ClassificationChip
+          value={item.classification}
+          released={item.released}
+        />
+        {blocked ? (
+          <Lock
+            className="size-4 text-muted-foreground"
+            aria-label="Locked until the hold point above is signed"
+            data-testid="itp-item-lock"
+          />
+        ) : null}
+      </div>
+
+      <div className="flex min-w-0 flex-col gap-2">
+        <div className="flex flex-wrap items-start gap-x-2 gap-y-1">
+          <p
+            className={cn(
+              "min-w-0 flex-1 font-medium leading-snug",
+              blocked && "text-muted-foreground",
+            )}
+          >
+            {item.requirement}
+          </p>
           <StatusBadge
             value={item.status}
             tone={
               item.status === "pass"
                 ? "positive"
-                : item.status === "fail"
+                : failed
                   ? "critical"
                   : "neutral"
             }
@@ -169,203 +208,218 @@ export function ItpItemRow({
             data-testid="itp-item-status"
           />
         </div>
-      </div>
 
-      <LineCriteria item={item} />
+        <LineCriteria item={item} />
 
-      {blocked ? (
-        <p
-          className="flex items-center gap-2 rounded-md bg-status-critical-bg px-3 py-2 text-sm text-status-critical-fg"
-          data-testid="itp-item-blocked"
-        >
-          <Lock className="size-4 shrink-0" aria-hidden="true" />
-          Waiting for hold point “{blockedBy.requirement}” to be signed off.
-        </p>
-      ) : null}
-
-      <fieldset
-        className="grid grid-cols-3 gap-2 sm:max-w-md"
-        aria-label={`Result for line ${index + 1}`}
-      >
-        {ITEM_RESULTS.map((result) => {
-          const active = item.status === result.value
-          return (
-            <Button
-              key={result.value}
-              type="button"
-              variant={active ? "default" : "outline"}
-              className={cn(
-                "h-11 text-base",
-                active &&
-                  result.value === "pass" &&
-                  "bg-vri-green text-vri-offwhite hover:bg-vri-green/90",
-                active &&
-                  result.value === "fail" &&
-                  "bg-destructive text-white hover:bg-destructive/90",
-              )}
-              aria-pressed={active}
-              disabled={
-                !canRecord ||
-                update.isPending ||
-                (result.value === "pass" && !active && needsPhoto)
-              }
-              title={
-                result.value === "pass" && !active && needsPhoto
-                  ? "Add a photo before this line can pass"
-                  : undefined
-              }
-              onClick={() =>
-                update.mutate({ status: active ? "pending" : result.value })
-              }
-              data-testid={`itp-result-${result.value}`}
-            >
-              {active ? <Check /> : null}
-              {result.label}
-            </Button>
-          )
-        })}
-      </fieldset>
-
-      <MeasuredValue item={item} canRecord={canRecord} onSaved={refresh} />
-
-      <LinePhotos item={item} canAdd={canRecord} onChanged={refresh} />
-
-      {item.required_roles.length ? (
-        <ul
-          className="flex flex-col gap-1.5 text-sm"
-          data-testid="itp-item-roles"
-        >
-          {item.required_roles.map((role) => {
-            const sig = item.signatures.find(
-              (s) => s.signoff_role_id === role.id,
-            )
-            if (sig) {
+        {/* Locked lines show no result buttons (13.8); the section says why. */}
+        {blocked ? null : (
+          <fieldset
+            className="grid grid-cols-3 gap-2 sm:max-w-md"
+            aria-label={`Result for line ${index + 1}`}
+          >
+            {ITEM_RESULTS.map((result) => {
+              const active = item.status === result.value
               return (
-                <li
-                  key={role.id}
-                  className="flex items-start gap-2 text-status-positive-fg"
-                  data-testid="itp-signature"
+                <Button
+                  key={result.value}
+                  type="button"
+                  variant={active ? "default" : "outline"}
+                  className={cn(
+                    "h-11 text-base",
+                    active &&
+                      result.value === "pass" &&
+                      "bg-vri-green text-vri-offwhite hover:bg-vri-green/90",
+                    active &&
+                      result.value === "fail" &&
+                      "bg-destructive text-white hover:bg-destructive/90",
+                  )}
+                  aria-pressed={active}
+                  disabled={
+                    !canRecord ||
+                    update.isPending ||
+                    (result.value === "pass" && !active && needsPhoto)
+                  }
+                  title={
+                    result.value === "pass" && !active && gap
+                      ? `${gap} before this line can pass`
+                      : undefined
+                  }
+                  onClick={() =>
+                    update.mutate({ status: active ? "pending" : result.value })
+                  }
+                  data-testid={`itp-result-${result.value}`}
                 >
-                  <Check
-                    className="mt-0.5 size-4 shrink-0"
-                    aria-hidden="true"
-                  />
-                  <span>
-                    <strong>{role.role_name}</strong> signed by{" "}
-                    {sig.signer_name || sig.signer_email},{" "}
-                    {formatDateTime(sig.signed_at)}
-                    {sig.gps_lat !== null && sig.gps_lng !== null
-                      ? ` · ${sig.gps_lat.toFixed(4)}, ${sig.gps_lng.toFixed(4)}`
-                      : ""}
+                  {active ? <Check /> : null}
+                  {result.label}
+                </Button>
+              )
+            })}
+          </fieldset>
+        )}
+
+        {item.notes && !noteOpen ? (
+          <p
+            className={cn(
+              "whitespace-pre-wrap rounded-md px-3 py-2 text-sm",
+              failed
+                ? "border border-status-critical-fg/40 bg-card text-status-critical-fg"
+                : "bg-muted",
+            )}
+            data-testid="itp-item-note"
+          >
+            {failed ? <strong className="mr-1">Failed:</strong> : null}
+            {item.notes}
+          </p>
+        ) : null}
+        {noteOpen ? (
+          <form
+            className="flex flex-col gap-2"
+            onSubmit={(event) => {
+              event.preventDefault()
+              update.mutate({ notes: note.trim() || null })
+            }}
+          >
+            <Textarea
+              rows={2}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder={
+                failed
+                  ? "What failed, where, and what has to be fixed…"
+                  : "What was checked, measured or seen…"
+              }
+              aria-label="Note"
+              data-testid="itp-note"
+            />
+            <div className="flex gap-2">
+              <LoadingButton size="sm" type="submit" loading={update.isPending}>
+                Save note
+              </LoadingButton>
+              <Button
+                size="sm"
+                type="button"
+                variant="outline"
+                onClick={() => setNoteOpen(false)}
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        ) : null}
+
+        {blocked && !item.measured_value ? null : (
+          <MeasuredValue item={item} canRecord={canRecord} onSaved={refresh} />
+        )}
+
+        <LinePhotos item={item} canAdd={canRecord} onChanged={refresh} />
+
+        {item.required_roles.length ? (
+          <ul
+            className="flex flex-col gap-1.5 text-sm"
+            data-testid="itp-item-roles"
+          >
+            {item.required_roles.map((role) => {
+              const sig = item.signatures.find(
+                (s) => s.signoff_role_id === role.id,
+              )
+              if (sig) {
+                return (
+                  <li
+                    key={role.id}
+                    className="flex items-start gap-2 text-status-positive-fg"
+                    data-testid="itp-signature"
+                  >
+                    <Check
+                      className="mt-0.5 size-4 shrink-0"
+                      aria-hidden="true"
+                    />
+                    <span>
+                      <strong>{role.role_name}</strong> signed by{" "}
+                      {sig.signer_name || sig.signer_email},{" "}
+                      {formatDateTime(sig.signed_at)}
+                      {sig.gps_lat !== null && sig.gps_lng !== null
+                        ? ` · ${sig.gps_lat.toFixed(4)}, ${sig.gps_lng.toFixed(4)}`
+                        : ""}
+                    </span>
+                  </li>
+                )
+              }
+              const mine = canSignAs(role, who)
+              const ready =
+                itp.status !== "voided" &&
+                !blocked &&
+                (item.status === "na" ||
+                  (item.status === "pass" && !needsPhoto))
+              return (
+                <li key={role.id} className="flex flex-wrap items-center gap-2">
+                  <span className="text-muted-foreground">
+                    {isHold ? "Waiting for" : "To sign:"}{" "}
+                    <strong className="text-foreground">
+                      {role.role_name}
+                    </strong>
+                    {role.signer_email ? ` (${role.signer_email})` : ""}
                   </span>
+                  {mine && !blocked ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!ready || signedRoleIds.has(role.id)}
+                      title={
+                        ready
+                          ? undefined
+                          : "Record this line as Pass or N/A first"
+                      }
+                      onClick={() => setSigning(role)}
+                      data-testid="itp-sign"
+                    >
+                      <PenLine />
+                      Sign as {role.role_name}
+                    </Button>
+                  ) : null}
                 </li>
               )
-            }
-            const mine = canSignAs(role, who)
-            const ready =
-              itp.status !== "voided" &&
-              !blocked &&
-              (item.status === "na" || (item.status === "pass" && !needsPhoto))
-            return (
-              <li key={role.id} className="flex flex-wrap items-center gap-2">
-                <span className="text-muted-foreground">
-                  {isHold ? "Waiting for" : "To sign:"}{" "}
-                  <strong className="text-foreground">{role.role_name}</strong>
-                  {role.signer_email ? ` (${role.signer_email})` : ""}
-                </span>
-                {mine ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={!ready || signedRoleIds.has(role.id)}
-                    title={
-                      ready
-                        ? undefined
-                        : "Record this line as Pass or N/A first"
-                    }
-                    onClick={() => setSigning(role)}
-                    data-testid="itp-sign"
-                  >
-                    <PenLine />
-                    Sign as {role.role_name}
-                  </Button>
-                ) : null}
-              </li>
-            )
-          })}
-        </ul>
-      ) : null}
-
-      <div className="flex flex-wrap items-center gap-2 text-sm">
-        {item.pins.map((pin) => (
-          <Link
-            key={pin.id}
-            to="/projects/$projectId/drawings/$drawingId"
-            params={{
-              projectId: String(projectId),
-              drawingId: String(pin.drawing_id),
-            }}
-            className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs hover:border-vri-gold"
-            data-testid="itp-item-pin"
-          >
-            <MapPin className="size-3 text-vri-copper" aria-hidden="true" />
-            {pin.label || `Pin #${pin.tag_number || pin.id}`} ·{" "}
-            {pin.drawing_title ?? "Drawing"}
-            {pin.page_number > 1 ? ` p.${pin.page_number}` : ""}
-          </Link>
-        ))}
-        {who.canWrite && itp.status !== "voided" ? (
-          <MarkOnDrawingMenu projectId={projectId} itemId={item.id} />
+            })}
+          </ul>
         ) : null}
-        {editable && who.canWrite ? (
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => setNoteOpen((v) => !v)}
-            data-testid="itp-note-toggle"
-          >
-            <MessageSquare />
-            {item.notes ? "Edit note" : "Add note"}
-          </Button>
+
+        {item.pins.length ||
+        (who.canWrite && itp.status !== "voided") ||
+        (editable && who.canWrite) ? (
+          <div className="flex flex-wrap items-center gap-1.5 text-sm">
+            {item.pins.map((pin) => (
+              <Link
+                key={pin.id}
+                to="/projects/$projectId/drawings/$drawingId"
+                params={{
+                  projectId: String(projectId),
+                  drawingId: String(pin.drawing_id),
+                }}
+                className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs hover:border-vri-gold"
+                data-testid="itp-item-pin"
+              >
+                <MapPin className="size-3 text-vri-copper" aria-hidden="true" />
+                {pin.label || `Pin #${pin.tag_number || pin.id}`} ·{" "}
+                {pin.drawing_title ?? "Drawing"}
+                {pin.page_number > 1 ? ` p.${pin.page_number}` : ""}
+              </Link>
+            ))}
+            {who.canWrite && itp.status !== "voided" ? (
+              <MarkOnDrawingMenu projectId={projectId} itemId={item.id} />
+            ) : null}
+            {editable && who.canWrite && !blocked ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setNoteOpen((v) => !v)}
+                data-testid="itp-note-toggle"
+              >
+                <MessageSquare />
+                {item.notes ? "Edit note" : "Add note"}
+              </Button>
+            ) : null}
+          </div>
         ) : null}
       </div>
-
-      {item.notes && !noteOpen ? (
-        <p className="whitespace-pre-wrap rounded-md bg-muted px-3 py-2 text-sm">
-          {item.notes}
-        </p>
-      ) : null}
-      {noteOpen ? (
-        <form
-          className="flex flex-col gap-2"
-          onSubmit={(event) => {
-            event.preventDefault()
-            update.mutate({ notes: note.trim() || null })
-          }}
-        >
-          <Textarea
-            rows={2}
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="What was checked, measured or seen…"
-            aria-label="Note"
-            data-testid="itp-note"
-          />
-          <div className="flex gap-2">
-            <LoadingButton size="sm" type="submit" loading={update.isPending}>
-              Save note
-            </LoadingButton>
-            <Button
-              size="sm"
-              type="button"
-              variant="outline"
-              onClick={() => setNoteOpen(false)}
-            >
-              Cancel
-            </Button>
-          </div>
-        </form>
-      ) : null}
 
       <SignDialog
         item={item}
