@@ -3536,7 +3536,7 @@
               {
                 "type": "radiogroup",
                 "choices": ["Pass", "Fail", "N/A"],
-                "name": "as-builts",
+                "name": "as-built-drawings",
                 "title": "As-built drawings available",
                 "classification": "review",
                 "signoffRoles": ["Discipline lead", "Commissioning manager"],

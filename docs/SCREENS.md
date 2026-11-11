@@ -1042,4 +1042,3 @@ item 7; …") so a line can be traced back to the book.
     accounts with no masters, so an account seeded with the 13.7 library does
     not get the new starters automatically (no live accounts yet). *New
     template → Start from* offers every new starter.
-
