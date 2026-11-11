@@ -892,6 +892,8 @@ describe("photo capture flow", () => {
           filename: "IMG_0001.jpg",
           content_type: "image/jpeg",
           uploaded_by: "Stacey Roberts",
+          // 13.8: when the device says the picture was taken.
+          captured_at: new Date(file.lastModified).toISOString(),
         },
       }),
     )

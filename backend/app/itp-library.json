@@ -141,8 +141,9 @@
                 "signoffRoles": ["Third-party inspector"],
                 "acceptanceCriteria": "Bar spacing matches the shop drawings within the specified tolerance, and clear spacing between parallel bars is not less than the largest of 1 in, one bar diameter, and 4/3 of the nominal maximum aggregate size. Spacing tolerance: Project-specific value required — verify before issue.",
                 "reference": "ACI 318 §25.2; ACI 117",
-                "recordRequired": "Photo with a tape across the mat",
-                "photoRequired": true
+                "recordRequired": "Three-shot photo set: context, intermediate, close-up with a tape across the mat",
+                "photoRequired": true,
+                "photoSet": "three_shot"
               },
               {
                 "type": "radiogroup",

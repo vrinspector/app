@@ -288,6 +288,20 @@ Upgrade is idempotent and every existing row stays valid. Downgrade refuses
 while any photo is ITP evidence or any line holds a measured value, otherwise
 maps the classification words back and drops the added columns.
 
+## ITP document numbers + three-shot photos (increment 13.8, migration `b2e6f9c4d817`)
+
+Additive and guarded (idempotent upgrade; the downgrade refuses while any
+project has a code, any line asks for the three-shot set or any photo fills a
+slot).
+
+| Table | Column | Type | Notes |
+| --- | --- | --- | --- |
+| `projects` | `code` | VARCHAR(20) NULL | Owner-set PROJECT CODE for ITP numbers; NULL → derived from the name (`app/core/doc_numbers.py`). Returned with the effective `itp_code`. |
+| `project_itps` | `seq` | INTEGER NULL, UNIQUE (`project_id`, `seq`) | 1, 2, 3 … per project; given at creation with the project row locked; existing ITPs backfilled in creation order. `doc_number` = `ITP-<itp_code>-<seq, 3 digits>` is computed, not stored. |
+| `itp_items` | `photo_set` | VARCHAR(20) NULL | `three_shot` when the template question sets `photoSet`; the line is evidenced only with a Context, Intermediate and Close-up photo. |
+| `photos` | `shot_slot` | VARCHAR(20) NULL, CHECK `ck_photos_shot_slot` | `context` / `intermediate` / `closeup`, only on ITP line photos. |
+| `photos` | `captured_at` | TIMESTAMPTZ NULL | When the device says the picture was taken (the file in S3 keeps its own EXIF). |
+
 ## Not ported (by design)
 
 * `voice_notes` (Block 1) — the deployed SPA uses browser speech recognition

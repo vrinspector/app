@@ -4,7 +4,12 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { type PhotoPublic, PhotosService } from "@/client"
 import useAuth from "@/hooks/useAuth"
 import useCustomToast from "@/hooks/useCustomToast"
-import { describeFile, type PhotoUpload, putToS3 } from "@/hooks/usePhotoUpload"
+import {
+  capturedAt,
+  describeFile,
+  type PhotoUpload,
+  putToS3,
+} from "@/hooks/usePhotoUpload"
 import { itpKeys } from "@/lib/queries"
 import { extractErrorMessage } from "@/utils"
 
@@ -15,6 +20,9 @@ import { extractErrorMessage } from "@/utils"
  *   1. POST /photos/presign {itp_item_id, filename, content_type}
  *   2. PUT the file straight to S3 (never via the API)
  *   3. POST /photos {itp_item_id, s3_key, filename, content_type}
+ *
+ * Increment 13.8: `addFiles(files, slot)` files the photos under one slot of
+ * the three-shot set (`shot_slot`), and every photo carries `captured_at`.
  *
  * `onUploaded` runs after each registered photo so the ITP screen can
  * refresh the line's "photo on file" state.
@@ -85,6 +93,8 @@ export function useItpPhotoUpload(itemId: number, onUploaded: () => void) {
               filename,
               content_type: contentType,
               uploaded_by: user?.name ?? user?.email ?? null,
+              shot_slot: upload.slot ?? null,
+              captured_at: capturedAt(upload.file),
             },
           })
         ).data as PhotoPublic
@@ -110,7 +120,7 @@ export function useItpPhotoUpload(itemId: number, onUploaded: () => void) {
   )
 
   const addFiles = useCallback(
-    (files: ArrayLike<File> | null | undefined) => {
+    (files: ArrayLike<File> | null | undefined, slot?: PhotoUpload["slot"]) => {
       if (!files || files.length === 0) return
       const items: PhotoUpload[] = Array.from(files)
         .filter((file) => !file.type || file.type.startsWith("image/"))
@@ -119,6 +129,7 @@ export function useItpPhotoUpload(itemId: number, onUploaded: () => void) {
           return {
             id: `itp-upload-${nextId}`,
             file,
+            slot,
             previewUrl: URL.createObjectURL(file),
             status: "presigning",
             progress: 0,

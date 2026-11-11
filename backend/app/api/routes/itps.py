@@ -43,6 +43,13 @@ Rules enforced here (the data model leaves them to the API layer):
   (``photos.itp_item_id``; uploaded with ``/photos/presign`` → S3 →
   ``/photos``). Number / text lines take a measured value next to the result;
   a number outside the line's min / max is flagged, not refused.
+* **Three-shot set (13.8).** A line whose template sets ``photoSet:
+  "three_shot"`` needs a Context, an Intermediate and a Close-up-with-scale
+  photo (``photos.shot_slot``) before it can pass or be signed.
+* **Document numbers (13.8).** Each new ITP takes the project's next ``seq``
+  (the project row is locked while it is given, so two imports at once
+  cannot take the same number); ``doc_number`` reads
+  ``ITP-<project code>-<seq>``.
 * Same-project checks: an ITP's area, a role and a pin's line all belong to
   the ITP's project, else 404.
 """
@@ -71,6 +78,7 @@ from app.api.authz import (
 )
 from app.api.deps import CurrentUser, SessionDep
 from app.api.itp_state import (
+    evidence_gap,
     item_public,
     itp_public,
     itp_summary,
@@ -98,6 +106,7 @@ from app.models import (
     ItpTemplateSummary,
     ItpTemplateUpdate,
     ItpTemplateVersion,
+    Project,
     ProjectItp,
     ProjectItpBulkCreate,
     ProjectItpCreate,
@@ -470,6 +479,7 @@ def _import(
         area_id=area_id,
         template_id=template.id,
         template_version=template.version,
+        seq=_next_seq(db, project_id),
         title=title[:255],
         status="not_started",
         body=copy.deepcopy(template.body),
@@ -490,6 +500,7 @@ def _import(
             reference_doc=parsed_item.reference,
             record_required=parsed_item.record_required,
             photo_required=parsed_item.photo_required,
+            photo_set=parsed_item.photo_set,
             value_type=parsed_item.value_type,
             value_unit=parsed_item.unit,
             value_min=parsed_item.min_value,
@@ -503,6 +514,15 @@ def _import(
             assert role_id is not None
             db.add(ItpItemRequiredRole(itp_item_id=item.id, signoff_role_id=role_id))
     return itp
+
+
+def _next_seq(db: Session, project_id: int) -> int:
+    """The project's next ITP number, with the project row locked until commit."""
+    db.exec(select(Project.id).where(Project.id == project_id).with_for_update())
+    current = db.exec(
+        select(func.max(ProjectItp.seq)).where(ProjectItp.project_id == project_id)
+    ).one()
+    return int(current or 0) + 1
 
 
 def _importable_template(db: Session, template_id: int, user: AuthUser) -> ItpTemplate:
@@ -615,6 +635,7 @@ def list_project_itp_items(
                     id=item.id,
                     project_itp_id=state.itp.id,
                     itp_title=state.itp.title,
+                    doc_number=state.doc_number,
                     area_name=state.area.name if state.area else None,
                     section=item.section,
                     requirement=item.requirement,
@@ -750,10 +771,11 @@ def update_itp_item(
             item.measured_value = value
     if new_status is not None and new_status != item.status:
         _ensure_recordable(state)
-        if new_status == "pass" and item.photo_required and not state.photo_count:
+        if new_status == "pass" and not state.evidenced:
+            gap = evidence_gap(item, state.shot_slots)
             raise conflict(
-                "This line needs a photo on file before it can pass — take or "
-                "upload one first"
+                f"This line needs {gap} before it can pass — take or upload "
+                "the photo first"
             )
         item.status = new_status
         if itp.status == "not_started":
@@ -804,8 +826,9 @@ def sign_itp_item(
         )
     if item.status not in ("pass", "na"):
         raise conflict("Record this line as Pass or N/A before it is signed")
-    if item.photo_required and item.status == "pass" and not state.photo_count:
-        raise conflict("This line needs a photo on file before it can be signed")
+    if item.status == "pass" and not state.evidenced:
+        gap = evidence_gap(item, state.shot_slots)
+        raise conflict(f"This line needs {gap} before it can be signed")
     if role.signer_email:
         if (current_user.email or "").casefold() != role.signer_email.casefold():
             raise HTTPException(

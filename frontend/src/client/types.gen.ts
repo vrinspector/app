@@ -878,6 +878,18 @@ export type ItpItemPublic = {
      */
     photo_count?: number;
     /**
+     * Photo Set
+     */
+    photo_set?: string | null;
+    /**
+     * Shot Slots
+     */
+    shot_slots?: Array<string>;
+    /**
+     * Evidenced
+     */
+    evidenced?: boolean;
+    /**
      * Value Type
      */
     value_type?: string | null;
@@ -941,6 +953,10 @@ export type ItpItemRef = {
      * Itp Title
      */
     itp_title: string;
+    /**
+     * Doc Number
+     */
+    doc_number?: string | null;
     /**
      * Area Name
      */
@@ -1405,6 +1421,14 @@ export type PhotoCreate = {
      * Uploaded By
      */
     uploaded_by?: string | null;
+    /**
+     * Shot Slot
+     */
+    shot_slot?: 'context' | 'intermediate' | 'closeup' | null;
+    /**
+     * Captured At
+     */
+    captured_at?: string | null;
 };
 
 /**
@@ -1487,6 +1511,14 @@ export type PhotoPublic = {
      * Created At
      */
     created_at: string;
+    /**
+     * Shot Slot
+     */
+    shot_slot?: string | null;
+    /**
+     * Captured At
+     */
+    captured_at?: string | null;
     /**
      * View Url
      */
@@ -1657,6 +1689,10 @@ export type ProjectCreate = {
      * Created By
      */
     created_by?: string | null;
+    /**
+     * Code
+     */
+    code?: string | null;
 };
 
 /**
@@ -1725,6 +1761,14 @@ export type ProjectItpPublic = {
      * Template Version
      */
     template_version: number | null;
+    /**
+     * Seq
+     */
+    seq?: number | null;
+    /**
+     * Doc Number
+     */
+    doc_number?: string | null;
     /**
      * Title
      */
@@ -1817,6 +1861,14 @@ export type ProjectItpSummary = {
      * Template Version
      */
     template_version: number | null;
+    /**
+     * Seq
+     */
+    seq?: number | null;
+    /**
+     * Doc Number
+     */
+    doc_number?: string | null;
     /**
      * Title
      */
@@ -1921,6 +1973,14 @@ export type ProjectPublic = {
      * Updated At
      */
     updated_at: string;
+    /**
+     * Code
+     */
+    code?: string | null;
+    /**
+     * Itp Code
+     */
+    readonly itp_code: string;
 };
 
 /**
@@ -1943,6 +2003,10 @@ export type ProjectUpdate = {
      * Status
      */
     status?: 'active' | 'on_hold' | 'complete' | null;
+    /**
+     * Code
+     */
+    code?: string | null;
 };
 
 /**
@@ -2171,6 +2235,52 @@ export type WeatherReading = {
      * Observed At
      */
     observed_at?: string | null;
+};
+
+/**
+ * ProjectPublic
+ */
+export type ProjectPublicWritable = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Public Id
+     */
+    public_id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Client
+     */
+    client: string | null;
+    /**
+     * Location
+     */
+    location: string | null;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Created By
+     */
+    created_by: string | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+    /**
+     * Code
+     */
+    code?: string | null;
 };
 
 export type usersReadUserMeData = {

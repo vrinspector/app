@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest"
 
 import {
   checkTemplateText,
+  derivedProjectCode,
+  evidenceGap,
+  itpDocNumber,
+  normaliseProjectCode,
   parseTemplateBody,
   percent,
   TemplateError,
@@ -145,5 +149,64 @@ describe("ITP template bodies (mirror of the API's parser)", () => {
   it("rounds progress", () => {
     expect(percent(1, 3)).toBe(33)
     expect(percent(0, 0)).toBe(0)
+  })
+})
+
+describe("increment 13.8: document numbers and the three-shot set", () => {
+  it("derives a project code the way the API does", () => {
+    expect(derivedProjectCode("Landfill Cell 4", 1)).toBe("LC4")
+    expect(derivedProjectCode("Cedar Hollow Landfill RNG", 1)).toBe("CHLR")
+    expect(derivedProjectCode("Riverside", 1)).toBe("RIVE")
+    expect(derivedProjectCode("X", 7)).toBe("P7")
+    expect(derivedProjectCode("", 7)).toBe("P7")
+  })
+
+  it("normalises and checks a typed code", () => {
+    expect(normaliseProjectCode(" lc-4 ")).toEqual({
+      code: "LC-4",
+      error: null,
+    })
+    expect(normaliseProjectCode("gw plant")).toEqual({
+      code: "GW-PLANT",
+      error: null,
+    })
+    expect(normaliseProjectCode("")).toEqual({ code: null, error: null })
+    expect(normaliseProjectCode("-AB").error).not.toBeNull()
+    expect(normaliseProjectCode("A/B").error).not.toBeNull()
+    expect(normaliseProjectCode("X".repeat(21)).error).not.toBeNull()
+    expect(itpDocNumber("LC4", 7)).toBe("ITP-LC4-007")
+  })
+
+  it("reads photoSet like the API and names what is missing", () => {
+    const body = (photoSet: unknown) => ({
+      pages: [
+        {
+          elements: [
+            { type: "radiogroup", name: "a", classification: "W", photoSet },
+          ],
+        },
+      ],
+    })
+    for (const value of ["three_shot", "three-shot", "threeShot"]) {
+      expect(parseTemplateBody(body(value)).items[0].photoSet).toBe(
+        "three_shot",
+      )
+    }
+    expect(parseTemplateBody(body("none")).items[0].photoSet).toBeNull()
+    expect(() => parseTemplateBody(body("two_shot"))).toThrow(TemplateError)
+
+    expect(
+      evidenceGap({ photo_set: "three_shot", shot_slots: ["context"] }),
+    ).toBe("Three-shot set: still missing Intermediate, Close-up with scale")
+    expect(
+      evidenceGap({
+        photo_set: "three_shot",
+        shot_slots: ["context", "intermediate", "closeup"],
+      }),
+    ).toBeNull()
+    expect(evidenceGap({ photo_required: true, photo_count: 0 })).toBe(
+      "Photo required",
+    )
+    expect(evidenceGap({ photo_required: true, photo_count: 1 })).toBeNull()
   })
 })

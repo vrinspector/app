@@ -76,10 +76,16 @@ test("hold point blocks later lines until signed, then the ITP completes", async
   const hold = lines.nth(4)
   const holdTime = lines.nth(5)
   await expect(hold).toContainText("Test pressure held")
-  await expect(hold).toContainText("Hold point")
+  await expect(hold.getByTestId("itp-classification-chip")).toHaveAttribute(
+    "aria-label",
+    "Hold point",
+  )
   await expect(hold.getByTestId("itp-measured-unit")).toHaveText("psig")
   await expect(holdTime).toHaveAttribute("data-blocked", "true")
-  await expect(holdTime.getByTestId("itp-result-pass")).toBeDisabled()
+  // 13.8: a locked line has no result buttons; one notice per section says
+  // why (the hold's own section and the one after it).
+  await expect(holdTime.getByTestId("itp-result-pass")).toHaveCount(0)
+  await expect(page.getByTestId("itp-section-lock")).toHaveCount(2)
   await expect(page.getByTestId("itp-blockers")).toContainText(
     "is waiting for Contractor",
   )
@@ -139,7 +145,8 @@ test("line evidence: criteria, required photo, measured value with tolerance", a
   page,
 }, testInfo) => {
   test.setTimeout(60_000)
-  // Stage 2 carries the starter "Cast-in-place concrete", not started.
+  // Stage 2 carries the starter "Cast-in-place concrete": submittals
+  // accepted, the forms failed (13.8 sample).
   await openProject(page)
   await page.getByTestId("itp-card").filter({ hasText: "Stage 2" }).click()
   const lines = page.getByTestId("itp-item")
@@ -147,9 +154,11 @@ test("line evidence: criteria, required photo, measured value with tolerance", a
   const mix = lines.nth(0)
   const subgrade = lines.nth(2)
 
-  // H / W / R / I vocabulary and the line's criteria under its title.
-  await expect(mix).toContainText("Review")
-  await expect(subgrade).toContainText("Witness")
+  // H / W / R / I vocabulary (the gutter chip) and the line's criteria.
+  const chip = (line: typeof mix) => line.getByTestId("itp-classification-chip")
+  await expect(chip(mix)).toHaveText("R")
+  await expect(chip(mix)).toHaveAttribute("aria-label", "Review")
+  await expect(chip(subgrade)).toHaveText("W")
   await expect(mix.getByTestId("itp-line-criteria")).toContainText(
     "ACI 301 Section 4",
   )
@@ -169,6 +178,7 @@ test("line evidence: criteria, required photo, measured value with tolerance", a
   // need a photo before they can pass.
   for (let index = 0; index < 7; index++) {
     const line = lines.nth(index)
+    if ((await line.getAttribute("data-status")) === "pass") continue
     if ((await line.getByTestId("itp-photo-required").count()) > 0) {
       await expect(line.getByTestId("itp-result-pass")).toBeDisabled()
       await line
@@ -192,6 +202,25 @@ test("line evidence: criteria, required photo, measured value with tolerance", a
   await page.getByTestId("itp-sign-confirm").click()
   await expect(barMarks.getByTestId("itp-signature")).toHaveCount(1)
   await expect(spacing).toHaveAttribute("data-blocked", "false")
+
+  // 13.8: bar spacing asks for the three-shot set; Pass waits for all three.
+  const slots = spacing.getByTestId("itp-shot-slot")
+  await expect(slots).toHaveCount(3)
+  await expect(slots.nth(2)).toContainText("Close-up with scale")
+  await expect(spacing.getByTestId("itp-three-shot-needed")).toContainText(
+    "0 of 3",
+  )
+  await expect(spacing.getByTestId("itp-result-pass")).toBeDisabled()
+  for (const [n, slot] of ["context", "intermediate", "closeup"].entries()) {
+    await slots
+      .nth(n)
+      .getByTestId("library-input")
+      .setInputFiles(photo(`${slot}.png`))
+    await expect(slots.nth(n)).toHaveAttribute("data-filled", "true")
+  }
+  await expect(spacing.getByTestId("itp-three-shot-complete")).toBeVisible()
+  await spacing.getByTestId("itp-result-pass").click()
+  await expect(spacing).toHaveAttribute("data-status", "pass")
   await page.screenshot({
     path: testInfo.outputPath("itp-line-evidence.png"),
     fullPage: true,
@@ -327,4 +356,77 @@ test("master templates: starter library, lines, SurveyJS preview, edit → v2", 
   await editor.getByTestId("save-template").click()
   await expect(page.getByTestId("template-versions")).toContainText("v2")
   await expect(page.getByTestId("template-lines").locator("li")).toHaveCount(1)
+})
+
+test("look and feel: document numbers, section bars, one lock notice, failed lines", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(60_000)
+  await openProject(page)
+  // The sample project's owner set the ITP code CH-RNG; numbers follow it.
+  const cards = page.getByTestId("itp-card")
+  await expect(cards.first().getByTestId("itp-doc-number")).toHaveText(
+    "ITP-CH-RNG-001",
+  )
+  await expect(
+    cards.filter({ hasText: "Stage 2" }).getByTestId("itp-doc-number"),
+  ).toHaveText("ITP-CH-RNG-002")
+
+  await cards.filter({ hasText: "Stage 2" }).click()
+  await expect(page.getByTestId("page-header")).toContainText("ITP-CH-RNG-002")
+
+  // Five section bars; the rebar one says sign-off is required.
+  const sections = page.getByTestId("itp-section")
+  await expect(sections).toHaveCount(5)
+  const rebar = sections.filter({ hasText: "Rebar inspection" })
+  await expect(rebar.getByTestId("itp-section-signoff")).toHaveText(
+    "Sign-off required",
+  )
+  await expect(sections.first().getByTestId("itp-section-signoff")).toHaveCount(
+    0,
+  )
+  // One lock notice per locked stretch, not one per line: the rebar section
+  // (after its first hold point) and the two sections after it.
+  await expect(page.getByTestId("itp-section-lock")).toHaveCount(3)
+  await expect(rebar.getByTestId("itp-section-lock")).toContainText(
+    "Locked from line 9",
+  )
+  const locked = page.locator('[data-testid="itp-item"][data-blocked="true"]')
+  await expect(locked).toHaveCount(19)
+  await expect(locked.getByTestId("itp-result-pass")).toHaveCount(0)
+
+  // The failed forms line: tinted, with its note directly beneath.
+  const forms = page.getByTestId("itp-item").nth(3)
+  await expect(forms).toHaveAttribute("data-status", "fail")
+  await expect(forms.getByTestId("itp-item-note")).toContainText(
+    "out of line at gridline C",
+  )
+  await expect(forms.getByTestId("itp-line-number")).toHaveText("4")
+  await page.screenshot({
+    path: testInfo.outputPath("itp-look-and-feel.png"),
+    fullPage: true,
+  })
+
+  // Failing a line opens its note at once.
+  const embeds = page.getByTestId("itp-item").nth(5)
+  await embeds.getByTestId("itp-result-fail").click()
+  await expect(embeds.getByTestId("itp-note")).toBeVisible()
+  await embeds.getByTestId("itp-note").fill("Sleeve S-3 missing at grid B2")
+  await embeds.getByRole("button", { name: "Save note" }).click()
+  await expect(embeds.getByTestId("itp-item-note")).toContainText("Sleeve S-3")
+
+  // The owner changes the project code: every number follows.
+  await openProject(page)
+  await page.getByTestId("project-actions").click()
+  await page.getByRole("menuitem", { name: /Edit/ }).click()
+  const form = page.getByTestId("project-form-dialog")
+  await form.getByTestId("project-code").fill("chl 4")
+  await expect(form.getByTestId("project-code-preview")).toContainText(
+    "ITP-CHL-4-001",
+  )
+  await form.getByTestId("project-form-submit").click()
+  await expect(form).toHaveCount(0)
+  await expect(cards.first().getByTestId("itp-doc-number")).toHaveText(
+    "ITP-CHL-4-001",
+  )
 })

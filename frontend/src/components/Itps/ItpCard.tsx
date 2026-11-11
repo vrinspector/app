@@ -5,9 +5,9 @@ import type { ProjectItpSummary } from "@/client"
 import { StatusBadge } from "@/components/Common/StatusBadge"
 import { formatDate, joinMeta } from "@/lib/format"
 
-import { ItpProgress, ItpStatusBadge } from "./ItpBadges"
+import { DocNumber, ItpProgress, ItpStatusBadge } from "./ItpBadges"
 
-/** One ITP as a tappable card: title, area, status, progress, hold points. */
+/** One ITP as a tappable card: number, title, area, status, progress, holds. */
 export function ItpCard({
   projectId,
   itp,
@@ -26,6 +26,7 @@ export function ItpCard({
         className="group flex items-center gap-3 rounded-lg border bg-card p-4 transition-colors hover:border-vri-gold focus-visible:outline-2 focus-visible:outline-ring"
       >
         <div className="min-w-0 flex-1">
+          <DocNumber value={itp.doc_number} className="block" />
           <h3 className="truncate font-semibold">{itp.title}</h3>
           <p className="mt-0.5 truncate text-sm text-muted-foreground">
             {joinMeta(

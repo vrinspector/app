@@ -25,7 +25,9 @@ BASELINE_REVISION = "b7d3e9a1c204"
 # The revision before the baseline: downgrading to it removes every domain table.
 PRE_BASELINE_REVISION = "3f1c2d9a8b70"
 # Head of the chain (later increments add tables on top of the baseline).
-HEAD_REVISION = "a9d4c2e7f318"
+HEAD_REVISION = "b2e6f9c4d817"
+# The line-evidence revision (increment 13.6), just below head.
+LINE_EVIDENCE_REVISION = "a9d4c2e7f318"
 # The revision before the email log (increment 13.5).
 PRE_EMAIL_REVISION = "e7c2a9f4b613"
 # The revision before the ITP migration (increment 12).
@@ -375,7 +377,7 @@ def test_line_evidence_migration_renames_and_guards(legacy_db: str) -> None:
             )
     finally:
         engine.dispose()
-    assert run_alembic(legacy_db, "upgrade", "head").returncode == 0
+    assert run_alembic(legacy_db, "upgrade", LINE_EVIDENCE_REVISION).returncode == 0
 
     rows = _scalar(
         legacy_db,
@@ -428,4 +430,84 @@ def test_line_evidence_migration_renames_and_guards(legacy_db: str) -> None:
     assert rows == "surveillance,record,hold"
     assert "itp_item_id" not in _columns(legacy_db, "photos")
     assert _columns(legacy_db, "photos")["inspection_id"]["nullable"] is False
+    assert run_alembic(legacy_db, "upgrade", "head").returncode == 0
+
+
+def test_doc_number_migration_numbers_and_guards(legacy_db: str) -> None:
+    """Increment 13.8: ITP numbers backfilled per project; slot / code guards."""
+    assert run_alembic(legacy_db, "upgrade", LINE_EVIDENCE_REVISION).returncode == 0
+    engine = create_engine(legacy_db, isolation_level="AUTOCOMMIT")
+    try:
+        with engine.connect() as conn:
+            conn.exec_driver_sql(
+                """INSERT INTO projects (name) VALUES ('Second');
+                   INSERT INTO project_itps (project_id, title, body, created_at)
+                       VALUES (1, 'B', '{}', '2026-11-02'),
+                              (1, 'A', '{}', '2026-11-01'),
+                              (2, 'C', '{}', '2026-11-03');
+                   INSERT INTO itp_items (project_itp_id, requirement, classification)
+                       VALUES (1, 'Rebar', 'hold');"""
+            )
+    finally:
+        engine.dispose()
+    assert run_alembic(legacy_db, "upgrade", "head").returncode == 0
+    assert (
+        _scalar(
+            legacy_db,
+            "SELECT string_agg(title || seq, ',' ORDER BY project_id, seq) "
+            "FROM project_itps",
+        )
+        == "A1,B2,C1"
+    )
+    assert _columns(legacy_db, "projects")["code"]["nullable"] is True
+    assert _scalar(legacy_db, "SELECT count(*) FROM projects WHERE code IS NOT NULL") == 0
+    # Re-running is a no-op (idempotent upgrade keeps the numbers).
+    assert run_alembic(legacy_db, "downgrade", LINE_EVIDENCE_REVISION).returncode == 0
+    assert run_alembic(legacy_db, "upgrade", "head").returncode == 0
+
+    engine = create_engine(legacy_db, isolation_level="AUTOCOMMIT")
+    try:
+        with engine.connect() as conn:
+            for sql, name in (
+                (
+                    "INSERT INTO project_itps (project_id, title, body, seq) "
+                    "VALUES (1, 'Dup', '{}', 1)",
+                    "uq_project_itps_seq",
+                ),
+                (
+                    "INSERT INTO photos (inspection_id, s3_key, shot_slot) "
+                    "VALUES (1, 'x', 'context')",
+                    "ck_photos_shot_slot",
+                ),
+                (
+                    "INSERT INTO photos (itp_item_id, s3_key, shot_slot) "
+                    "VALUES (1, 'x', 'wide')",
+                    "ck_photos_shot_slot",
+                ),
+            ):
+                try:
+                    conn.exec_driver_sql(sql)
+                except Exception as exc:  # noqa: BLE001
+                    assert name in str(exc)
+                else:  # pragma: no cover
+                    raise AssertionError(f"{name} missing")
+            conn.exec_driver_sql("UPDATE projects SET code = 'LP' WHERE id = 1")
+            result = run_alembic(legacy_db, "downgrade", "-1")
+            assert result.returncode != 0
+            assert "Refusing to downgrade b2e6f9c4d817" in (
+                result.stderr + result.stdout
+            )
+            conn.exec_driver_sql("UPDATE projects SET code = NULL")
+            conn.exec_driver_sql(
+                "INSERT INTO photos (itp_item_id, s3_key, shot_slot, captured_at) "
+                "VALUES (1, 'photos/itp-items/1/a.jpg', 'context', now())"
+            )
+            assert run_alembic(legacy_db, "downgrade", "-1").returncode != 0
+            conn.exec_driver_sql("DELETE FROM photos WHERE shot_slot IS NOT NULL")
+    finally:
+        engine.dispose()
+    result = run_alembic(legacy_db, "downgrade", "-1")
+    assert result.returncode == 0, result.stderr
+    assert "seq" not in _columns(legacy_db, "project_itps")
+    assert "shot_slot" not in _columns(legacy_db, "photos")
     assert run_alembic(legacy_db, "upgrade", "head").returncode == 0

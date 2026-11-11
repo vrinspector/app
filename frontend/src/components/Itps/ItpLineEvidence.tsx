@@ -13,14 +13,19 @@ import {
 } from "lucide-react"
 import { useEffect, useId, useState } from "react"
 
-import { type ItpItemPublic, ItpsService, PhotosService } from "@/client"
+import {
+  type ItpItemPublic,
+  ItpsService,
+  type PhotoPublic,
+  PhotosService,
+} from "@/client"
 import { usePhotoPicker } from "@/components/Photos/PhotoCapture"
 import { PhotoViewerDialog } from "@/components/Photos/PhotoViewerDialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import useCustomToast from "@/hooks/useCustomToast"
 import { useItpPhotoUpload } from "@/hooks/useItpPhotoUpload"
-import { formatMeasured, toleranceLabel } from "@/lib/itp"
+import { formatMeasured, THREE_SHOT_SLOTS, toleranceLabel } from "@/lib/itp"
 import { itpKeys } from "@/lib/queries"
 import { cn } from "@/lib/utils"
 import { extractErrorMessage } from "@/utils"
@@ -36,6 +41,11 @@ import { extractErrorMessage } from "@/utils"
  * flow as site photos; a line whose template sets `photoRequired` shows
  * "Photo required" until one is on file, and the API refuses Pass and
  * sign-off until then.
+ *
+ * Increment 13.8: a line whose template sets `photoSet: "three_shot"` shows
+ * three labelled slots — Context, Intermediate, Close-up with scale — each
+ * with its own one-line hint and Take / Upload, and counts as evidenced only
+ * when every slot has a photo.
  */
 
 export function LineCriteria({ item }: { item: ItpItemPublic }) {
@@ -208,6 +218,17 @@ export function LinePhotos({
   const list = count > 0 ? (photos.data ?? []) : []
   const onFile = count > 0
 
+  if (item.photo_set === "three_shot") {
+    return (
+      <ThreeShotPhotos
+        item={item}
+        photos={list}
+        canAdd={canAdd}
+        upload={upload}
+        onChanged={onChanged}
+      />
+    )
+  }
   if (!onFile && !canAdd && !item.photo_required) return null
 
   return (
@@ -321,5 +342,228 @@ export function LinePhotos({
         onDeleted={onChanged}
       />
     </div>
+  )
+}
+
+type ItpUpload = ReturnType<typeof useItpPhotoUpload>
+
+function ThreeShotPhotos({
+  item,
+  photos,
+  canAdd,
+  upload,
+  onChanged,
+}: {
+  item: ItpItemPublic
+  photos: PhotoPublic[]
+  canAdd: boolean
+  upload: ItpUpload
+  onChanged: () => void
+}) {
+  const [viewing, setViewing] = useState<number | null>(null)
+  const filled = new Set(item.shot_slots ?? [])
+  const complete = THREE_SHOT_SLOTS.every((slot) => filled.has(slot.value))
+  const extras = photos.filter((p) => !p.shot_slot)
+  const open = (photo: PhotoPublic) => setViewing(photos.indexOf(photo))
+
+  return (
+    <div className="flex flex-col gap-2" data-testid="itp-three-shot">
+      <p className="flex flex-wrap items-center gap-2 text-sm">
+        {complete ? (
+          <span
+            className="inline-flex items-center gap-1 font-medium text-status-positive-fg"
+            data-testid="itp-three-shot-complete"
+          >
+            <CheckCircle2 className="size-4" aria-hidden="true" />
+            Three-shot set on file
+          </span>
+        ) : (
+          <span
+            className="inline-flex items-center gap-1 font-medium text-status-critical-fg"
+            data-testid="itp-three-shot-needed"
+          >
+            <Camera className="size-4" aria-hidden="true" />
+            Three-shot set: {filled.size} of 3 — needed before Pass
+          </span>
+        )}
+      </p>
+      <ol className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-3">
+        {THREE_SHOT_SLOTS.map((slot, n) => (
+          <ShotSlotTile
+            key={slot.value}
+            number={n + 1}
+            slot={slot}
+            photos={photos.filter((p) => p.shot_slot === slot.value)}
+            uploads={upload.uploads.filter((u) => u.slot === slot.value)}
+            canAdd={canAdd}
+            onFiles={(files) => upload.addFiles(files, slot.value)}
+            onRetry={upload.retry}
+            onOpen={open}
+          />
+        ))}
+      </ol>
+      {extras.length ? (
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <span>Other photos</span>
+          {extras.map((photo) => (
+            <Thumb key={photo.id} photo={photo} onOpen={open} small />
+          ))}
+        </div>
+      ) : null}
+      <PhotoViewerDialog
+        photos={photos}
+        index={viewing}
+        onIndexChange={setViewing}
+        canWrite={canAdd}
+        onDeleted={onChanged}
+      />
+    </div>
+  )
+}
+
+function ShotSlotTile({
+  number,
+  slot,
+  photos,
+  uploads,
+  canAdd,
+  onFiles,
+  onRetry,
+  onOpen,
+}: {
+  number: number
+  slot: (typeof THREE_SHOT_SLOTS)[number]
+  photos: PhotoPublic[]
+  uploads: ItpUpload["uploads"]
+  canAdd: boolean
+  onFiles: (files: FileList | null) => void
+  onRetry: (id: string) => void
+  onOpen: (photo: PhotoPublic) => void
+}) {
+  const picker = usePhotoPicker(onFiles)
+  const has = photos.length > 0
+  return (
+    <li
+      className={cn(
+        "flex flex-col gap-1.5 rounded-md border p-2",
+        has
+          ? "border-status-positive-fg/40 bg-status-positive-bg/40"
+          : "border-dashed",
+      )}
+      data-testid="itp-shot-slot"
+      data-slot={slot.value}
+      data-filled={has ? "true" : "false"}
+    >
+      <p className="flex items-center gap-1.5 text-sm font-medium">
+        <span className="inline-flex size-5 items-center justify-center rounded-full bg-vri-green text-xs text-vri-offwhite">
+          {number}
+        </span>
+        {slot.label}
+        {has ? (
+          <CheckCircle2
+            className="size-4 text-status-positive-fg"
+            aria-label="On file"
+          />
+        ) : null}
+      </p>
+      <p className="text-xs leading-snug text-muted-foreground">{slot.hint}</p>
+      {has || uploads.length ? (
+        <div className="flex flex-wrap gap-1.5">
+          {uploads.map((u) => (
+            <span
+              key={u.id}
+              className="relative size-14 overflow-hidden rounded-md border"
+              data-testid="itp-photo-upload"
+            >
+              <img
+                src={u.previewUrl}
+                alt="Uploading"
+                className="size-full object-cover opacity-60"
+              />
+              {u.status === "error" ? (
+                <button
+                  type="button"
+                  className="absolute inset-0 flex items-center justify-center bg-destructive/70 text-white"
+                  onClick={() => onRetry(u.id)}
+                  title={u.error}
+                  aria-label={`Retry upload: ${u.error ?? "failed"}`}
+                >
+                  <RotateCcw className="size-4" />
+                </button>
+              ) : (
+                <span className="absolute inset-x-0 bottom-0 h-1 bg-muted">
+                  <span
+                    className="block h-full bg-vri-green"
+                    style={{ width: `${u.progress}%` }}
+                  />
+                </span>
+              )}
+            </span>
+          ))}
+          {photos.map((photo) => (
+            <Thumb key={photo.id} photo={photo} onOpen={onOpen} />
+          ))}
+        </div>
+      ) : null}
+      {canAdd ? (
+        <div className="mt-auto flex gap-1">
+          {picker.inputs}
+          <Button
+            size="sm"
+            variant={has ? "ghost" : "outline"}
+            className="flex-1"
+            onClick={picker.openCamera}
+            aria-label={`Take ${slot.label} photo`}
+            data-testid={`itp-shot-take-${slot.value}`}
+          >
+            <Camera />
+            {has ? "Another" : "Take"}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={picker.openLibrary}
+            aria-label={`Upload ${slot.label} photo`}
+            data-testid={`itp-shot-upload-${slot.value}`}
+          >
+            <ImagePlus />
+          </Button>
+        </div>
+      ) : null}
+    </li>
+  )
+}
+
+function Thumb({
+  photo,
+  onOpen,
+  small = false,
+}: {
+  photo: PhotoPublic
+  onOpen: (photo: PhotoPublic) => void
+  small?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      className={cn(
+        "overflow-hidden rounded-md border hover:border-vri-gold",
+        small ? "size-10" : "size-14",
+      )}
+      onClick={() => onOpen(photo)}
+      data-testid="itp-photo"
+      data-slot={photo.shot_slot ?? ""}
+    >
+      {photo.view_url ? (
+        <img
+          src={photo.view_url}
+          alt={photo.filename ?? "Line photo"}
+          className="size-full object-cover"
+          loading="lazy"
+        />
+      ) : (
+        <Camera className="m-auto size-5 text-muted-foreground" />
+      )}
+    </button>
   )
 }

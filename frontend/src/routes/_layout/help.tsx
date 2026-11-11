@@ -339,6 +339,24 @@ function Help() {
             entered alongside Pass or Fail; a value outside the line's limits is
             flagged <strong>Out of tolerance</strong>.
           </p>
+          <p>
+            Some lines ask for the <strong>three-shot set</strong>: a{" "}
+            <strong>Context</strong> photo that shows where you are, an{" "}
+            <strong>Intermediate</strong> photo of the element and its
+            surroundings, and a <strong>Close-up with scale</strong> with a tape
+            or scale card in the frame. Each has its own Take and Upload button;
+            the line can pass only when all three are on file.
+          </p>
+          <p>
+            Each ITP has a document number such as <strong>ITP-LC4-001</strong>:
+            the project's ITP code and a running number. Owners set the code
+            under <strong>Edit project</strong>; left blank, it comes from the
+            project name. On the ITP screen each section has a green header bar
+            that shows <em>Sign-off required</em> while a hold point in it is
+            waiting, and one notice says which hold point locks the lines below
+            it. A failed line turns brick red with its note underneath — tapping{" "}
+            <strong>Fail</strong> opens the note box straight away.
+          </p>
         </HelpSection>
 
         <HelpSection id="handoff" title="Field-to-office handoff">

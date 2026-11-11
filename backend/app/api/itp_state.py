@@ -10,6 +10,14 @@ until the required role signs"): lines are in ``sort_order``. A hold line is
 *released* when every one of its required roles has signed it. Every line
 after the first unreleased hold line is *blocked* — its result cannot be
 recorded — and the ITP cannot be completed while any hold line is unreleased.
+
+Photo evidence (13.6 / 13.8): a line is *evidenced* when its photo rule is
+met — at least one photo for ``photo_required``, a photo in each of the three
+slots for ``photo_set == "three_shot"``. An unevidenced line cannot pass and
+cannot be signed.
+
+Document numbers (13.8): each ITP's ``doc_number`` is
+``ITP-<project code>-<seq>`` (``app/core/doc_numbers.py``).
 """
 
 from collections import defaultdict
@@ -19,7 +27,9 @@ from dataclasses import dataclass, field
 from sqlalchemy import func
 from sqlmodel import Session, col, select
 
+from app.core.doc_numbers import effective_project_code, itp_doc_number
 from app.models import (
+    THREE_SHOT_SLOTS,
     Drawing,
     InspectionPin,
     ItpItem,
@@ -30,6 +40,7 @@ from app.models import (
     ItpSignature,
     ItpSignaturePublic,
     Photo,
+    Project,
     ProjectArea,
     ProjectItp,
     ProjectItpPublic,
@@ -46,6 +57,7 @@ class ItemState:
     pins: list[ItpPinRef] = field(default_factory=list)
     blocked_by: ItpItem | None = None
     photo_count: int = 0
+    shot_slots: set[str] = field(default_factory=set)
 
     @property
     def missing_roles(self) -> list[SignoffRole]:
@@ -56,6 +68,40 @@ class ItemState:
     def released(self) -> bool:
         return self.item.classification != "hold" or not self.missing_roles
 
+    @property
+    def missing_shots(self) -> list[str]:
+        if self.item.photo_set != "three_shot":
+            return []
+        return [s for s in THREE_SHOT_SLOTS if s not in self.shot_slots]
+
+    @property
+    def evidenced(self) -> bool:
+        return evidence_met(self.item, self.photo_count, self.shot_slots)
+
+
+SHOT_LABELS = {
+    "context": "Context",
+    "intermediate": "Intermediate",
+    "closeup": "Close-up with scale",
+}
+
+
+def evidence_met(item: ItpItem, photo_count: int, shot_slots: set[str]) -> bool:
+    """Is the line's photo rule met with these photos on file?"""
+    if item.photo_set == "three_shot":
+        return all(slot in shot_slots for slot in THREE_SHOT_SLOTS)
+    if item.photo_required:
+        return photo_count > 0
+    return True
+
+
+def evidence_gap(item: ItpItem, shot_slots: set[str]) -> str:
+    """Plain-language "what photo evidence is missing" for an unevidenced line."""
+    if item.photo_set == "three_shot":
+        missing = [SHOT_LABELS[s] for s in THREE_SHOT_SLOTS if s not in shot_slots]
+        return "the three-shot photo set (still missing: " + ", ".join(missing) + ")"
+    return "a photo on file"
+
 
 @dataclass
 class ItpState:
@@ -63,6 +109,11 @@ class ItpState:
     area: ProjectArea | None
     items: list[ItemState] = field(default_factory=list)
     signature_count: int = 0
+    project_code: str = ""
+
+    @property
+    def doc_number(self) -> str | None:
+        return itp_doc_number(self.project_code, self.itp.seq)
 
     @property
     def done_count(self) -> int:
@@ -129,7 +180,19 @@ def load_itp_states(db: Session, itps: Iterable[ProjectItp]) -> list[ItpState]:
     ).all()
     item_ids = [i.id for i in items]
     by_item: dict[int, ItemState] = {}
-    states = {itp.id: ItpState(itp=itp, area=areas.get(itp.area_id)) for itp in itps}
+    project_ids = {itp.project_id for itp in itps}
+    codes = {
+        p.id: effective_project_code(p.code, p.name, p.id)
+        for p in db.exec(select(Project).where(col(Project.id).in_(project_ids))).all()
+    }
+    states = {
+        itp.id: ItpState(
+            itp=itp,
+            area=areas.get(itp.area_id),
+            project_code=codes.get(itp.project_id, f"P{itp.project_id}"),
+        )
+        for itp in itps
+    }
     for item in items:
         assert item.id is not None
         item_state = ItemState(item=item)
@@ -156,6 +219,15 @@ def load_itp_states(db: Session, itps: Iterable[ProjectItp]) -> list[ItpState]:
         for photo_item_id, count in photo_counts:
             if photo_item_id is not None:
                 by_item[photo_item_id].photo_count = int(count)
+        filled = db.exec(
+            select(col(Photo.itp_item_id), col(Photo.shot_slot))
+            .where(col(Photo.itp_item_id).in_(item_ids))
+            .where(col(Photo.shot_slot).is_not(None))
+            .distinct()
+        ).all()
+        for photo_item_id, slot in filled:
+            if photo_item_id is not None and slot is not None:
+                by_item[photo_item_id].shot_slots.add(slot)
         pins = db.exec(
             select(InspectionPin, Drawing)
             .join(Drawing, col(Drawing.id) == col(InspectionPin.drawing_id))
@@ -235,6 +307,9 @@ def item_public(state: ItemState) -> ItpItemPublic:
         record_required=item.record_required,
         photo_required=item.photo_required,
         photo_count=state.photo_count,
+        photo_set=item.photo_set,
+        shot_slots=[s for s in THREE_SHOT_SLOTS if s in state.shot_slots],
+        evidenced=state.evidenced,
         value_type=item.value_type,
         value_unit=item.value_unit,
         value_min=item.value_min,
@@ -284,6 +359,8 @@ def _summary_fields(state: ItpState) -> dict[str, object]:
         "area_name": state.area.name if state.area else None,
         "template_id": itp.template_id,
         "template_version": itp.template_version,
+        "seq": itp.seq,
+        "doc_number": state.doc_number,
         "title": itp.title,
         "status": itp.status,
         "item_count": len(state.items),

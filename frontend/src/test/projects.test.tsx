@@ -321,6 +321,40 @@ describe("projects list", () => {
       expect(router.state.location.pathname).toBe("/projects/99"),
     )
   })
+
+  it("sends an ITP code only when one is typed, and previews the numbers", async () => {
+    api.createProject.mockResolvedValue(
+      ok({ ...projects[0], id: 98, name: "Landfill Cell 4", code: "LC-4" }),
+    )
+    renderApp("/projects")
+    await screen.findAllByTestId("project-card")
+    await userEvent.click(screen.getByTestId("new-project"))
+    const dialog = await screen.findByTestId("project-form-dialog")
+    await userEvent.type(
+      within(dialog).getByLabelText("Project name"),
+      "Landfill Cell 4",
+    )
+    // Blank: the code is derived from the name.
+    expect(
+      within(dialog).getByTestId("project-code-preview"),
+    ).toHaveTextContent("ITP-LC4-001")
+    await userEvent.type(within(dialog).getByTestId("project-code"), "lc 4")
+    expect(
+      within(dialog).getByTestId("project-code-preview"),
+    ).toHaveTextContent("ITP-LC-4-001")
+    await userEvent.click(within(dialog).getByTestId("project-form-submit"))
+    await waitFor(() =>
+      expect(api.createProject).toHaveBeenCalledWith({
+        body: {
+          name: "Landfill Cell 4",
+          client: null,
+          location: null,
+          status: "active",
+          code: "LC-4",
+        },
+      }),
+    )
+  })
 })
 
 describe("project screen", () => {
