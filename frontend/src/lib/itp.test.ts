@@ -8,6 +8,8 @@ import {
   normaliseProjectCode,
   parseTemplateBody,
   percent,
+  releaseChoice,
+  releaseResults,
   TemplateError,
 } from "./itp"
 import { BLANK_TEMPLATE, starterTemplate } from "./itpLibrary"
@@ -17,33 +19,71 @@ describe("ITP template bodies (mirror of the API's parser)", () => {
     const parsed = parseTemplateBody(
       starterTemplate("cast-in-place-concrete").body,
     )
-    expect(parsed.items).toHaveLength(27)
-    expect(parsed.holdCount).toBe(8)
+    expect(parsed.items).toHaveLength(48)
+    expect(parsed.holdCount).toBe(7)
     expect([...new Set(parsed.items.map((i) => i.section))]).toEqual([
       "1 Before work",
-      "2 Formwork and embeds",
-      "3 Rebar inspection",
-      "4 Pre-pour release",
-      "5 Placement and after",
+      "2 Formwork and shoring",
+      "3 Reinforcement (hold points)",
+      "4 Embedded items",
+      "5 Concrete mix and delivery readiness",
+      "6 Documentation and pre-pour release",
+      "7 During pour — test set",
+      "8 Post-pour — curing and protection",
     ])
     expect(parsed.roles).toEqual([
       { name: "Contractor", party: "contractor" },
       { name: "Owner's representative", party: "client" },
       { name: "Third-party inspector", party: "engineer" },
     ])
-    const cover = parsed.items.find((i) => i.elementName === "clear-cover")
+    const cover = parsed.items.find((i) => i.elementName === "concrete-cover")
     expect(cover).toMatchObject({
       classification: "hold",
       photoRequired: true,
-      reference: "ACI 318 §20.5.1.3; ACI 117",
       valueType: "number",
       unit: "in",
       roles: ["Third-party inspector"],
     })
-    const temperature = parsed.items.find(
-      (i) => i.elementName === "concrete-temperature",
+    expect(cover?.reference).toMatch(/^Field guide Checklist A-1 item 8;/)
+    const curing = parsed.items.find((i) => i.elementName === "cylinder-curing")
+    expect(curing).toMatchObject({ valueType: "number", min: 60, max: 80 })
+  })
+
+  it("reads resultScale like the API", () => {
+    const body = (extra: Record<string, unknown>) => ({
+      elements: [
+        { type: "radiogroup", name: "a", classification: "H", ...extra },
+      ],
+    })
+    const roles = { signoffRoles: ["Contractor"] }
+    const read = (extra: Record<string, unknown>) =>
+      parseTemplateBody(body({ ...roles, ...extra })).items[0]
+    expect(read({ resultScale: " Release " })).toMatchObject({
+      resultScale: "release",
+      approvedLabel: null,
+    })
+    expect(
+      read({ resultScale: "release", approvedLabel: "Approved to pour" })
+        .approvedLabel,
+    ).toBe("Approved to pour")
+    expect(read({ resultScale: "none" }).resultScale).toBeNull()
+    expect(() => read({ resultScale: "approve" })).toThrow(/resultScale/)
+    expect(() => read({ approvedLabel: "Go" })).toThrow(/approvedLabel needs/)
+  })
+
+  it("names a release line's result", () => {
+    expect(releaseChoice({ status: "pass", conditions: null })).toBe("approved")
+    expect(releaseChoice({ status: "pass", conditions: "1. Tie bars" })).toBe(
+      "conditional",
     )
-    expect(temperature).toMatchObject({ valueType: "number", max: 95 })
+    expect(releaseChoice({ status: "fail" })).toBe("rejected")
+    expect(releaseChoice({ status: "pending" })).toBeNull()
+    expect(releaseResults("Approved to pour").map((r) => r.label)).toEqual([
+      "Approved to pour",
+      "Approved with conditions",
+      "Rejected",
+    ])
+    expect(releaseResults(null)[0].label).toBe("Approved")
   })
 
   it("reads the old words and the H / W / R / I letters", () => {

@@ -26,6 +26,12 @@ or ``threeShot``): the line needs the three-shot photo set — Context,
 Intermediate, Close-up with scale — before it can pass or be signed, instead
 of a single photo.
 
+Increment 13.9 adds ``resultScale: "release"`` for release lines (the owner's
+field guide Checklist A-1 result): the line is recorded as Approved /
+Approved with conditions (listed in writing) / Rejected instead of Pass /
+Fail / N/A. An optional ``approvedLabel`` words the approval ("Approved to
+pour", at most 60 characters).
+
 The words used before 13.6 — ``surveillance`` and ``record`` — are still read
 (as ``information`` and ``review``), so older template bodies stay valid.
 
@@ -46,6 +52,7 @@ from typing import Any
 from app.models import (
     ITP_ITEM_CLASSIFICATIONS,
     ITP_PHOTO_SETS,
+    ITP_RESULT_SCALES,
     ITP_VALUE_TYPES,
     LEGACY_CLASSIFICATIONS,
     SIGNOFF_PARTIES,
@@ -97,6 +104,8 @@ class ParsedItem:
     unit: str | None = None
     min_value: float | None = None
     max_value: float | None = None
+    result_scale: str | None = None
+    approved_label: str | None = None
 
 
 @dataclass
@@ -245,6 +254,25 @@ def _photo_set(element: dict[str, Any], label: str) -> str | None:
     return kind
 
 
+def _result_scale(element: dict[str, Any], label: str) -> dict[str, Any]:
+    """Increment 13.9: ``resultScale`` (``release`` or none) and its label."""
+    raw = element.get("resultScale")
+    if raw is None:
+        scale = None
+    elif not isinstance(raw, str):
+        raise TemplateError(f"“{label}”: resultScale must be release or none")
+    else:
+        scale = raw.strip().lower() or None
+        if scale == "none":
+            scale = None
+        if scale is not None and scale not in ITP_RESULT_SCALES:
+            raise TemplateError(f"“{label}”: resultScale must be release or none")
+    approved = _short(element, "approvedLabel", label, 60)
+    if approved is not None and scale is None:
+        raise TemplateError(f"“{label}”: approvedLabel needs resultScale release")
+    return {"result_scale": scale, "approved_label": approved}
+
+
 def _evidence(element: dict[str, Any], label: str) -> dict[str, Any]:
     photo = element.get("photoRequired", False)
     if not isinstance(photo, bool):
@@ -328,6 +356,7 @@ def parse_template_body(body: Any) -> ParsedTemplate:
                     classification=classification,
                     roles=roles,
                     **_evidence(element, label),
+                    **_result_scale(element, label),
                 )
             )
 

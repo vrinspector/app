@@ -18,6 +18,7 @@ export type AreaType = "level" | "lot" | "stage" | "chainage" | "other"
 export type ItpStatus = "not_started" | "in_progress" | "complete" | "voided"
 export type Party = "contractor" | "client" | "engineer"
 export type PhotoSet = "three_shot"
+export type ResultScale = "release"
 export type ShotSlot = "context" | "intermediate" | "closeup"
 
 /*
@@ -184,6 +185,39 @@ export const ITEM_RESULTS: {
   { value: "na", label: "N/A", tone: "neutral" },
 ]
 
+/*
+ * Increment 13.9: a release line (field guide Checklist A-1 result) is
+ * recorded as Approved / Approved with conditions / Rejected. Approved with
+ * conditions is status "pass" plus written conditions; N/A is not offered.
+ */
+export type ReleaseChoice = "approved" | "conditional" | "rejected"
+
+export function releaseResults(approvedLabel: string | null | undefined): {
+  value: ReleaseChoice
+  label: string
+  tone: StatusTone
+}[] {
+  return [
+    { value: "approved", label: approvedLabel || "Approved", tone: "positive" },
+    {
+      value: "conditional",
+      label: "Approved with conditions",
+      tone: "attention",
+    },
+    { value: "rejected", label: "Rejected", tone: "critical" },
+  ]
+}
+
+export function releaseChoice(item: {
+  status: string
+  conditions?: string | null
+}): ReleaseChoice | null {
+  if (item.status === "pass")
+    return item.conditions ? "conditional" : "approved"
+  if (item.status === "fail") return "rejected"
+  return null
+}
+
 export const AREA_TYPE_OPTIONS: { value: AreaType; label: string }[] = [
   { value: "level", label: "Level" },
   { value: "lot", label: "Lot" },
@@ -283,6 +317,8 @@ export interface ParsedItem {
   recordRequired: string | null
   photoRequired: boolean
   photoSet: PhotoSet | null
+  resultScale: ResultScale | null
+  approvedLabel: string | null
   valueType: ValueType | null
   unit: string | null
   min: number | null
@@ -429,6 +465,33 @@ function readPhotoSet(element: Json, label: string): PhotoSet | null {
   return kind
 }
 
+/** Increment 13.9; a port of `app/core/itp.py::_result_scale`. */
+function readResultScale(element: Json, label: string) {
+  const raw = element.resultScale
+  let scale: ResultScale | null = null
+  if (raw !== undefined && raw !== null) {
+    if (typeof raw !== "string") {
+      throw new TemplateError(`“${label}”: resultScale must be release or none`)
+    }
+    const kind = raw.trim().toLowerCase()
+    if (kind !== "" && kind !== "none") {
+      if (kind !== "release") {
+        throw new TemplateError(
+          `“${label}”: resultScale must be release or none`,
+        )
+      }
+      scale = "release"
+    }
+  }
+  const approvedLabel = readShort(element, "approvedLabel", label, 60)
+  if (approvedLabel !== null && scale === null) {
+    throw new TemplateError(
+      `“${label}”: approvedLabel needs resultScale release`,
+    )
+  }
+  return { resultScale: scale, approvedLabel }
+}
+
 /** Increment 13.6 line evidence; a port of `app/core/itp.py::_evidence`. */
 function readEvidence(element: Json, label: string) {
   const photo = element.photoRequired ?? false
@@ -519,6 +582,7 @@ export function parseTemplateBody(body: unknown): ParsedTemplate {
         classification,
         roles: itemRoles,
         ...readEvidence(element, label),
+        ...readResultScale(element, label),
       })
     }
   }

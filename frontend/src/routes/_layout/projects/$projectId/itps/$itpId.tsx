@@ -161,7 +161,8 @@ function ItpBody({
       Object.fromEntries(
         itp.items
           .filter((i) => i.element_name)
-          .map((i) => [i.element_name as string, i.status]),
+          // A release line's result reads as its choice (13.9).
+          .map((i) => [i.element_name as string, i.result_label ?? i.status]),
       ),
     [itp.items],
   )

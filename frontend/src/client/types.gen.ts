@@ -914,6 +914,22 @@ export type ItpItemPublic = {
      */
     out_of_tolerance?: boolean | null;
     /**
+     * Result Scale
+     */
+    result_scale?: string | null;
+    /**
+     * Approved Label
+     */
+    approved_label?: string | null;
+    /**
+     * Conditions
+     */
+    conditions?: string | null;
+    /**
+     * Result Label
+     */
+    result_label?: string | null;
+    /**
      * Required Roles
      */
     required_roles: Array<ItpRoleRef>;
@@ -999,6 +1015,10 @@ export type ItpItemUpdate = {
      * Measured Value
      */
     measured_value?: string | null;
+    /**
+     * Conditions
+     */
+    conditions?: string | null;
 };
 
 /**

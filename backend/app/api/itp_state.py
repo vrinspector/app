@@ -29,6 +29,9 @@ from sqlmodel import Session, col, select
 
 from app.core.doc_numbers import effective_project_code, itp_doc_number
 from app.models import (
+    RELEASE_APPROVED_LABEL,
+    RELEASE_CONDITIONAL_LABEL,
+    RELEASE_REJECTED_LABEL,
     THREE_SHOT_SLOTS,
     Drawing,
     InspectionPin,
@@ -286,6 +289,19 @@ def out_of_tolerance(item: ItpItem) -> bool | None:
     )
 
 
+def result_label(item: ItpItem) -> str | None:
+    """A release line's result in words (13.9); null otherwise or while pending."""
+    if item.result_scale != "release":
+        return None
+    if item.status == "pass":
+        if item.conditions:
+            return RELEASE_CONDITIONAL_LABEL
+        return item.approved_label or RELEASE_APPROVED_LABEL
+    if item.status == "fail":
+        return RELEASE_REJECTED_LABEL
+    return None
+
+
 def item_public(state: ItemState) -> ItpItemPublic:
     item = state.item
     assert item.id is not None and item.public_id is not None
@@ -316,6 +332,10 @@ def item_public(state: ItemState) -> ItpItemPublic:
         value_max=item.value_max,
         measured_value=item.measured_value,
         out_of_tolerance=out_of_tolerance(item),
+        result_scale=item.result_scale,
+        approved_label=item.approved_label,
+        conditions=item.conditions,
+        result_label=result_label(item),
         required_roles=[
             ItpRoleRef(
                 id=r.id or 0,

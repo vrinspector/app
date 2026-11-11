@@ -302,6 +302,19 @@ slot).
 | `photos` | `shot_slot` | VARCHAR(20) NULL, CHECK `ck_photos_shot_slot` | `context` / `intermediate` / `closeup`, only on ITP line photos. |
 | `photos` | `captured_at` | TIMESTAMPTZ NULL | When the device says the picture was taken (the file in S3 keeps its own EXIF). |
 
+## ITP release lines (increment 13.9, migration `c6f1a8d3e529`)
+
+Additive and guarded (idempotent upgrade; the downgrade refuses while any line
+is a release line or carries conditions). The result itself stays in
+`itp_items.status` (`pass` / `fail`), so hold points, completion and sign-off
+rules are unchanged.
+
+| Table | Column | Type | Notes |
+| --- | --- | --- | --- |
+| `itp_items` | `result_scale` | VARCHAR(20) NULL | `release` when the template question sets `resultScale: "release"`: recorded as Approved / Approved with conditions / Rejected instead of Pass / Fail / N/A. |
+| `itp_items` | `approved_label` | VARCHAR(60) NULL | The approval's wording on that line (`approvedLabel`, e.g. "Approved to pour"). |
+| `itp_items` | `conditions` | TEXT NULL | The written conditions of "Approved with conditions"; only while `status = 'pass'`. |
+
 ## Not ported (by design)
 
 * `voice_notes` (Block 1) — the deployed SPA uses browser speech recognition

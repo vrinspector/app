@@ -948,3 +948,98 @@ green / cream / copper palette and serif headings stay.
 66. **Capture time is the device's file time.** A phone camera stamps it at
     the shutter; a photo picked from the library carries the file's own date.
     The original file (with any EXIF GPS / time) is kept unchanged in S3.
+
+## Increment 13.9 — book-aligned templates (owner decision 2026-11-10)
+
+The starter library now follows the owner's two published books (sources in
+`docs/reference/FIELD_GUIDE_EXCERPTS.md` and
+`COMMISSIONING_GUIDE_EXCERPTS.md`, cleared for verbatim use). Every line's
+**Reference** names the checklist and item number ("Field guide Checklist A-1
+item 7; …") so a line can be traced back to the book.
+
+- **Cast-in-place concrete** (48 lines, 7 hold points) in eight sections:
+  1 Before work (rebar, formwork and embedded-items submittals; subgrade);
+  2–6 all 25 items of **Checklist A-1** in its five groups — formwork and
+  shoring (1–6), reinforcement (7–12, all hold points released by the
+  Third-party inspector, each needing a photo), embedded items (13–16, plus
+  cast-in grounding), concrete mix and delivery readiness (17–22),
+  documentation (23–25); then the **written pre-pour release**; 7 the
+  during-pour test set (batch tickets incl. water added, frequency, slump
+  C143, air C231, unit weight C138, temperature C1064, four labelled
+  cylinders C31, cylinder initial curing 60–80 °F as a value with limits,
+  placement, consolidation); 8 post-pour curing and protection (start within
+  30 minutes, duration, hot- and cold-weather lines per Ch. 5, stripping,
+  post-pour anchor-bolt survey, 7- / 28-day results).
+  *Rebar size and spacing* (item 7) asks for the bar count in every row and
+  column, spacing measured in at least three locations (entered as a value),
+  and the **three-shot photo set**.
+- **Release lines.** A template question can set `resultScale: "release"`
+  (and `approvedLabel`). The line shows **Approved to pour / Approved with
+  conditions / Rejected** instead of Pass / Fail / N/A. *Approved with
+  conditions* opens a box to list each condition ("Approve with these
+  conditions" stays disabled until something is written); the conditions
+  show under the line in a copper-edged box with *Edit conditions* until the
+  line is signed. *Rejected* is the brick result and opens the note. The
+  status badge reads the result in words, and the Form view ticks the
+  matching choice.
+- **New starters:** Structural steel connections (A-2, 24 items + signed
+  acceptance), Piping pressure test (hydrostatic) (A-3, replaces the 13.7
+  version: 25 items with holds on the blind walkdown, test pressure and
+  leakage), Electrical pre-energization (A-4, 28 items; the authorization to
+  energize is a hold for a new **Owner's electrical engineer** role),
+  Instrument calibration (A-5, 20 items, as-found / as-left errors as
+  values), and the commissioning guide's Appendix A gates — Pre-commissioning
+  readiness, Cold commissioning, Hot commissioning and Ready for startup
+  (RFSU) — each 25 items verified by the **Discipline lead** and countersigned
+  by the **Commissioning manager**, ending in the authorization as a hold
+  (RFSU signed by commissioning, operations, safety and process engineering).
+  Earthwork and the duct bank are unchanged from 13.7.
+- **Known-errors list.** Book figures that disagree with the standard they
+  cite, or that the project sets, read "Project-specific value required —
+  verify before issue." The list and the reasons are in
+  `docs/reference/KNOWN_ERRORS.md`; a backend test keeps them out.
+- **Demo.** Stage 1 concrete has every pre-pour check done, the six rebar
+  holds released and the release *Approved with conditions* waiting for the
+  Contractor and Owner's representative; Stage 2 has the failed forms line;
+  Stage 3 is the new pressure test waiting on the blind-walkdown hold.
+
+### Tests (increment 13.9)
+
+- Backend: `tests/core/test_itp_library.py` (eleven starters parse; every line
+  measurable, referenced and with a record; known-error figures absent; each
+  book checklist's items present in order; A-1's 25 items in the five groups;
+  release, three-shot and the test-set lines), `tests/api/routes/test_itp_release.py`
+  (parser rules; Approved / with conditions / Rejected; N/A and stray
+  conditions refused; signed release frozen and releasing the hold),
+  `tests/api/routes/test_itp_library.py` (seeding and import of the new
+  concrete), migration guards in `tests/alembic/test_data_layer_baseline.py`.
+- Frontend: `src/lib/itp.test.ts` (resultScale parser port, release helpers),
+  `src/lib/itpLibrary.test.ts`; Playwright demo walks at phone width — a new
+  release walk (conditions shown, Approved to pour, Rejected with note,
+  conditions required, both signatures open the test set) and the existing
+  walks reworked on the new starters (the pressure test walked to Complete).
+
+### Decisions for the owner (increment 13.9)
+
+67. **Known-errors list drafted by the session.** No list was found, so
+    `docs/reference/KNOWN_ERRORS.md` lists 26 book figures replaced by
+    "Project-specific value required — verify before issue", each with the
+    reason. Please confirm or strike rows; a confirmed figure can go back in.
+68. **Release lines keep Pass / Fail underneath.** Approved and Approved with
+    conditions both count as passed (the pour may proceed once signed);
+    Rejected counts as failed. N/A is not offered on a release line.
+69. **Only the concrete pre-pour release uses the three-way result.** The
+    other books' results are two-way (Accepted / Rejected, Pass / Fail,
+    Authorized to energize / Do not energize) and stay Pass / Fail holds.
+    Any of them can be switched with `resultScale` in the master.
+70. **Every rebar check is a hold point**, as in 13.7; the three-shot set is
+    on item 7 (size and spacing), the others need one photo each.
+71. **Commissioning roles.** The commissioning starters use Discipline lead,
+    Commissioning manager and Operations manager (plus Safety manager / PSM
+    coordinator, Process engineer and Construction manager on RFSU) instead
+    of Contractor / Owner's representative / Third-party inspector.
+72. **Existing accounts keep their masters.** Seeding still happens once, for
+    accounts with no masters, so an account seeded with the 13.7 library does
+    not get the new starters automatically (no live accounts yet). *New
+    template → Start from* offers every new starter.
+
