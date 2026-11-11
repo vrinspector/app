@@ -297,6 +297,23 @@ Additive fields only; no route added or removed.
   and `captured_at`; photo responses return both. Deleting the only photo that
   keeps a passed line evidenced (its last photo, or the last in a slot) → 409.
 
+### Release lines (increment 13.9)
+
+Additive fields only; no route added or removed.
+
+- ITP lines add `result_scale` (`"release"` or null), `approved_label` (e.g.
+  "Approved to pour"), `conditions` and `result_label` (the result in words:
+  the approved label or "Approved", "Approved with conditions", "Rejected";
+  null while pending or on an ordinary line).
+- `PUT /itp-items/{id}` takes optional `conditions`. On a release line:
+  `{"status": "pass"}` is Approved, `{"status": "pass", "conditions": "…"}`
+  Approved with conditions, `{"status": "fail"}` Rejected; `"na"` → 422;
+  conditions without an approval → 422; leaving `pass` clears the conditions;
+  changing the conditions of a signed line → 409. Conditions on an ordinary
+  line → 422.
+- Template bodies take `resultScale` (`release` / `none`) and `approvedLabel`
+  (≤ 60 characters, only with `resultScale`) per question.
+
 ## Authorization (carried over from the July 2026 hardening)
 
 * Every object is reached through its project; non-members get **404** with

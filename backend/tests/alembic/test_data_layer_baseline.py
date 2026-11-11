@@ -25,7 +25,9 @@ BASELINE_REVISION = "b7d3e9a1c204"
 # The revision before the baseline: downgrading to it removes every domain table.
 PRE_BASELINE_REVISION = "3f1c2d9a8b70"
 # Head of the chain (later increments add tables on top of the baseline).
-HEAD_REVISION = "b2e6f9c4d817"
+HEAD_REVISION = "c6f1a8d3e529"
+# The document-number / three-shot revision (increment 13.8), just below head.
+DOC_NUMBER_REVISION = "b2e6f9c4d817"
 # The line-evidence revision (increment 13.6), just below head.
 LINE_EVIDENCE_REVISION = "a9d4c2e7f318"
 # The revision before the email log (increment 13.5).
@@ -450,7 +452,7 @@ def test_doc_number_migration_numbers_and_guards(legacy_db: str) -> None:
             )
     finally:
         engine.dispose()
-    assert run_alembic(legacy_db, "upgrade", "head").returncode == 0
+    assert run_alembic(legacy_db, "upgrade", DOC_NUMBER_REVISION).returncode == 0
     assert (
         _scalar(
             legacy_db,
@@ -463,7 +465,7 @@ def test_doc_number_migration_numbers_and_guards(legacy_db: str) -> None:
     assert _scalar(legacy_db, "SELECT count(*) FROM projects WHERE code IS NOT NULL") == 0
     # Re-running is a no-op (idempotent upgrade keeps the numbers).
     assert run_alembic(legacy_db, "downgrade", LINE_EVIDENCE_REVISION).returncode == 0
-    assert run_alembic(legacy_db, "upgrade", "head").returncode == 0
+    assert run_alembic(legacy_db, "upgrade", DOC_NUMBER_REVISION).returncode == 0
 
     engine = create_engine(legacy_db, isolation_level="AUTOCOMMIT")
     try:
@@ -510,4 +512,51 @@ def test_doc_number_migration_numbers_and_guards(legacy_db: str) -> None:
     assert result.returncode == 0, result.stderr
     assert "seq" not in _columns(legacy_db, "project_itps")
     assert "shot_slot" not in _columns(legacy_db, "photos")
+    assert run_alembic(legacy_db, "upgrade", "head").returncode == 0
+
+
+def test_release_result_migration_is_additive_and_guarded(legacy_db: str) -> None:
+    """Increment 13.9: release lines (scale, approved label, conditions)."""
+    assert run_alembic(legacy_db, "upgrade", DOC_NUMBER_REVISION).returncode == 0
+    engine = create_engine(legacy_db, isolation_level="AUTOCOMMIT")
+    try:
+        with engine.connect() as conn:
+            conn.exec_driver_sql(
+                """INSERT INTO project_itps (project_id, title, body)
+                       VALUES (1, 'Concrete pour', '{}');
+                   INSERT INTO itp_items (project_itp_id, requirement, classification)
+                       VALUES (1, 'Pre-pour release', 'hold');"""
+            )
+    finally:
+        engine.dispose()
+    assert run_alembic(legacy_db, "upgrade", "head").returncode == 0
+    columns = _columns(legacy_db, "itp_items")
+    for name in ("result_scale", "approved_label", "conditions"):
+        assert columns[name]["nullable"] is True
+    assert (
+        _scalar(legacy_db, "SELECT count(*) FROM itp_items WHERE result_scale IS NULL")
+        == 1
+    )
+    # Idempotent: downgrading an empty column set and upgrading again is clean.
+    assert run_alembic(legacy_db, "downgrade", DOC_NUMBER_REVISION).returncode == 0
+    assert "result_scale" not in _columns(legacy_db, "itp_items")
+    assert run_alembic(legacy_db, "upgrade", "head").returncode == 0
+
+    engine = create_engine(legacy_db, isolation_level="AUTOCOMMIT")
+    try:
+        with engine.connect() as conn:
+            conn.exec_driver_sql("UPDATE itp_items SET result_scale = 'release'")
+            result = run_alembic(legacy_db, "downgrade", DOC_NUMBER_REVISION)
+            assert result.returncode != 0
+            assert "Refusing to downgrade c6f1a8d3e529" in (
+                result.stderr + result.stdout
+            )
+            conn.exec_driver_sql(
+                "UPDATE itp_items SET result_scale = NULL, conditions = 'Clean joint'"
+            )
+            assert run_alembic(legacy_db, "downgrade", DOC_NUMBER_REVISION).returncode != 0
+            conn.exec_driver_sql("UPDATE itp_items SET conditions = NULL")
+    finally:
+        engine.dispose()
+    assert run_alembic(legacy_db, "downgrade", DOC_NUMBER_REVISION).returncode == 0
     assert run_alembic(legacy_db, "upgrade", "head").returncode == 0

@@ -127,6 +127,14 @@ ITP_VALUE_TYPES = ("number", "text")
 # guide Ch. 10) instead of a single photo. Slot order is the shooting order.
 ITP_PHOTO_SETS = ("three_shot",)
 THREE_SHOT_SLOTS = ("context", "intermediate", "closeup")
+# Increment 13.9: a release line (the owner's field guide Checklist A-1 result
+# "Approved to pour / Approved with conditions / Rejected") is recorded on a
+# three-way scale instead of Pass / Fail / N/A. Stored as status ``pass`` (no
+# conditions), ``pass`` + ``conditions`` text, or ``fail``; N/A is refused.
+ITP_RESULT_SCALES = ("release",)
+RELEASE_APPROVED_LABEL = "Approved"
+RELEASE_CONDITIONAL_LABEL = "Approved with conditions"
+RELEASE_REJECTED_LABEL = "Rejected"
 ITP_ITEM_STATUSES = ("pending", "pass", "fail", "na")
 SIGNOFF_PARTIES = ("contractor", "client", "engineer")
 ITP_SIGNATURE_METHODS = ("in_app", "external_link")
@@ -696,6 +704,13 @@ class ItpItem(SQLModel, table=True):
     # Increment 13.8: "three_shot" — the line is evidenced only when it has a
     # Context, an Intermediate and a Close-up-with-scale photo. NULL: none.
     photo_set: str | None = Field(default=None, sa_column=Column(String(20)))
+    # Increment 13.9: "release" — Approved / Approved with conditions /
+    # Rejected instead of Pass / Fail / N/A. NULL: the ordinary scale.
+    result_scale: str | None = Field(default=None, sa_column=Column(String(20)))
+    # The wording of "Approved" on this line, e.g. "Approved to pour".
+    approved_label: str | None = Field(default=None, sa_column=Column(String(60)))
+    # The written conditions of an "Approved with conditions" release.
+    conditions: str | None = Field(default=None, sa_column=Column(Text))
     # number | text — the line takes a measured value; NULL: result only.
     value_type: str | None = Field(default=None, sa_column=Column(String(10)))
     value_unit: str | None = Field(default=None, sa_column=Column(String(40)))
@@ -1578,6 +1593,9 @@ class ItpItemUpdate(SQLModel):
     notes: str | None = None
     # Increment 13.6: the measured value for a number / text line (null clears).
     measured_value: str | None = Field(default=None, max_length=500)
+    # Increment 13.9: on a release line, the conditions of "Approved with
+    # conditions" (sent with status "pass"; null or blank means plain Approved).
+    conditions: str | None = Field(default=None, max_length=4000)
 
 
 class ItpSignatureCreate(SQLModel):
@@ -1648,6 +1666,14 @@ class ItpItemPublic(SQLModel):
     measured_value: str | None = None
     # True / False for a number line with limits and a value; else null.
     out_of_tolerance: bool | None = None
+    # Increment 13.9: "release" or null; the wording of Approved on this line;
+    # the written conditions; and the result in words ("Approved to pour",
+    # "Approved with conditions", "Rejected"; null while pending or on an
+    # ordinary line).
+    result_scale: str | None = None
+    approved_label: str | None = None
+    conditions: str | None = None
+    result_label: str | None = None
     required_roles: list[ItpRoleRef]
     signatures: list[ItpSignaturePublic]
     # Hold point: every required role has signed. Always true for other lines.

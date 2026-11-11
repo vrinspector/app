@@ -46,6 +46,11 @@ Rules enforced here (the data model leaves them to the API layer):
 * **Three-shot set (13.8).** A line whose template sets ``photoSet:
   "three_shot"`` needs a Context, an Intermediate and a Close-up-with-scale
   photo (``photos.shot_slot``) before it can pass or be signed.
+* **Release lines (13.9).** A line whose template sets ``resultScale:
+  "release"`` is recorded as Approved (``status: "pass"``), Approved with
+  conditions (``"pass"`` plus written ``conditions``) or Rejected
+  (``"fail"``); N/A is refused and conditions are cleared when the line is no
+  longer approved. ``result_label`` gives the result in words.
 * **Document numbers (13.8).** Each new ITP takes the project's next ``seq``
   (the project row is locked while it is given, so two imports at once
   cannot take the same number); ``doc_number`` reads
@@ -501,6 +506,8 @@ def _import(
             record_required=parsed_item.record_required,
             photo_required=parsed_item.photo_required,
             photo_set=parsed_item.photo_set,
+            result_scale=parsed_item.result_scale,
+            approved_label=parsed_item.approved_label,
             value_type=parsed_item.value_type,
             value_unit=parsed_item.unit,
             value_min=parsed_item.min_value,
@@ -748,6 +755,32 @@ def _ensure_editable(itp: ProjectItp) -> None:
         raise conflict("This ITP is voided")
 
 
+def _apply_release(item: ItpItem, state: Any, updates: dict[str, Any]) -> None:
+    """Increment 13.9: Approved / Approved with conditions / Rejected.
+
+    Approved with conditions is ``status: "pass"`` plus written conditions;
+    the conditions are kept only while the line is approved. N/A is refused:
+    a release is recorded in writing either way.
+    """
+    new_status = updates.get("status")
+    if new_status == "na":
+        raise unprocessable(
+            "A release line is recorded as Approved, Approved with conditions "
+            "or Rejected, not N/A"
+        )
+    status_after = new_status if new_status is not None else item.status
+    if "conditions" in updates:
+        text = (updates["conditions"] or "").strip() or None
+        if text is not None and status_after != "pass":
+            raise unprocessable("Conditions go with an approval; record it first")
+        if text != item.conditions:
+            _ensure_recordable(state)
+            item.conditions = text
+    if status_after != "pass" and item.conditions is not None:
+        _ensure_recordable(state)
+        item.conditions = None
+
+
 @router.put("/itp-items/{item_id}", response_model=ItpItemPublic)
 def update_itp_item(
     item_id: int,
@@ -769,6 +802,10 @@ def update_itp_item(
         if value != item.measured_value:
             _ensure_recordable(state)
             item.measured_value = value
+    if item.result_scale == "release":
+        _apply_release(item, state, updates)
+    elif updates.get("conditions"):
+        raise unprocessable("Only a release line takes conditions")
     if new_status is not None and new_status != item.status:
         _ensure_recordable(state)
         if new_status == "pass" and not state.evidenced:

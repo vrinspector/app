@@ -306,14 +306,21 @@ function Help() {
             changes a copy already in use.
           </p>
           <p>
-            A new account starts with four <strong>starter templates</strong>:
-            cast-in-place concrete (submittals, formwork and embeds, rebar hold
-            points, pre-pour release, field tests, cylinders, curing and 28-day
-            results), earthwork and compaction, underground conduit / duct bank
-            before backfill, and piping pressure test. Every line states a
-            measurable acceptance criterion and its reference. Where the number
-            depends on your project — a specified cover, slump or test pressure
-            — the line says{" "}
+            A new account starts with eleven <strong>starter templates</strong>{" "}
+            that follow the checklists in Stacey Roberts' field guide and
+            commissioning guide: cast-in-place concrete (all 25 pre-pour items
+            of Checklist A-1 — formwork and shoring, reinforcement, embedded
+            items, mix and delivery readiness, documentation — then the written
+            pre-pour release, the during-pour test set and post-pour curing in
+            hot and cold weather), earthwork and compaction, underground conduit
+            / duct bank before backfill, structural steel connections, piping
+            pressure test, electrical pre-energization, instrument calibration,
+            and the four commissioning gates (pre-commissioning readiness, cold
+            commissioning, hot commissioning, ready for startup). Every line
+            states a measurable acceptance criterion and its reference — the
+            checklist and item number in the book. Where the number depends on
+            your project — a specified cover, slump or test pressure — or a book
+            figure is on the known-errors list, the line says{" "}
             <em>Project-specific value required — verify before issue</em>: edit
             the master and put your project's value in before you apply it.{" "}
             <strong>New template</strong> can start from any starter again, or
@@ -328,6 +335,17 @@ function Help() {
             recorded, nothing has failed and every hold point is released.{" "}
             <strong>Mark on drawing</strong> places a pin for a line, and the
             pin shows the line's hold-point state on the sheet.
+          </p>
+          <p>
+            A <strong>release line</strong> — such as the concrete pre-pour
+            release — is recorded in writing as{" "}
+            <strong>Approved to pour</strong>,{" "}
+            <strong>Approved with conditions</strong> or{" "}
+            <strong>Rejected</strong> instead of Pass / Fail / N/A. Approved
+            with conditions asks you to list each condition; the list shows
+            under the line and stays with the signed record. Rejected opens the
+            note for the deficiencies. Nothing after the release can be recorded
+            until its signers have signed.
           </p>
           <p>
             Every line can carry evidence. <strong>Take photo</strong> or{" "}

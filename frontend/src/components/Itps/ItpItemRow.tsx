@@ -40,7 +40,14 @@ import { LoadingButton } from "@/components/ui/loading-button"
 import { Textarea } from "@/components/ui/textarea"
 import useCustomToast from "@/hooks/useCustomToast"
 import { formatDateTime } from "@/lib/format"
-import { evidenceGap, ITEM_RESULTS, itemStatusLabel } from "@/lib/itp"
+import {
+  evidenceGap,
+  ITEM_RESULTS,
+  itemStatusLabel,
+  type ReleaseChoice,
+  releaseChoice,
+  releaseResults,
+} from "@/lib/itp"
 import { drawingsQuery, itpKeys } from "@/lib/queries"
 import { cn } from "@/lib/utils"
 import { extractErrorMessage } from "@/utils"
@@ -69,6 +76,12 @@ import { LineCriteria, LinePhotos, MeasuredValue } from "./ItpLineEvidence"
  * tinted brick with its note directly beneath, and tapping Fail opens the
  * note at once; a three-shot line asks for Context / Intermediate /
  * Close-up with scale.
+ *
+ * Increment 13.9: a release line (template `resultScale: "release"`, the
+ * field guide's written pre-pour release) shows Approved (in the line's own
+ * words, e.g. "Approved to pour") / Approved with conditions / Rejected
+ * instead of Pass / Fail / N/A. Approved with conditions asks for the
+ * conditions in writing; they print under the line.
  */
 
 export interface SignerContext {
@@ -108,7 +121,10 @@ export function ItpItemRow({
   const [noteOpen, setNoteOpen] = useState(false)
   const [note, setNote] = useState(item.notes ?? "")
   const [signing, setSigning] = useState<ItpRoleRef | null>(null)
+  const [conditionsOpen, setConditionsOpen] = useState(false)
+  const [conditions, setConditions] = useState(item.conditions ?? "")
   useEffect(() => setNote(item.notes ?? ""), [item.notes])
+  useEffect(() => setConditions(item.conditions ?? ""), [item.conditions])
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: itpKeys.detail(itp.id) })
@@ -122,6 +138,7 @@ export function ItpItemRow({
     mutationFn: (body: {
       status?: ItpItemPublic["status"]
       notes?: string | null
+      conditions?: string | null
     }) =>
       ItpsService.updateItpItem({
         path: { item_id: item.id },
@@ -131,6 +148,10 @@ export function ItpItemRow({
       if (body.notes !== undefined) {
         showSuccessToast("Note saved")
         setNoteOpen(false)
+      }
+      if (body.conditions) {
+        showSuccessToast("Approved with conditions")
+        setConditionsOpen(false)
       }
       // A failed line asks at once for what was wrong (13.8).
       if (body.status === "fail" && !item.notes) setNoteOpen(true)
@@ -147,6 +168,22 @@ export function ItpItemRow({
   const gap = evidenceGap(item)
   const needsPhoto = gap !== null
   const signedRoleIds = new Set(item.signatures.map((s) => s.signoff_role_id))
+  const isRelease = item.result_scale === "release"
+  const release = isRelease ? releaseChoice(item) : null
+
+  const chooseRelease = (choice: ReleaseChoice) => {
+    const active = release === choice
+    if (choice === "conditional") {
+      setConditions(item.conditions ?? "")
+      setConditionsOpen(true)
+      return
+    }
+    setConditionsOpen(false)
+    if (active) update.mutate({ status: "pending" })
+    else if (choice === "approved")
+      update.mutate({ status: "pass", conditions: null })
+    else update.mutate({ status: "fail" })
+  }
 
   return (
     <li
@@ -198,13 +235,15 @@ export function ItpItemRow({
           <StatusBadge
             value={item.status}
             tone={
-              item.status === "pass"
-                ? "positive"
-                : failed
-                  ? "critical"
-                  : "neutral"
+              release === "conditional"
+                ? "attention"
+                : item.status === "pass"
+                  ? "positive"
+                  : failed
+                    ? "critical"
+                    : "neutral"
             }
-            label={itemStatusLabel(item.status)}
+            label={item.result_label ?? itemStatusLabel(item.status)}
             data-testid="itp-item-status"
           />
         </div>
@@ -212,7 +251,53 @@ export function ItpItemRow({
         <LineCriteria item={item} />
 
         {/* Locked lines show no result buttons (13.8); the section says why. */}
-        {blocked ? null : (
+        {blocked ? null : isRelease ? (
+          <fieldset
+            className="grid grid-cols-1 gap-2 sm:max-w-2xl sm:grid-cols-3"
+            aria-label={`Release result for line ${index + 1}`}
+            data-testid="itp-release"
+          >
+            {releaseResults(item.approved_label).map((result) => {
+              const active = release === result.value
+              const approval = result.value !== "rejected"
+              return (
+                <Button
+                  key={result.value}
+                  type="button"
+                  variant={active ? "default" : "outline"}
+                  className={cn(
+                    "h-11 text-base",
+                    active &&
+                      result.value === "approved" &&
+                      "bg-vri-green text-vri-offwhite hover:bg-vri-green/90",
+                    active &&
+                      result.value === "conditional" &&
+                      "bg-vri-copper text-vri-offwhite hover:bg-vri-copper/90",
+                    active &&
+                      result.value === "rejected" &&
+                      "bg-destructive text-white hover:bg-destructive/90",
+                  )}
+                  aria-pressed={active}
+                  disabled={
+                    !canRecord ||
+                    update.isPending ||
+                    (approval && !active && needsPhoto)
+                  }
+                  title={
+                    approval && !active && gap
+                      ? `${gap} before this line can be approved`
+                      : undefined
+                  }
+                  onClick={() => chooseRelease(result.value)}
+                  data-testid={`itp-release-${result.value}`}
+                >
+                  {active ? <Check /> : null}
+                  {result.label}
+                </Button>
+              )
+            })}
+          </fieldset>
+        ) : (
           <fieldset
             className="grid grid-cols-3 gap-2 sm:max-w-md"
             aria-label={`Result for line ${index + 1}`}
@@ -256,6 +341,70 @@ export function ItpItemRow({
             })}
           </fieldset>
         )}
+
+        {item.conditions && !conditionsOpen ? (
+          <div
+            className="rounded-md border border-vri-copper/50 bg-card px-3 py-2 text-sm"
+            data-testid="itp-item-conditions"
+          >
+            <p className="font-semibold text-vri-copper">Conditions</p>
+            <p className="whitespace-pre-wrap">{item.conditions}</p>
+            {canRecord ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="mt-1 -ml-2"
+                onClick={() => setConditionsOpen(true)}
+              >
+                <PenLine />
+                Edit conditions
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+        {conditionsOpen ? (
+          <form
+            className="flex flex-col gap-2"
+            onSubmit={(event) => {
+              event.preventDefault()
+              const text = conditions.trim()
+              if (text) update.mutate({ status: "pass", conditions: text })
+            }}
+          >
+            <Label htmlFor={`conditions-${item.id}`}>
+              Conditions of the approval — list each one
+            </Label>
+            <Textarea
+              id={`conditions-${item.id}`}
+              rows={3}
+              value={conditions}
+              onChange={(e) => setConditions(e.target.value)}
+              placeholder={
+                "1. Re-tie loose bars at grid C7\n2. Clean the joint at the north wall"
+              }
+              data-testid="itp-conditions"
+            />
+            <div className="flex gap-2">
+              <LoadingButton
+                size="sm"
+                type="submit"
+                loading={update.isPending}
+                disabled={!conditions.trim()}
+                data-testid="itp-conditions-save"
+              >
+                Approve with these conditions
+              </LoadingButton>
+              <Button
+                size="sm"
+                type="button"
+                variant="outline"
+                onClick={() => setConditionsOpen(false)}
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        ) : null}
 
         {item.notes && !noteOpen ? (
           <p
@@ -367,7 +516,9 @@ export function ItpItemRow({
                       title={
                         ready
                           ? undefined
-                          : "Record this line as Pass or N/A first"
+                          : isRelease
+                            ? "Record the release first"
+                            : "Record this line as Pass or N/A first"
                       }
                       onClick={() => setSigning(role)}
                       data-testid="itp-sign"

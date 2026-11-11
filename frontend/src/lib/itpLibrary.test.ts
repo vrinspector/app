@@ -8,28 +8,42 @@ import {
   starterTemplate,
 } from "./itpLibrary"
 
-describe("starter ITP library (increment 13.7)", () => {
-  it("has the four starters, each a valid template", () => {
+describe("starter ITP library (increments 13.7 / 13.9)", () => {
+  it("has the book-aligned starters, each a valid template", () => {
     expect(STARTER_LIBRARY.map((t) => t.key)).toEqual([
       "cast-in-place-concrete",
       "earthwork-compaction",
       "underground-conduit-duct-bank",
+      "structural-steel-connections",
       "piping-pressure-test",
+      "electrical-pre-energization",
+      "instrument-calibration",
+      "cx-pre-commissioning-readiness",
+      "cx-cold-commissioning",
+      "cx-hot-commissioning",
+      "cx-rfsu",
     ])
     const counts = STARTER_LIBRARY.map((t) => {
       const parsed = parseTemplateBody(t.body)
       return [parsed.items.length, parsed.holdCount]
     })
     expect(counts).toEqual([
-      [27, 8],
+      [48, 7],
       [9, 2],
       [12, 1],
-      [10, 2],
+      [25, 1],
+      [25, 3],
+      [28, 1],
+      [20, 1],
+      [26, 1],
+      [26, 1],
+      [26, 1],
+      [26, 1],
     ])
   })
 
   it.each(STARTER_LIBRARY.map((t) => [t.key, t] as const))(
-    "%s: every line has a criterion, reference and code; holds need a photo",
+    "%s: every line has a criterion, reference and code; holds name a signer",
     (_, starter) => {
       for (const item of parseTemplateBody(starter.body).items) {
         expect(item.acceptanceCriteria?.length ?? 0).toBeGreaterThan(40)
@@ -38,13 +52,30 @@ describe("starter ITP library (increment 13.7)", () => {
           expect(item.acceptanceCriteria).toContain(PROJECT_SPECIFIC)
         }
         if (item.classification === "hold") {
-          expect(item.photoRequired).toBe(true)
           expect(item.roles.length).toBeGreaterThan(0)
+        }
+        if (item.resultScale === "release") {
+          expect(item.classification).toBe("hold")
         }
         if (item.valueType === "number") expect(item.unit).toBeTruthy()
       }
     },
   )
+
+  it("the concrete release is the three-way written result", () => {
+    const parsed = parseTemplateBody(
+      starterTemplate("cast-in-place-concrete").body,
+    )
+    const release = parsed.items.find(
+      (i) => i.elementName === "pre-pour-release",
+    )
+    expect(release?.resultScale).toBe("release")
+    expect(release?.approvedLabel).toBe("Approved to pour")
+    const spacing = parsed.items.find(
+      (i) => i.elementName === "rebar-size-spacing",
+    )
+    expect(spacing?.photoSet).toBe("three_shot")
+  })
 
   it("flags project-specific numbers instead of inventing them", () => {
     const parsed = parseTemplateBody(

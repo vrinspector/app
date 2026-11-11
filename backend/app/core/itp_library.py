@@ -1,9 +1,14 @@
-"""Starter ITP template library (rebuild increment 13.7).
+"""Starter ITP template library (rebuild increments 13.7 and 13.9).
 
 ``app/itp-library.json`` holds the master templates every new account starts
-with: cast-in-place concrete (ACI 301 / 318 and the ASTM field-test methods),
+with. Since 13.9 they follow the owner's two books (``docs/reference/``):
+cast-in-place concrete (all 25 items of the field guide's Checklist A-1, the
+written pre-pour release, the during-pour test set and post-pour curing),
 earthwork and compaction, underground conduit / duct bank before backfill,
-and piping pressure test. Every line carries a measurable acceptance
+structural steel connections (A-2), piping pressure test (A-3), electrical
+pre-energization (A-4), instrument calibration (A-5) and the commissioning
+guide's four gate checklists. Book figures on
+``docs/reference/KNOWN_ERRORS.md`` are not used as acceptance values. Every line carries a measurable acceptance
 criterion, a reference, the record required and an H / W / R / I code; where
 the number is set by the project rather than the code, the criterion says
 "Project-specific value required — verify before issue".

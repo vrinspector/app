@@ -121,6 +121,10 @@ interface ItemRow {
   record_required: string | null
   photo_required: boolean
   photo_set: string | null
+  // Increment 13.9: release lines.
+  result_scale: string | null
+  approved_label: string | null
+  conditions: string | null
   value_type: string | null
   value_unit: string | null
   value_min: number | null
@@ -233,6 +237,10 @@ export function registerItpRoutes(ctx: ItpContext) {
       value_max: item.value_max,
       measured_value: item.measured_value,
       out_of_tolerance: outOfTolerance(item),
+      result_scale: item.result_scale,
+      approved_label: item.approved_label,
+      conditions: item.conditions,
+      result_label: resultLabel(item),
       required_roles: item.role_ids.map((rid) => {
         const r = get(roles, rid, "Role")
         return {
@@ -468,6 +476,9 @@ export function registerItpRoutes(ctx: ItpContext) {
         record_required: p.recordRequired,
         photo_required: p.photoRequired,
         photo_set: p.photoSet,
+        result_scale: p.resultScale,
+        approved_label: p.approvedLabel,
+        conditions: null,
         value_type: p.valueType,
         value_unit: p.unit,
         value_min: p.min,
@@ -939,6 +950,16 @@ export function registerItpRoutes(ctx: ItpContext) {
     return "a photo on file"
   }
 
+  function resultLabel(item: ItemRow): string | null {
+    if (item.result_scale !== "release") return null
+    if (item.status === "pass") {
+      return item.conditions
+        ? "Approved with conditions"
+        : item.approved_label || "Approved"
+    }
+    return item.status === "fail" ? "Rejected" : null
+  }
+
   on("PUT", "/itp-items/{item_id}", ({ params, body }) => {
     const { item, itp, state } = lineState(num(params[0]))
     if (itp.status === "complete")
@@ -952,6 +973,32 @@ export function registerItpRoutes(ctx: ItpContext) {
       }
     }
     const status = body.status as string | undefined
+    if (item.result_scale === "release") {
+      // Increment 13.9, as the API's `_apply_release`.
+      if (status === "na") {
+        fail(
+          422,
+          "A release line is recorded as Approved, Approved with conditions or Rejected, not N/A",
+        )
+      }
+      const after = status ?? item.status
+      if ("conditions" in body) {
+        const text = String(body.conditions ?? "").trim() || null
+        if (text && after !== "pass") {
+          fail(422, "Conditions go with an approval; record it first")
+        }
+        if (text !== item.conditions) {
+          ensureRecordable(state)
+          item.conditions = text
+        }
+      }
+      if (after !== "pass" && item.conditions) {
+        ensureRecordable(state)
+        item.conditions = null
+      }
+    } else if (body.conditions) {
+      fail(422, "Only a release line takes conditions")
+    }
     if (status && status !== item.status) {
       ensureRecordable(state)
       if (status === "pass" && !state.evidenced) {
@@ -1032,7 +1079,7 @@ export function registerItpRoutes(ctx: ItpContext) {
     }
   }
 
-  // ── sample data (13.7): the starter library as the account's masters,
+  // ── sample data (13.7, revised 13.9): the starter library as the account's masters,
   // three stages of project 1 with concrete on two and a pressure test on
   // the third, and the duct bank for the whole project ───────────────────────
   const masters = STARTER_LIBRARY.map((starter) =>
@@ -1154,25 +1201,78 @@ export function registerItpRoutes(ctx: ItpContext) {
     })
   }
 
-  // Stage 1 concrete: submittals and formwork passed, the first rebar hold
-  // point released, the second passed and waiting for the inspector.
-  record(first, "mix-design", "Mix 4000-AE, accepted rev 1")
+  const recordAll = (itp: ItpRow, names: string[]) => {
+    for (const name of names) record(itp, name)
+  }
+
+  // Stage 1 concrete (13.9): every pre-pour check of Checklist A-1 done and
+  // the six rebar hold points released by the inspector; the written
+  // pre-pour release is "Approved with conditions" and waits for the
+  // Contractor and the Owner's representative to sign.
   record(first, "rebar-submittals", "Shop drawings S-201 rev C on site")
+  record(first, "formwork-drawings", "Forms FW-03 rev B approved")
+  record(first, "embeds-submittal", "Anchor bolt submittal AB-02 approved")
   record(first, "subgrade", "Density report DR-07: 97 % of D1557")
   record(first, "form-dimensions", "Set-out checked against S-101 rev C")
-  record(first, "anchor-bolts", "Template surveyed; all bolts within 1/8 in")
-  record(first, "embeds", null)
-  record(first, "grounding", null)
-  const barMarks = record(first, "bar-size-grade", "#5 Grade 60 — A615")
-  signAs(first, barMarks, "Third-party inspector")
-  record(first, "bar-spacing", "Tape on #5 bars at 12 in o.c. — matches S-201")
+  recordAll(first, [
+    "form-clean",
+    "release-agent",
+    "construction-joints",
+    "chamfers-joints",
+    "shoring",
+  ])
+  const spacing = record(
+    first,
+    "rebar-size-spacing",
+    "#5 Grade 60 — A615; 14 bars counted each way in both mats",
+    "12, 11 3/4, 12 1/4",
+  )
+  const rebarValues: Record<string, [string | null, string | null]> = {
+    "concrete-cover": ["Smallest at the north edge", "3"],
+    "lap-splices": ["Shortest lap 30 in (S-201 schedule: 30 in)", null],
+    "rebar-clean": [null, null],
+    couplers: ["No couplers in this pour", null],
+    "dowels-hooks-ties": [null, null],
+  }
+  signAs(first, spacing, "Third-party inspector")
+  for (const [name, [notes, value]] of Object.entries(rebarValues)) {
+    signAs(first, record(first, name, notes, value), "Third-party inspector")
+  }
+  lineOf(first, "couplers").status = "na"
+  record(
+    first,
+    "anchor-bolt-templates",
+    "Template surveyed; all bolts in tolerance",
+  )
+  recordAll(first, [
+    "anchor-bolt-projection",
+    "sleeves-blockouts",
+    "conduit-utilities",
+    "grounding",
+  ])
+  record(first, "mix-design", "Mix 4000-AE, approved rev 1")
+  recordAll(first, [
+    "batch-tickets-plan",
+    "vibrators",
+    "curing-materials",
+    "test-equipment",
+  ])
+  lineOf(first, "weather-plan").status = "na"
+  lineOf(first, "weather-plan").notes = "Forecast 58–71 °F, dry"
+  record(first, "pre-pour-form", "Checklist complete; no blanks")
+  record(first, "eor-notified", "EOR emailed 07:10; reply 07:32 — proceed")
+  record(first, "stop-plan")
+  const release = record(first, "pre-pour-release")
+  release.conditions =
+    "1. Re-tie two loose bars at grid C7 before the first truck\n2. Pump operator to keep the hose within 4 ft of the deck"
   const padPin = ctx.pins.find((p) => p.id === 5)
-  if (padPin) padPin.itp_item_id = barMarks.id
+  if (padPin) padPin.itp_item_id = spacing.id
 
   // Stage 2 concrete (13.8): submittals accepted, the forms failed and are
   // being re-set — a failed line shows tinted with its note beneath.
-  record(second, "mix-design", "Mix 4000-AE, accepted rev 1")
   record(second, "rebar-submittals", "Shop drawings S-202 rev A on site")
+  record(second, "formwork-drawings", "Forms FW-04 rev A approved")
+  record(second, "embeds-submittal", "Sleeve submittal SL-01 approved")
   record(second, "subgrade", "Density report DR-09: 96 % of D1557")
   const forms = lineOf(second, "form-dimensions")
   forms.status = "fail"
@@ -1180,13 +1280,16 @@ export function registerItpRoutes(ctx: ItpContext) {
     "East form 3/4 in out of line at gridline C — re-set and re-check before rebar"
   second.status = "in_progress"
 
-  // Stage 3 pressure test: checks done, the pressure hold passed at
-  // 225 psig and waiting for both signatures.
-  record(third, "test-package", "Test pack TP-CD-03 accepted")
-  record(third, "welds-complete", "Weld log complete; RT accepted")
-  record(third, "joints-exposed")
+  // Stage 3 pressure test (field guide Checklist A-3): the package checks
+  // are done and the first boundary blind check is passed and waiting for
+  // both signatures.
+  record(third, "test-package", "Test pack TP-CD-03 accepted; 225 psig")
+  record(third, "boundary-pid", "P&ID CD-101 rev 4")
+  record(third, "nde-complete", "Weld log complete; RT accepted")
   record(third, "gauges", "Gauges G-114 / G-115, calibrated 2026-09")
-  record(third, "test-pressure", "Hydrostatic, ambient 61 °F", "225")
+  record(third, "relief", "PRV-7 set at 245 psig")
+  record(third, "test-medium", "Hydrant water, potable")
+  record(third, "blinds", "Blinds B-1 to B-6 installed and tight")
 
   return { checkPinItem, checkEvidence, checkEvidenceDelete, checkShotSlot }
 }

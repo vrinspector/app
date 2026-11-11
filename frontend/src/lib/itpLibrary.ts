@@ -1,9 +1,11 @@
 /*
- * Starter ITP template library (increment 13.7).
+ * Starter ITP template library (increment 13.7; aligned with the owner's
+ * field guide and commissioning guide in 13.9 — sources and the known-errors
+ * list in `docs/reference/`).
  *
  * `itpLibrary.json` is a copy of the API's
  * `backend/app/itp-library.json` (a backend test fails if they drift). The
- * API seeds these four masters into every new account; this copy feeds the
+ * API seeds these masters into every new account; this copy feeds the
  * "Start from" picker in the template editor and the demo build.
  *
  * Every line carries a measurable acceptance criterion, a reference, the
