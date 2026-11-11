@@ -245,3 +245,85 @@ def member_invite_email(
         subject=f"You've been added to {project.name} on {app_name}",
         context=context,
     )
+
+
+# --- Increment 14: signing links, reminders, witness / hold point notices -----
+
+
+def sign_request_email(
+    *,
+    project: Project,
+    role_name: str,
+    documents: list[str],
+    ready_count: int,
+    expires_at: datetime,
+    signer_email: str,
+    requester: str,
+    link: str,
+    reminder: bool = False,
+) -> RenderedEmail:
+    app_name = settings.PROJECT_NAME
+    what = documents[0] if len(documents) == 1 else f"{len(documents)} ITPs"
+    if reminder:
+        heading = "Reminder: your signature is still needed"
+        intro = (
+            f"{requester} is reminding you that {what} on {project.name} is "
+            f"waiting for your signature as {role_name}. This email has a new "
+            "link; any earlier link no longer works."
+        )
+        subject = f"Reminder: please sign {what} — {project.name}"
+    else:
+        heading = "Your signature is requested"
+        intro = (
+            f"{requester} asks you to review and sign {what} on {project.name} "
+            f"as {role_name}."
+        )
+        subject = f"Please sign {what} — {project.name}"
+    context = {
+        "app_name": app_name,
+        "heading": heading,
+        "intro": intro,
+        "requester": requester,
+        "project_name": project.name,
+        "project_client": project.client or "—",
+        "role_name": role_name,
+        "documents": "; ".join(documents) or "—",
+        "ready_count": str(ready_count),
+        "expires": expires_at.astimezone(UTC).strftime("%d %b %Y"),
+        "email": signer_email,
+        "link": link,
+    }
+    return render("sign_request", subject=subject, context=context)
+
+
+def witness_notice_email(
+    *,
+    project: Project,
+    document: str,
+    classification: str,
+    requirement: str,
+    role_name: str,
+    planned_for: str | None,
+    message: str | None,
+    sender: str,
+) -> RenderedEmail:
+    app_name = settings.PROJECT_NAME
+    point_type = "Hold point" if classification == "hold" else "Witness point"
+    context = {
+        "app_name": app_name,
+        "heading": f"{point_type} notice",
+        "sender": sender,
+        "project_name": project.name,
+        "project_client": project.client or "—",
+        "document": document,
+        "point_type": point_type,
+        "requirement": requirement,
+        "role_name": role_name,
+        "planned_for": (planned_for or "").strip() or "To be confirmed",
+        "message": (message or "").strip() or "—",
+    }
+    return render(
+        "witness_notice",
+        subject=f"{point_type} notice: {requirement} — {project.name}",
+        context=context,
+    )

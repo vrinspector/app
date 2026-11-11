@@ -86,6 +86,18 @@ class Storage:
         # Rebuild (increment 10): reports/inspections/{inspection_id}/v{n}-{uuid}.pdf
         return f"reports/inspections/{int(inspection_id)}/"
 
+    @staticmethod
+    def sign_pack_prefix(kind: str, document_id: int) -> str:
+        """Sign-off pack versions (increment 14): ``packs/itps/{id}/`` or
+        ``packs/areas/{id}/``."""
+        assert kind in ("itps", "areas")
+        return f"packs/{kind}/{int(document_id)}/"
+
+    @staticmethod
+    def signature_prefix(project_id: int) -> str:
+        """Drawn signatures (increment 14), filed under their project."""
+        return f"signatures/projects/{int(project_id)}/"
+
     # --- URLs ----------------------------------------------------------------
 
     def presign_put(self, key: str, content_type: str) -> str:

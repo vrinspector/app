@@ -66,6 +66,28 @@ def no_starter_library(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
+def no_background_packs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Signatures do not render packs in the background unless a test asks."""
+    monkeypatch.setattr(settings, "ITP_PACK_AUTOREGENERATE", False)
+
+
+@pytest.fixture(autouse=True)
+def offline_weather() -> Generator[None]:
+    """The signature weather stamp never reaches Open-Meteo in tests.
+
+    The weather service answers 503, so a stamp is simply omitted; tests that
+    want a reading install their own transport (``tests/utils/weather.py``).
+    """
+    import httpx
+
+    from app.core.weather import weather
+
+    weather.use_transport(httpx.MockTransport(lambda request: httpx.Response(503)))
+    yield
+    weather.use_transport(None)
+
+
+@pytest.fixture(autouse=True)
 def clean_domain_tables() -> Generator[None]:
     """API tests commit real rows; wipe the domain tables after each test."""
     yield

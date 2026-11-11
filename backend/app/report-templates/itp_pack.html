@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{ title }}</title>
+<style>
+  /* VR Inspector v2.51 palette (same as the inspection report): forest #2E3D2E,
+     gold #B8960C, parchment #F7F5F0, copper #A07850, charcoal #2B2B2B,
+     brick #7a2020. Letter paper. */
+  @page {
+    size: letter;
+    margin: 16mm 14mm 18mm 14mm;
+    @bottom-left {
+      content: "VR Inspector — {{ project.name }} — {{ title }} — version {{ version }}";
+      font-size: 7.5pt; color: #6c6258;
+    }
+    @bottom-right {
+      content: "Page " counter(page) " of " counter(pages);
+      font-size: 7.5pt; color: #6c6258;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { font-family: "DejaVu Sans", "Liberation Sans", Arial, sans-serif; font-size: 9pt; color: #2B2B2B; line-height: 1.38; margin: 0; }
+  h1, h2, h3 { font-family: "DejaVu Serif", "Liberation Serif", "Book Antiqua", Georgia, serif; color: #2E3D2E; margin: 0; }
+  .band { background: #2E3D2E; color: #F7F5F0; padding: 13px 16px; border-bottom: 4px solid #B8960C; border-radius: 6px 6px 0 0; }
+  .band .kicker { color: #B8960C; text-transform: uppercase; letter-spacing: .14em; font-size: 7.5pt; font-weight: 700; }
+  .band h1 { color: #F7F5F0; font-size: 17pt; margin-top: 2px; }
+  .band .sub { color: #e9e2d2; font-size: 9pt; margin-top: 2px; }
+  .band .meta { margin-top: 8px; font-size: 8pt; color: #e9e2d2; }
+  .sheet { border: 1px solid #e4dccf; border-top: 0; border-radius: 0 0 6px 6px; padding: 10px 16px 12px; background: #fff; }
+  .doc { page-break-before: always; }
+  .doc.first { page-break-before: auto; }
+  .dochead { margin-top: 14px; padding: 8px 12px; background: #F7F5F0; border-left: 5px solid #2E3D2E; }
+  .dochead .num { font-family: "DejaVu Sans Mono", monospace; font-weight: 700; color: #A07850; font-size: 9pt; }
+  .dochead h2 { font-size: 13pt; margin-top: 1px; }
+  .dochead .facts { font-size: 8.5pt; color: #4a443d; margin-top: 3px; }
+  .state { margin-top: 6px; padding: 6px 10px; border-left: 4px solid #B8960C; background: #fffdf6; font-size: 8.5pt; }
+  .state.open { border-left-color: #7a2020; background: #fbf3f3; }
+  .state ul { margin: 2px 0 0 14px; padding: 0; }
+  h3.section { font-size: 10.5pt; color: #F7F5F0; background: #2E3D2E; padding: 4px 8px; margin: 12px 0 0; border-radius: 4px 4px 0 0; }
+  table.lines { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
+  table.lines th { background: #e9e2d2; color: #2E3D2E; text-align: left; padding: 4px 6px; font-size: 7.5pt; text-transform: uppercase; letter-spacing: .04em; }
+  table.lines td { padding: 5px 6px; border-bottom: 1px solid #e4dccf; vertical-align: top; }
+  table.lines tr { page-break-inside: avoid; }
+  table.lines tr.fail td { background: #fbf3f3; }
+  .no { font-family: "DejaVu Sans Mono", monospace; color: #6c6258; }
+  .chip { display: inline-block; min-width: 16px; text-align: center; padding: 0 4px; border-radius: 3px; font-weight: 700; font-size: 7.5pt; border: 1px solid #c9d8c9; color: #2E3D2E; background: #eef4ee; }
+  .chip.H { background: #7a2020; color: #fff; border-color: #7a2020; }
+  .chip.W { background: #B8960C; color: #fff; border-color: #B8960C; }
+  .req { font-weight: 700; }
+  .crit { color: #4a443d; margin-top: 2px; }
+  .crit b { color: #2E3D2E; font-weight: 600; }
+  .result { font-weight: 700; white-space: nowrap; }
+  .result.pass { color: #2E3D2E; }
+  .result.fail { color: #7a2020; }
+  .result.pending { color: #6c6258; font-weight: 400; font-style: italic; }
+  .oot { color: #7a2020; font-weight: 700; }
+  .note { margin-top: 2px; white-space: pre-wrap; color: #2B2B2B; }
+  .cond { margin-top: 3px; padding: 3px 6px; border-left: 3px solid #B8960C; background: #fffdf6; white-space: pre-wrap; }
+  .photos { margin-top: 4px; }
+  .photo { display: inline-block; width: 31%; margin: 0 1.5% 4px 0; vertical-align: top; border: 1px solid #e4dccf; border-radius: 4px; overflow: hidden; background: #F7F5F0; }
+  .photo img { display: block; width: 100%; height: 34mm; object-fit: cover; }
+  .photo .missing { height: 34mm; text-align: center; padding-top: 14mm; color: #6c6258; font-size: 7.5pt; }
+  .photo .cap { padding: 2px 5px; font-size: 7pt; color: #4a443d; }
+  .sigs { margin-top: 4px; }
+  .sig { display: inline-block; width: 48%; margin: 0 1.5% 4px 0; vertical-align: top; border: 1px solid #c9d8c9; border-radius: 4px; padding: 4px 6px; background: #f6faf6; font-size: 7.5pt; page-break-inside: avoid; }
+  .sig .who { font-weight: 700; color: #2E3D2E; font-size: 8pt; }
+  .sig img { display: block; max-height: 14mm; max-width: 60mm; margin: 2px 0; }
+  .sig .stamp { color: #4a443d; }
+  .waiting { color: #7a2020; font-size: 7.5pt; margin-top: 3px; }
+  .packsigs h3 { font-size: 10.5pt; margin: 14px 0 4px; border-bottom: 2px solid #B8960C; padding-bottom: 2px; }
+  .empty { color: #6c6258; font-style: italic; }
+  .foot { margin-top: 16px; font-size: 7.5pt; color: #6c6258; border-top: 1px solid #e4dccf; padding-top: 5px; }
+  table.toc { width: 100%; border-collapse: collapse; font-size: 8.5pt; margin-top: 6px; }
+  table.toc td, table.toc th { padding: 4px 6px; border-bottom: 1px solid #e4dccf; text-align: left; }
+  table.toc th { font-size: 7.5pt; text-transform: uppercase; color: #6c6258; }
+</style>
+</head>
+<body>
+
+{% macro signature(sig) %}
+<div class="sig">
+  <div class="who">{{ sig.role_name }} — {{ sig.signer_name or sig.signer_email }}</div>
+  {% if sig.image %}<img src="{{ sig.image }}" alt="Signature">{% endif %}
+  <div class="stamp">{{ sig.party }} · {{ sig.signer_email }}</div>
+  <div class="stamp">{{ sig.method }} · {{ sig.signed_at|dt }}</div>
+  {% if sig.gps %}<div class="stamp">GPS {{ sig.gps }}</div>{% endif %}
+  {% if sig.weather %}<div class="stamp">Weather: {{ sig.weather }}</div>{% endif %}
+</div>
+{% endmacro %}
+
+<header class="band">
+  <div class="kicker">VR Inspector — {{ "Area sign-off pack" if area else "ITP sign-off pack" }}</div>
+  <h1>{{ area.name if area else (documents[0].title if documents else title) }}</h1>
+  <div class="sub">{{ project.name }}{% if project.client %} · {{ project.client }}{% endif %}{% if project.location %} · {{ project.location }}{% endif %}</div>
+  <div class="meta">Pack version {{ version }} · generated {{ generated_at|dt }} by {{ generated_by }}</div>
+</header>
+<section class="sheet">
+  {% if area %}
+  <div>This pack covers the {{ documents|length }} inspection and test plan{{ "" if documents|length == 1 else "s" }} of <strong>{{ area.name }}</strong>, so a signer can review and sign the whole {{ area.type if area.type != "other" else "area" }} in one visit.</div>
+  <table class="toc">
+    <tr><th>Document</th><th>Title</th><th>Status</th><th>Recorded</th><th>Hold points waiting</th></tr>
+    {% for doc in documents %}
+    <tr><td>{{ doc.doc_number or "—" }}</td><td>{{ doc.title }}</td><td>{{ doc.status }}</td><td>{{ doc.done_count }} / {{ doc.item_count }}</td><td>{{ doc.open_holds|length }}</td></tr>
+    {% else %}
+    <tr><td colspan="5" class="empty">No ITPs are applied to this area yet.</td></tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <div>The record of one inspection and test plan: every line with its acceptance criterion, result and evidence, and every signature with its time, place and weather stamp.</div>
+  {% endif %}
+</section>
+
+{% for doc in documents %}
+<section class="doc{% if loop.first %} first{% endif %}">
+  <div class="dochead">
+    <div class="num">{{ doc.doc_number or "ITP" }}</div>
+    <h2>{{ doc.title }}</h2>
+    <div class="facts">Status: <strong>{{ doc.status }}</strong>{% if doc.area_name %} · Area: {{ doc.area_name }}{% endif %} · {{ doc.done_count }} of {{ doc.item_count }} lines recorded{% if doc.fail_count %} · <span class="oot">{{ doc.fail_count }} failed</span>{% endif %} · {{ doc.hold_count }} hold point{{ "" if doc.hold_count == 1 else "s" }}{% if doc.template_version %} · template version {{ doc.template_version }}{% endif %}</div>
+  </div>
+  {% if doc.blockers %}
+  <div class="state open"><strong>Not yet complete:</strong>
+    <ul>{% for b in doc.blockers %}<li>{{ b }}</li>{% endfor %}</ul>
+  </div>
+  {% else %}
+  <div class="state">Every line is recorded, none failed and every hold point is released.</div>
+  {% endif %}
+
+  {% for section in doc.sections %}
+  <h3 class="section">{{ section.name }}</h3>
+  <table class="lines">
+    <thead><tr><th style="width:5%">No.</th><th style="width:5%">Type</th><th style="width:62%">Requirement and evidence</th><th style="width:28%">Result</th></tr></thead>
+    <tbody>
+    {% for line in section.lines %}
+      <tr class="{{ 'fail' if line.status == 'fail' else '' }}">
+        <td class="no">{{ line.number }}</td>
+        <td><span class="chip {{ line.code }}" title="{{ line.classification }}">{{ line.code }}</span></td>
+        <td>
+          <div class="req">{{ line.requirement }}</div>
+          {% if line.acceptance_criteria %}<div class="crit"><b>Acceptance:</b> {{ line.acceptance_criteria }}</div>{% endif %}
+          {% if line.reference_doc %}<div class="crit"><b>Reference:</b> {{ line.reference_doc }}</div>{% endif %}
+          {% if line.record_required %}<div class="crit"><b>Record:</b> {{ line.record_required }}</div>{% endif %}
+          {% if line.roles %}<div class="crit"><b>Signed by:</b> {{ line.roles|join(", ") }}</div>{% endif %}
+          {% if line.photos %}
+          <div class="photos">
+            {% for photo in line.photos %}
+            <div class="photo">
+              {% if photo.src %}<img src="{{ photo.src }}" alt="">{% else %}<div class="missing">Photo unavailable</div>{% endif %}
+              <div class="cap">{{ photo.label or photo.filename or "Photo" }}</div>
+            </div>
+            {% endfor %}
+            {% if line.more_photos %}<div class="crit">+ {{ line.more_photos }} more photo{{ "" if line.more_photos == 1 else "s" }} in the app</div>{% endif %}
+          </div>
+          {% endif %}
+          {% if line.signatures %}
+          <div class="sigs">{% for sig in line.signatures %}{{ signature(sig) }}{% endfor %}</div>
+          {% endif %}
+          {% if line.missing_roles and line.status != "fail" %}
+          <div class="waiting">Waiting for: {{ line.missing_roles|join(", ") }}</div>
+          {% endif %}
+        </td>
+        <td>
+          <div class="result {{ line.status }}">{{ line.result }}</div>
+          {% if line.measured_value %}<div>{{ line.measured_value }}{% if line.value_unit %} {{ line.value_unit }}{% endif %}{% if line.out_of_tolerance %} <span class="oot">out of tolerance</span>{% endif %}</div>{% endif %}
+          {% if line.conditions %}<div class="cond"><b>Conditions:</b> {{ line.conditions }}</div>{% endif %}
+          {% if line.notes %}<div class="note">{{ line.notes }}</div>{% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endfor %}
+
+  <div class="packsigs">
+    <h3>Pack signatures</h3>
+    {% if doc.pack_signatures %}
+    <div class="sigs">{% for sig in doc.pack_signatures %}{{ signature(sig) }}{% endfor %}</div>
+    {% else %}
+    <div class="empty">No one has signed this pack by link yet.</div>
+    {% endif %}
+  </div>
+</section>
+{% endfor %}
+
+<div class="foot">Generated by VR Inspector. A new version of this pack is produced whenever a result, a photo or a signature on it changes; earlier versions are kept. Times are UTC. Weather is the reading at the project's location when the signature was made (Open-Meteo).</div>
+</body>
+</html>

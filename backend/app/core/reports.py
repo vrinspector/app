@@ -86,14 +86,17 @@ class ReportContext:
     generated_at: datetime
 
 
-def _thumbnail_data_uri(data: bytes) -> str | None:
-    """Downscale ``data`` to a JPEG thumbnail and return it as a data URI."""
+def thumbnail_data_uri(data: bytes, *, edge: int = THUMBNAIL_EDGE) -> str | None:
+    """Downscale ``data`` to a JPEG thumbnail and return it as a data URI.
+
+    Shared with the ITP sign-off pack (increment 14), which uses a smaller edge.
+    """
     try:
         from PIL import Image, ImageOps
 
         with Image.open(io.BytesIO(data)) as source:
             image: Image.Image = ImageOps.exif_transpose(source) or source
-            image.thumbnail((THUMBNAIL_EDGE, THUMBNAIL_EDGE))
+            image.thumbnail((edge, edge))
             if image.mode not in ("RGB", "L"):
                 image = image.convert("RGB")
             out = io.BytesIO()
@@ -108,7 +111,7 @@ def _photo_rows(photos: list[Photo]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for photo in photos:
         data = storage.get_object(photo.s3_key)
-        src = _thumbnail_data_uri(data) if data else None
+        src = thumbnail_data_uri(data) if data else None
         rows.append(
             {
                 "filename": photo.filename or photo.s3_key.rsplit("/", 1)[-1],

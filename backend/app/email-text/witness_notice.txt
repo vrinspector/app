@@ -1,0 +1,14 @@
+Hi,
+
+{{ sender }} is giving notice that the work is coming up to a {{ point_type|lower }} on {{ project_name }}. You are listed as {{ role_name }} for this point.
+
+  Project:     {{ project_name }} · {{ project_client }}
+  Document:    {{ document }}
+  {{ point_type }}: {{ requirement }}
+  Expected:    {{ planned_for }}
+  Message:     {{ message }}
+
+Reply to {{ sender }} to confirm whether you will attend. When the line is ready to sign you will receive a separate signing link.
+
+--
+{{ app_name }} · Field Inspect LLC

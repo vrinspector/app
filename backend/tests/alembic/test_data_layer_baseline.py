@@ -25,7 +25,9 @@ BASELINE_REVISION = "b7d3e9a1c204"
 # The revision before the baseline: downgrading to it removes every domain table.
 PRE_BASELINE_REVISION = "3f1c2d9a8b70"
 # Head of the chain (later increments add tables on top of the baseline).
-HEAD_REVISION = "c6f1a8d3e529"
+HEAD_REVISION = "d8b3f5a2c614"
+# The release-result revision (increment 13.9), just below head.
+RELEASE_REVISION = "c6f1a8d3e529"
 # The document-number / three-shot revision (increment 13.8), just below head.
 DOC_NUMBER_REVISION = "b2e6f9c4d817"
 # The line-evidence revision (increment 13.6), just below head.
@@ -559,4 +561,60 @@ def test_release_result_migration_is_additive_and_guarded(legacy_db: str) -> Non
     finally:
         engine.dispose()
     assert run_alembic(legacy_db, "downgrade", DOC_NUMBER_REVISION).returncode == 0
+    assert run_alembic(legacy_db, "upgrade", "head").returncode == 0
+
+
+def test_external_signoff_migration_is_additive_and_guarded(legacy_db: str) -> None:
+    """Increment 14: link bookkeeping columns + the sign-off pack versions table."""
+    assert run_alembic(legacy_db, "upgrade", "head").returncode == 0
+    columns = _columns(legacy_db, "external_sign_tokens")
+    assert columns["revoked_at"]["nullable"] is True
+    assert columns["revoked_reason"]["nullable"] is True
+    assert columns["reminder_count"]["nullable"] is False
+    packs = _columns(legacy_db, "itp_sign_packs")
+    assert packs["content_hash"]["nullable"] is False
+
+    engine = create_engine(legacy_db, isolation_level="AUTOCOMMIT")
+    try:
+        with engine.connect() as conn:
+            conn.exec_driver_sql(
+                """INSERT INTO project_itps (project_id, title, body)
+                       VALUES (1, 'Concrete pour', '{}');
+                   INSERT INTO itp_sign_packs
+                       (project_itp_id, version, s3_key, filename, file_size, content_hash)
+                       VALUES (1, 1, 'packs/itps/1/v1.pdf', 'p-v1.pdf', 10, repeat('a', 64));"""
+            )
+            # One version number per document …
+            try:
+                conn.exec_driver_sql(
+                    """INSERT INTO itp_sign_packs
+                       (project_itp_id, version, s3_key, filename, file_size, content_hash)
+                       VALUES (1, 1, 'k', 'f', 1, repeat('b', 64))"""
+                )
+            except Exception as exc:  # noqa: BLE001
+                assert "uq_itp_sign_packs_itp_version" in str(exc)
+            else:  # pragma: no cover
+                raise AssertionError("version uniqueness missing")
+            # … and exactly one document per pack.
+            try:
+                conn.exec_driver_sql(
+                    """INSERT INTO itp_sign_packs
+                       (version, s3_key, filename, file_size, content_hash)
+                       VALUES (1, 'k', 'f', 1, repeat('c', 64))"""
+                )
+            except Exception as exc:  # noqa: BLE001
+                assert "ck_itp_sign_packs_one_document" in str(exc)
+            else:  # pragma: no cover
+                raise AssertionError("one-document check missing")
+            result = run_alembic(legacy_db, "downgrade", RELEASE_REVISION)
+            assert result.returncode != 0
+            assert "Refusing to downgrade d8b3f5a2c614" in (
+                result.stderr + result.stdout
+            )
+            conn.exec_driver_sql("DELETE FROM itp_sign_packs")
+    finally:
+        engine.dispose()
+    assert run_alembic(legacy_db, "downgrade", RELEASE_REVISION).returncode == 0
+    assert "revoked_reason" not in _columns(legacy_db, "external_sign_tokens")
+    # Idempotent and repeatable.
     assert run_alembic(legacy_db, "upgrade", "head").returncode == 0
