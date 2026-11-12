@@ -1,4 +1,5 @@
-"""AI capture assistance (Block 10A photo analysis, 10B voice-to-finding).
+"""AI capture assistance (Block 10A photo analysis, 10B voice-to-finding,
+10C report drafting, 10E ITP import).
 
 PRD v2.62 §5 (Block 10), carried into v2.63 §6 unchanged:
 
@@ -8,6 +9,11 @@ PRD v2.62 §5 (Block 10), carried into v2.63 §6 unchanged:
 * **10B** — a spoken observation (already transcribed on the phone by the
   Block 5 browser speech path) is structured into label, status, discipline
   and notes for one-tap confirm.
+* **10C** (increment 16) — the inspection's recorded findings are summarised
+  into a draft report summary that the inspector edits before it is printed.
+* **10E** (increment 16) — an existing ITP (PDF, spreadsheet or photos of a
+  paper form) is read into a draft template the inspector reviews in a plain
+  form before it is saved as a master (``app.core.itp_import``).
 * **Guardrails** — AI text is a *draft until confirmed*; the prompt and the
   model version are logged per finding (``ai_suggestions`` table) for
   defensibility; no photo or transcript leaves S3 / RDS except to the
@@ -41,6 +47,7 @@ import httpx
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from app.core.config import settings
+from app.core.itp_import import ItpImportDraft, SourceFile, csv_text, xlsx_text
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +55,8 @@ logger = logging.getLogger(__name__)
 # every suggestion so an old draft can be traced to the words that made it.
 PHOTO_PROMPT_VERSION = "10A-2026-11-12"
 VOICE_PROMPT_VERSION = "10B-2026-11-12"
+REPORT_PROMPT_VERSION = "10C-2026-11-12"
+ITP_IMPORT_PROMPT_VERSION = "10E-2026-11-12"
 
 ANTHROPIC_VERSION = "2023-06-01"
 
@@ -171,6 +180,20 @@ class VoiceDraft(BaseModel):
         return text or None
 
 
+class ReportDraft(BaseModel):
+    """10C: the summary at the top of an inspection report."""
+
+    summary: str = Field(min_length=1, max_length=6000)
+
+    @field_validator("summary", mode="before")
+    @classmethod
+    def _summary(cls, value: Any) -> str:
+        # Keep paragraph breaks; tidy spaces inside each paragraph.
+        paragraphs = [" ".join(p.split()) for p in str(value or "").split("\n")]
+        text = "\n\n".join(p for p in paragraphs if p)
+        return text[:6000]
+
+
 # --- prompts (logged verbatim with every suggestion) -------------------------
 
 PHOTO_SYSTEM_PROMPT = """\
@@ -262,6 +285,126 @@ VOICE_TOOL: dict[str, Any] = {
     },
 }
 
+REPORT_SYSTEM_PROMPT = """\
+You assist a construction field inspector. From the inspection record below \
+you draft the short summary printed at the top of the inspection report. You \
+never decide anything: the inspector edits and approves the summary before \
+it is printed, and it goes out under their name.
+
+Rules:
+- Use only the facts in the record. Never add causes, code compliance, \
+structural adequacy, recommendations, dates or numbers that are not there.
+- Two to four short paragraphs of plain prose, no headings, bullets or \
+markdown. First what was inspected (type, title, date). \
+Then what was found: how many findings, the high-priority ones by name, \
+grouped by discipline where that helps. Then what is still open versus \
+in progress or resolved.
+- If there are no findings, say that no findings were recorded.
+- Neutral, factual tone an inspector could sign. US English.
+Answer only by calling the record_report_summary tool."""
+
+ITP_IMPORT_SYSTEM_PROMPT = """\
+You assist a construction quality inspector. You read an existing Inspection \
+and Test Plan (ITP) or inspection checklist — a PDF, spreadsheet text or \
+photos of a paper form — and transcribe it into a draft template. You never \
+decide anything: the inspector reviews and edits every line before saving.
+
+Rules:
+- Transcribe; do not invent. Keep every inspection line that is in the \
+document, in the document's order, with its wording (fix only obvious OCR \
+slips). Do not add lines, criteria, references or numbers that are not \
+there. Leave a field empty when the document does not give it.
+- sections: the document's own groups or headings (activities, stages, \
+work packages). One section if it has none.
+- classification per line: H (hold point — work may not proceed until \
+released), W (witness point — notify, may proceed if not attended), R \
+(review of documents / records), I (information / surveillance). Use the \
+document's own codes (H, W, R, S, I, M, V, "hold", "witness"; S or \
+surveillance = I; M or monitor = I; V or verify = R). If a line has no code, \
+use I and add a note.
+- acceptance_criteria, reference (spec, standard, drawing), record_required \
+(the record or form to keep): copy them from the line's columns.
+- roles: the parties that sign or attend each line (e.g. Contractor, \
+Owner's representative, Third-party inspector, Engineer). List every role \
+once in roles with its party: contractor (the builder and its trades), \
+client (owner / owner's representative / client), engineer (designer, \
+engineer of record, third-party or testing inspector).
+- photo_required: true only when the document asks for a photo.
+- value_type: number when the line records a measurement (with its unit, US \
+customary as written), text when it records a reading such as a serial \
+number, else none.
+- name: the document's title; description: one sentence on its scope.
+- notes: anything you could not read, lines you were unsure of, and any \
+assumption you made (at most 12 short notes).
+- Ignore signatures, filled-in results, dates and names of people on a \
+completed form: transcribe the blank plan only.
+Answer only by calling the record_itp_draft tool."""
+
+REPORT_TOOL: dict[str, Any] = {
+    "name": "record_report_summary",
+    "description": "Record the draft report summary.",
+    "input_schema": {
+        "type": "object",
+        "properties": {"summary": {"type": "string"}},
+        "required": ["summary"],
+    },
+}
+
+_IMPORT_LINE_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "title": {"type": "string"},
+        "classification": {"type": "string", "enum": ["H", "W", "R", "I"]},
+        "acceptance_criteria": {"type": ["string", "null"]},
+        "reference": {"type": ["string", "null"]},
+        "record_required": {"type": ["string", "null"]},
+        "roles": {"type": "array", "items": {"type": "string"}},
+        "photo_required": {"type": "boolean"},
+        "value_type": {"type": "string", "enum": ["none", "number", "text"]},
+        "unit": {"type": ["string", "null"]},
+    },
+    "required": ["title", "classification"],
+}
+
+ITP_IMPORT_TOOL: dict[str, Any] = {
+    "name": "record_itp_draft",
+    "description": "Record the transcribed ITP as a draft template.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "name": {"type": "string"},
+            "description": {"type": ["string", "null"]},
+            "roles": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string"},
+                        "party": {
+                            "type": "string",
+                            "enum": ["contractor", "client", "engineer"],
+                        },
+                    },
+                    "required": ["name", "party"],
+                },
+            },
+            "sections": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "title": {"type": "string"},
+                        "lines": {"type": "array", "items": _IMPORT_LINE_SCHEMA},
+                    },
+                    "required": ["title", "lines"],
+                },
+            },
+            "notes": {"type": "array", "items": {"type": "string"}},
+        },
+        "required": ["name", "roles", "sections", "notes"],
+    },
+}
+
 
 def photo_user_prompt(context: dict[str, str | None]) -> str:
     lines = ["Propose how to file this site photo."]
@@ -286,6 +429,63 @@ def voice_user_prompt(transcript: str, context: dict[str, str | None]) -> str:
             lines.append(f"{label}: {context[key]}")
     lines.append("Spoken observation (transcript):")
     lines.append(f"<transcript>\n{transcript}\n</transcript>")
+    return "\n".join(lines)
+
+
+def report_user_prompt(record: dict[str, Any]) -> str:
+    """The inspection record as plain text (no people, client or project names)."""
+    lines = ["Draft the report summary for this inspection."]
+    for label, key in (
+        ("Inspection type", "inspection_type"),
+        ("Inspection", "inspection_title"),
+        ("Date", "inspection_date"),
+        ("Status", "inspection_status"),
+        ("Photos on file", "photo_count"),
+    ):
+        if record.get(key) not in (None, ""):
+            lines.append(f"{label}: {record[key]}")
+    findings = record.get("findings") or []
+    total = len(findings) + int(record.get("findings_omitted") or 0)
+    lines.append(f"Findings recorded: {total}")
+    if record.get("findings_omitted"):
+        lines.append(
+            f"({record['findings_omitted']} of the oldest findings, resolved "
+            "ones first, are left out below.)"
+        )
+    lines.append("<findings>")
+    for n, finding in enumerate(findings, start=1):
+        parts = [
+            f"{n}. {finding.get('title')}",
+            f"status {finding.get('status')}",
+            f"priority {finding.get('priority')}",
+        ]
+        if finding.get("discipline"):
+            parts.append(f"discipline {finding['discipline']}")
+        if finding.get("location_ref"):
+            parts.append(f"location {finding['location_ref']}")
+        lines.append(" — ".join(parts))
+        if finding.get("description"):
+            lines.append(f"   {finding['description']}")
+    lines.append("</findings>")
+    return "\n".join(lines)
+
+
+def itp_import_user_prompt(files: list[SourceFile], hint: str | None) -> str:
+    """The text part of an import request (file names, sheet text, the hint)."""
+    lines = ["Transcribe this ITP into a draft template."]
+    if hint:
+        lines.append(f"Note from the inspector: <note>{hint}</note>")
+    for source in files:
+        if source.kind == "csv":
+            lines.append(f'<spreadsheet name="{source.name}">')
+            lines.append(csv_text(source.data))
+            lines.append("</spreadsheet>")
+        elif source.kind == "xlsx":
+            lines.append(f'<spreadsheet name="{source.name}">')
+            lines.append(xlsx_text(source.data))
+            lines.append("</spreadsheet>")
+        else:
+            lines.append(f"Attached {source.kind}: {source.name}")
     return "\n".join(lines)
 
 
@@ -414,6 +614,80 @@ class AiService:
         result.draft = draft.model_dump()
         return result
 
+    def draft_report(self, record: dict[str, Any]) -> AiResult:
+        content = [{"type": "text", "text": report_user_prompt(record)}]
+        raw, result = self._call(REPORT_SYSTEM_PROMPT, content, REPORT_TOOL, 1500)
+        try:
+            draft = ReportDraft.model_validate(raw)
+        except ValidationError as exc:
+            raise AiError(
+                "The AI answer could not be read; write the summary yourself",
+                model=result.model,
+                raw=raw,
+            ) from exc
+        result.draft = draft.model_dump()
+        return result
+
+    def read_itp(
+        self,
+        files: list[SourceFile],
+        hint: str | None,
+        user_prompt: str,
+    ) -> AiResult:
+        """10E: read the uploaded ITP into a draft (``ItpImportDraft``)."""
+        content: list[dict[str, Any]] = []
+        for source in files:
+            if source.kind == "pdf":
+                content.append(
+                    {
+                        "type": "document",
+                        "source": {
+                            "type": "base64",
+                            "media_type": "application/pdf",
+                            "data": base64.b64encode(source.data).decode(),
+                        },
+                        "title": source.name,
+                    }
+                )
+            elif source.kind == "image":
+                media_type, b64 = prepare_image(source.data, source.content_type)
+                content.append(
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": media_type,
+                            "data": b64,
+                        },
+                    }
+                )
+        content.append({"type": "text", "text": user_prompt})
+        raw, result = self._call(
+            ITP_IMPORT_SYSTEM_PROMPT,
+            content,
+            ITP_IMPORT_TOOL,
+            16000,
+            timeout=settings.AI_IMPORT_TIMEOUT_SECONDS,
+        )
+        try:
+            draft = ItpImportDraft.model_validate(raw).tidy()
+        except ValidationError as exc:
+            raise AiError(
+                "The AI answer could not be read; try clearer pages",
+                model=result.model,
+                raw=raw,
+            ) from exc
+        if draft.line_count == 0:
+            raise AiError(
+                "No inspection lines could be read from that file; try a "
+                "clearer copy or a different page",
+                status_code=422,
+                model=result.model,
+                raw=raw,
+            )
+        result.draft = draft.model_dump()
+        return result
+
     # -- transport -----------------------------------------------------------
     def _call(
         self,
@@ -421,6 +695,8 @@ class AiService:
         content: list[dict[str, Any]],
         tool: dict[str, Any],
         max_tokens: int,
+        *,
+        timeout: float | None = None,
     ) -> tuple[dict[str, Any], AiResult]:
         if not self.enabled:
             raise AiError("AI assistance is not set up", status_code=503)
@@ -440,7 +716,7 @@ class AiService:
         }
         try:
             with httpx.Client(
-                timeout=httpx.Timeout(settings.AI_TIMEOUT_SECONDS),
+                timeout=httpx.Timeout(timeout or settings.AI_TIMEOUT_SECONDS),
                 transport=self._transport,
             ) as client:
                 response = client.post(

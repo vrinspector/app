@@ -25,7 +25,9 @@ BASELINE_REVISION = "b7d3e9a1c204"
 # The revision before the baseline: downgrading to it removes every domain table.
 PRE_BASELINE_REVISION = "3f1c2d9a8b70"
 # Head of the chain (later increments add tables on top of the baseline).
-HEAD_REVISION = "f1c7a3e8b524"
+HEAD_REVISION = "a5e2c8f4d913"
+# The AI capture revision (increment 15), just below head.
+AI_CAPTURE_REVISION = "f1c7a3e8b524"
 # The drawing-revision revision (increment 14.5), just below head.
 DRAWING_REVISION = "e4a7c9b2d816"
 # The external sign-off revision (increment 14), just below head.
@@ -755,3 +757,62 @@ def test_ai_capture_migration_is_additive_and_guarded(legacy_db: str) -> None:
     assert "category" not in _columns(legacy_db, "photos")
     # Idempotent and repeatable.
     assert run_alembic(legacy_db, "upgrade", "head").returncode == 0
+
+
+def test_ai_report_import_migration_is_additive_and_guarded(legacy_db: str) -> None:
+    """Increment 16: report / ITP import suggestions + report summaries."""
+    assert run_alembic(legacy_db, "upgrade", "head").returncode == 0
+    suggestions = _columns(legacy_db, "ai_suggestions")
+    assert suggestions["project_id"]["nullable"] is True
+    assert suggestions["inspection_id"]["nullable"] is True
+    assert suggestions["template_id"]["nullable"] is True
+    assert suggestions["source_files"]["nullable"] is True
+    reports = _columns(legacy_db, "inspection_reports")
+    assert reports["summary"]["nullable"] is True
+    assert reports["ai_suggestion_id"]["nullable"] is True
+
+    insert = """INSERT INTO ai_suggestions (kind, project_id, inspection_id, model,
+                    prompt_version, system_prompt, user_prompt, requested_by,
+                    requested_by_sub)
+                VALUES ('{kind}', {project}, {inspection}, 'm', 'v', 's', 'u',
+                        'owner@example.com', 'auth0|owner')"""
+    engine = create_engine(legacy_db, isolation_level="AUTOCOMMIT")
+    try:
+        with engine.connect() as conn:
+            conn.exec_driver_sql(
+                insert.format(kind="itp_import", project="NULL", inspection="NULL")
+            )
+            # Every other kind still needs its project and inspection.
+            try:
+                conn.exec_driver_sql(
+                    insert.format(kind="report", project="1", inspection="NULL")
+                )
+            except Exception as exc:  # noqa: BLE001
+                assert "ck_ai_suggestions_scope" in str(exc)
+            else:  # pragma: no cover
+                raise AssertionError("scope check missing")
+
+            result = run_alembic(legacy_db, "downgrade", AI_CAPTURE_REVISION)
+            assert result.returncode != 0
+            assert "Refusing to downgrade a5e2c8f4d913" in (
+                result.stderr + result.stdout
+            )
+            conn.exec_driver_sql("DELETE FROM ai_suggestions")
+            conn.exec_driver_sql(
+                """INSERT INTO inspection_reports (inspection_id, version, s3_key,
+                       filename, summary)
+                   VALUES (1, 1, 'reports/inspections/1/v1.pdf', 'r.pdf', 'Done.')"""
+            )
+            result = run_alembic(legacy_db, "downgrade", AI_CAPTURE_REVISION)
+            assert result.returncode != 0
+            conn.exec_driver_sql("UPDATE inspection_reports SET summary = NULL")
+    finally:
+        engine.dispose()
+    assert run_alembic(legacy_db, "downgrade", AI_CAPTURE_REVISION).returncode == 0
+    suggestions = _columns(legacy_db, "ai_suggestions")
+    assert suggestions["project_id"]["nullable"] is False
+    assert "template_id" not in suggestions
+    assert "summary" not in _columns(legacy_db, "inspection_reports")
+    # Idempotent and repeatable.
+    assert run_alembic(legacy_db, "upgrade", "head").returncode == 0
+    assert _material_diffs(legacy_db) == []

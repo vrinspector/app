@@ -84,6 +84,10 @@ class ReportContext:
     version: int
     generated_by: str
     generated_at: datetime
+    # Increment 16 (Block 10C): the inspector's summary, and whether it
+    # started as an AI draft (printed with a provenance line).
+    narrative: str | None = None
+    narrative_ai: bool = False
 
 
 def thumbnail_data_uri(data: bytes, *, edge: int = THUMBNAIL_EDGE) -> str | None:
@@ -164,6 +168,8 @@ def render_html(ctx: ReportContext) -> str:
         version=ctx.version,
         generated_by=ctx.generated_by,
         generated_at=ctx.generated_at,
+        narrative=[p.strip() for p in (ctx.narrative or "").split("\n") if p.strip()],
+        narrative_ai=ctx.narrative_ai,
     )
 
 

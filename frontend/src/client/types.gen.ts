@@ -5,6 +5,24 @@ export type ClientOptions = {
 };
 
 /**
+ * AiSourceFile
+ */
+export type AiSourceFile = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Content Type
+     */
+    content_type: string;
+    /**
+     * Size
+     */
+    size: number;
+};
+
+/**
  * AiStatus
  */
 export type AiStatus = {
@@ -47,15 +65,23 @@ export type AiSuggestionLog = {
     /**
      * Project Id
      */
-    project_id: number;
+    project_id: number | null;
     /**
      * Inspection Id
      */
-    inspection_id: number;
+    inspection_id: number | null;
     /**
      * Photo Id
      */
     photo_id: number | null;
+    /**
+     * Template Id
+     */
+    template_id?: number | null;
+    /**
+     * Source Files
+     */
+    source_files?: Array<AiSourceFile> | null;
     /**
      * Model
      */
@@ -139,15 +165,23 @@ export type AiSuggestionPublic = {
     /**
      * Project Id
      */
-    project_id: number;
+    project_id: number | null;
     /**
      * Inspection Id
      */
-    inspection_id: number;
+    inspection_id: number | null;
     /**
      * Photo Id
      */
     photo_id: number | null;
+    /**
+     * Template Id
+     */
+    template_id?: number | null;
+    /**
+     * Source Files
+     */
+    source_files?: Array<AiSourceFile> | null;
     /**
      * Model
      */
@@ -326,6 +360,20 @@ export type AreaUpdate = {
      * Parent Area Id
      */
     parent_area_id?: number | null;
+};
+
+/**
+ * Body_ai-itp_import
+ */
+export type Body_ai_itp_import = {
+    /**
+     * Files
+     */
+    files: Array<Blob | File>;
+    /**
+     * Hint
+     */
+    hint?: string | null;
 };
 
 /**
@@ -972,6 +1020,76 @@ export type HTTPValidationError = {
 };
 
 /**
+ * ImportLine
+ */
+export type ImportLine = {
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Classification
+     */
+    classification?: 'H' | 'W' | 'R' | 'I';
+    /**
+     * Acceptance Criteria
+     */
+    acceptance_criteria?: string | null;
+    /**
+     * Reference
+     */
+    reference?: string | null;
+    /**
+     * Record Required
+     */
+    record_required?: string | null;
+    /**
+     * Roles
+     */
+    roles?: Array<string>;
+    /**
+     * Photo Required
+     */
+    photo_required?: boolean;
+    /**
+     * Value Type
+     */
+    value_type?: 'none' | 'number' | 'text';
+    /**
+     * Unit
+     */
+    unit?: string | null;
+};
+
+/**
+ * ImportRole
+ */
+export type ImportRole = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Party
+     */
+    party?: 'contractor' | 'client' | 'engineer';
+};
+
+/**
+ * ImportSection
+ */
+export type ImportSection = {
+    /**
+     * Title
+     */
+    title?: string;
+    /**
+     * Lines
+     */
+    lines?: Array<ImportLine>;
+};
+
+/**
  * InspectionCreate
  */
 export type InspectionCreate = {
@@ -1083,6 +1201,51 @@ export type InspectionUpdate = {
      * Notes
      */
     notes?: string | null;
+};
+
+/**
+ * ItpImportDraft
+ *
+ * The editable draft of an imported ITP.
+ */
+export type ItpImportDraft = {
+    /**
+     * Name
+     */
+    name?: string;
+    /**
+     * Description
+     */
+    description?: string | null;
+    /**
+     * Roles
+     */
+    roles?: Array<ImportRole>;
+    /**
+     * Sections
+     */
+    sections?: Array<ImportSection>;
+    /**
+     * Notes
+     */
+    notes?: Array<string>;
+};
+
+/**
+ * ItpImportSave
+ *
+ * 10E: save a reviewed import draft as a new master template.
+ */
+export type ItpImportSave = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Description
+     */
+    description?: string | null;
+    draft: ItpImportDraft;
 };
 
 /**
@@ -2410,6 +2573,16 @@ export type ProjectUpdate = {
 };
 
 /**
+ * ReportDraftRequest
+ */
+export type ReportDraftRequest = {
+    /**
+     * Inspection Id
+     */
+    inspection_id: number;
+};
+
+/**
  * ReportGenerateRequest
  */
 export type ReportGenerateRequest = {
@@ -2417,6 +2590,14 @@ export type ReportGenerateRequest = {
      * Inspection Id
      */
     inspection_id: number;
+    /**
+     * Summary
+     */
+    summary?: string | null;
+    /**
+     * Ai Suggestion Id
+     */
+    ai_suggestion_id?: number | null;
 };
 
 /**
@@ -2467,6 +2648,14 @@ export type ReportPublic = {
      * Created At
      */
     created_at: string;
+    /**
+     * Summary
+     */
+    summary?: string | null;
+    /**
+     * Ai Suggestion Id
+     */
+    ai_suggestion_id?: number | null;
     /**
      * Download Url
      */
@@ -6009,6 +6198,10 @@ export type aiListSuggestionsData = {
          * Photo Id
          */
         photo_id?: number | null;
+        /**
+         * Template Id
+         */
+        template_id?: number | null;
     };
     url: '/api/v1/ai/suggestions';
 };
@@ -6092,3 +6285,83 @@ export type aiDismissSuggestionResponses = {
 };
 
 export type aiDismissSuggestionResponse = aiDismissSuggestionResponses[keyof aiDismissSuggestionResponses];
+
+export type aiReportDraftData = {
+    body: ReportDraftRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/ai/report-draft';
+};
+
+export type aiReportDraftErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type aiReportDraftError = aiReportDraftErrors[keyof aiReportDraftErrors];
+
+export type aiReportDraftResponses = {
+    /**
+     * Successful Response
+     */
+    201: AiSuggestionPublic;
+};
+
+export type aiReportDraftResponse = aiReportDraftResponses[keyof aiReportDraftResponses];
+
+export type aiItpImportData = {
+    body: Body_ai_itp_import;
+    path?: never;
+    query?: never;
+    url: '/api/v1/ai/itp-import';
+};
+
+export type aiItpImportErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type aiItpImportError = aiItpImportErrors[keyof aiItpImportErrors];
+
+export type aiItpImportResponses = {
+    /**
+     * Successful Response
+     */
+    201: AiSuggestionPublic;
+};
+
+export type aiItpImportResponse = aiItpImportResponses[keyof aiItpImportResponses];
+
+export type aiSaveItpImportData = {
+    body: ItpImportSave;
+    path: {
+        /**
+         * Suggestion Id
+         */
+        suggestion_id: number;
+    };
+    query?: never;
+    url: '/api/v1/ai/itp-import/{suggestion_id}/save';
+};
+
+export type aiSaveItpImportErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type aiSaveItpImportError = aiSaveItpImportErrors[keyof aiSaveItpImportErrors];
+
+export type aiSaveItpImportResponses = {
+    /**
+     * Successful Response
+     */
+    201: ItpTemplatePublic;
+};
+
+export type aiSaveItpImportResponse = aiSaveItpImportResponses[keyof aiSaveItpImportResponses];

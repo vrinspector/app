@@ -1,4 +1,4 @@
-"""Fake Claude Messages API for the AI capture routes (increment 15)."""
+"""Fake Claude Messages API for the AI capture routes (increments 15 and 16)."""
 
 import json
 from typing import Any
@@ -31,6 +31,67 @@ VOICE_ANSWER: dict[str, Any] = {
     "location_ref": "Pipe rack, gridline C-4",
 }
 
+REPORT_ANSWER: dict[str, Any] = {
+    "summary": (
+        "A piping walkdown of Site walk 1 was carried out.\n\n"
+        "Two findings were recorded, one of them high priority: missing "
+        "flange bolts at valve V-101.\n\nOne finding remains open."
+    )
+}
+
+ITP_ANSWER: dict[str, Any] = {
+    "name": "Concrete pour ITP (imported)",
+    "description": "Pre-pour and placement checks for slabs.",
+    "roles": [
+        {"name": "Contractor", "party": "contractor"},
+        {"name": "Engineer of record", "party": "engineer"},
+    ],
+    "sections": [
+        {
+            "title": "Pre-pour",
+            "lines": [
+                {
+                    "title": "Rebar placement checked",
+                    "classification": "H",
+                    "acceptance_criteria": "Per drawing S-201, cover 2 in.",
+                    "reference": "ACI 318",
+                    "record_required": "Pre-pour checklist",
+                    "roles": ["Engineer of record"],
+                    "photo_required": True,
+                    "value_type": "none",
+                    "unit": None,
+                },
+                {
+                    "title": "Formwork dimensions",
+                    "classification": "W",
+                    "roles": ["Contractor", "Site engineer"],
+                },
+            ],
+        },
+        {
+            "title": "Placement",
+            "lines": [
+                {
+                    "title": "Slump",
+                    "classification": "witness",
+                    "value_type": "number",
+                    "unit": "in",
+                },
+                {"title": "Batch tickets", "classification": "S"},
+            ],
+        },
+        {"title": "Empty heading", "lines": []},
+    ],
+    "notes": ["Page 2 was blurred; line 7 may be incomplete."],
+}
+
+TOOL_ANSWERS = {
+    "record_photo_analysis": "photo_answer",
+    "record_finding_draft": "voice_answer",
+    "record_report_summary": "report_answer",
+    "record_itp_draft": "itp_answer",
+}
+
 
 class FakeClaude:
     """Answers ``POST /v1/messages`` with a forced tool call; records requests."""
@@ -39,6 +100,8 @@ class FakeClaude:
         self.requests: list[httpx.Request] = []
         self.photo_answer: dict[str, Any] | None = dict(PHOTO_ANSWER)
         self.voice_answer: dict[str, Any] | None = dict(VOICE_ANSWER)
+        self.report_answer: dict[str, Any] | None = dict(REPORT_ANSWER)
+        self.itp_answer: dict[str, Any] | None = json.loads(json.dumps(ITP_ANSWER))
         self.fail_with: int | None = None
         self.timeout = False
         self.no_tool = False
@@ -54,9 +117,7 @@ class FakeClaude:
             return httpx.Response(self.fail_with, json={"error": {"type": "x"}})
         body = json.loads(request.content)
         tool = body["tools"][0]["name"]
-        answer = (
-            self.photo_answer if tool == "record_photo_analysis" else self.voice_answer
-        )
+        answer = getattr(self, TOOL_ANSWERS[tool])
         content: list[dict[str, Any]] = [{"type": "text", "text": "Here you go."}]
         if not self.no_tool:
             content.append(

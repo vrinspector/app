@@ -53,6 +53,9 @@ const api = vi.hoisted(() => ({
   generateReport: vi.fn(),
   listProjectEmails: vi.fn(),
   resendMemberInvite: vi.fn(),
+  readStatus: vi.fn(),
+  reportDraft: vi.fn(),
+  dismissSuggestion: vi.fn(),
 }))
 
 vi.mock("@/client", () => ({
@@ -77,6 +80,11 @@ vi.mock("@/client", () => ({
   ReportsService: {
     listReports: api.listReports,
     generateReport: api.generateReport,
+  },
+  AiService: {
+    readStatus: api.readStatus,
+    reportDraft: api.reportDraft,
+    dismissSuggestion: api.dismissSuggestion,
   },
   // Weather (increment 10.5) is a silent badge; no reading here.
   WeatherService: { readWeather: async () => ({ data: undefined }) },
@@ -209,6 +217,10 @@ beforeEach(() => {
   api.listPhotos.mockResolvedValue(ok([]))
   api.listReports.mockResolvedValue(ok([]))
   api.listProjectEmails.mockResolvedValue(ok([]))
+  api.readStatus.mockResolvedValue(
+    ok({ enabled: false, model: null, daily_limit: 200, used_today: 0 }),
+  )
+  api.dismissSuggestion.mockResolvedValue(ok({}))
 })
 
 const inviteLog = (
@@ -568,5 +580,98 @@ describe("reports section", () => {
     expect(screen.getByTestId("download-report")).toBeInTheDocument()
     // While the write actions for findings stay hidden from a viewer.
     expect(screen.queryByTestId("log-finding")).not.toBeInTheDocument()
+  })
+})
+
+describe("report summary (increment 16, Block 10C)", () => {
+  it("prints a summary the inspector writes, without AI", async () => {
+    api.generateReport.mockResolvedValue(
+      ok(report(1, { summary: "Walkdown done.", ai_suggestion_id: null })),
+    )
+    renderApp("/projects/7/inspections/21")
+    await screen.findByText("No report yet")
+    // AI is off: no draft button.
+    expect(screen.queryByTestId("report-ai-draft")).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByTestId("report-add-summary"))
+    await userEvent.type(screen.getByTestId("report-summary"), "Walkdown done.")
+    await userEvent.click(screen.getByTestId("generate-report"))
+    await waitFor(() =>
+      expect(api.generateReport).toHaveBeenCalledWith({
+        body: {
+          inspection_id: 21,
+          summary: "Walkdown done.",
+          ai_suggestion_id: null,
+        },
+      }),
+    )
+  })
+
+  it("drafts the summary with AI, lets it be edited and sends the draft id", async () => {
+    api.readStatus.mockResolvedValue(
+      ok({ enabled: true, model: "m", daily_limit: 200, used_today: 0 }),
+    )
+    api.reportDraft.mockResolvedValue(
+      ok({
+        id: 55,
+        kind: "report",
+        status: "draft",
+        draft: { summary: "Two findings were recorded." },
+      }),
+    )
+    api.listReports.mockResolvedValue(
+      ok([report(1, { summary: "Earlier words.", ai_suggestion_id: 9 })]),
+    )
+    api.generateReport.mockResolvedValue(ok(report(2)))
+    renderApp("/projects/7/inspections/21")
+
+    const preview = await screen.findByTestId("report-summary-preview")
+    expect(preview).toHaveTextContent("AI-assisted summary")
+    expect(preview).toHaveTextContent("Earlier words.")
+
+    await userEvent.click(await screen.findByTestId("report-ai-draft"))
+    await waitFor(() =>
+      expect(api.reportDraft).toHaveBeenCalledWith({
+        body: { inspection_id: 21 },
+      }),
+    )
+    const box = await screen.findByTestId("report-summary")
+    expect(box).toHaveValue("Two findings were recorded.")
+    expect(screen.getByTestId("ai-draft-notice")).toHaveTextContent(
+      "Generate report",
+    )
+    await userEvent.type(box, " One is open.")
+    await userEvent.click(screen.getByTestId("generate-report"))
+    await waitFor(() =>
+      expect(api.generateReport).toHaveBeenCalledWith({
+        body: {
+          inspection_id: 21,
+          summary: "Two findings were recorded. One is open.",
+          ai_suggestion_id: 55,
+        },
+      }),
+    )
+  })
+
+  it("undo puts the inspector's words back and sets the draft aside", async () => {
+    api.readStatus.mockResolvedValue(
+      ok({ enabled: true, model: "m", daily_limit: 200, used_today: 0 }),
+    )
+    api.reportDraft.mockResolvedValue(
+      ok({ id: 56, kind: "report", status: "draft", draft: { summary: "AI" } }),
+    )
+    renderApp("/projects/7/inspections/21")
+    await screen.findByText("No report yet")
+    await userEvent.click(screen.getByTestId("report-add-summary"))
+    await userEvent.type(screen.getByTestId("report-summary"), "Mine")
+    await userEvent.click(screen.getByTestId("report-ai-draft"))
+    await waitFor(() =>
+      expect(screen.getByTestId("report-summary")).toHaveValue("AI"),
+    )
+    await userEvent.click(screen.getByTestId("ai-draft-undo"))
+    expect(screen.getByTestId("report-summary")).toHaveValue("Mine")
+    expect(api.dismissSuggestion).toHaveBeenCalledWith({
+      path: { suggestion_id: 56 },
+    })
   })
 })

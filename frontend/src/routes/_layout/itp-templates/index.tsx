@@ -1,15 +1,17 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { ClipboardCheck, Plus } from "lucide-react"
+import { ClipboardCheck, Plus, Sparkles } from "lucide-react"
 import { useId, useState } from "react"
 
 import { ListCard } from "@/components/Common/ListCard"
 import { PageHeader } from "@/components/Common/PageHeader"
 import { EmptyState, QueryState } from "@/components/Common/States"
 import { StatusBadge } from "@/components/Common/StatusBadge"
+import { ItpImportDialog } from "@/components/Itps/ItpImportDialog"
 import { TemplateFormDialog } from "@/components/Itps/TemplateFormDialog"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { useAiEnabled } from "@/lib/ai"
 import { formatDate, joinMeta } from "@/lib/format"
 import { templatesQuery } from "@/lib/queries"
 
@@ -22,19 +24,38 @@ export const Route = createFileRoute("/_layout/itp-templates/")({
  * Master ITP templates (Block 9.5, increment 13): the caller's masters,
  * latest version of each. A master is applied to a project (or to many of
  * its areas at once) from the project screen; the project gets a frozen copy.
+ *
+ * Increment 16 (Block 10E): **Import with AI** turns an ITP the inspector
+ * already uses (PDF, spreadsheet or photos) into a draft master to review —
+ * the way custom templates are made (owner decision 2026-11-10).
  */
 function TemplatesScreen() {
   const navigate = Route.useNavigate()
   const [showArchived, setShowArchived] = useState(false)
   const [creating, setCreating] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const aiEnabled = useAiEnabled()
   const query = useQuery(templatesQuery(showArchived))
   const archivedId = useId()
 
   const newButton = (
-    <Button onClick={() => setCreating(true)} data-testid="new-template">
-      <Plus />
-      New template
-    </Button>
+    <div className="flex flex-wrap gap-2">
+      {aiEnabled ? (
+        <Button
+          variant="outline"
+          className="border-vri-gold/60 text-vri-copper"
+          onClick={() => setImporting(true)}
+          data-testid="import-template"
+        >
+          <Sparkles />
+          Import with AI
+        </Button>
+      ) : null}
+      <Button onClick={() => setCreating(true)} data-testid="new-template">
+        <Plus />
+        New template
+      </Button>
+    </div>
   )
 
   return (
@@ -62,7 +83,7 @@ function TemplatesScreen() {
           <EmptyState
             icon={<ClipboardCheck />}
             title="No ITP templates yet"
-            description="Create a master once — sections, lines, hold and witness points, who signs — then apply it to any project or area."
+            description="Create a master once — sections, lines, hold and witness points, who signs — then apply it to any project or area. Already have an ITP? Import it with AI."
             action={newButton}
           />
         }
@@ -112,6 +133,16 @@ function TemplatesScreen() {
           </ul>
         )}
       </QueryState>
+      <ItpImportDialog
+        open={importing}
+        onOpenChange={setImporting}
+        onSaved={(template) =>
+          navigate({
+            to: "/itp-templates/$templateId",
+            params: { templateId: String(template.id) },
+          })
+        }
+      />
       <TemplateFormDialog
         open={creating}
         onOpenChange={setCreating}

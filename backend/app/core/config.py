@@ -155,6 +155,15 @@ class Settings(BaseSettings):
     AI_DAILY_LIMIT_PER_USER: int = 200
     # Longest transcript accepted for voice-to-finding (characters).
     AI_MAX_TRANSCRIPT_CHARS: int = 4000
+    # --- increment 16 (Block 10C report drafting, 10E ITP import) ---
+    # Reading a whole ITP document takes the model longer than a photo.
+    AI_IMPORT_TIMEOUT_SECONDS: float = 150.0
+    # ITP import uploads: at most this many files, this many bytes in all.
+    AI_IMPORT_MAX_FILES: int = 8
+    AI_IMPORT_MAX_BYTES: int = 20 * 1024 * 1024
+    # Report drafting reads at most this many findings (newest dropped first
+    # would hide the latest work, so the oldest resolved ones go first).
+    AI_REPORT_MAX_FINDINGS: int = 150
 
     @computed_field  # type: ignore[prop-decorator]
     @property

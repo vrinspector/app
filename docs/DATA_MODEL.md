@@ -370,3 +370,14 @@ any photo is filed, or any finding has a discipline):
 
 The photo itself is never copied into the log — only its id; the model is
 sent a downscaled copy read from S3 at request time.
+
+
+## AI report drafting + ITP import (increment 16, migration `a5e2c8f4d913`)
+
+Additive and guarded (downgrade refuses while any report / ITP-import
+suggestion is logged or any report version carries a summary):
+
+| Table | Change |
+|---|---|
+| `ai_suggestions` | `kind` widened to varchar 20 and may also be `report` (10C) or `itp_import` (10E); `project_id` / `inspection_id` nullable, with check `ck_ai_suggestions_scope` keeping them required for every kind but `itp_import` (an import belongs to the account that asked); + `template_id` (FK `itp_templates` SET NULL, indexed — the master a confirmed import became), `source_files` (JSONB `[{name, content_type, size, s3_key}]`; the originals live in S3 under `imports/itp/<public_id>/`) |
+| `inspection_reports` | + `summary` (text, the inspector's summary printed on that version), `ai_suggestion_id` (FK `ai_suggestions` SET NULL — the report draft it began as) |

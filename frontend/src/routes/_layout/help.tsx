@@ -332,6 +332,16 @@ function Help() {
             a numbered version with a <strong>Download PDF</strong> button, so
             an earlier report can always be opened again.
           </p>
+          <p>
+            <strong>Add a summary</strong> puts a few sentences of your own at
+            the top of the next report. Owners and inspectors can tap{" "}
+            <strong>Draft with AI</strong> to have the summary written from the
+            findings already recorded — what was inspected, what was found and
+            what is still open. It is an <strong>AI draft</strong> until you
+            generate the report: edit it freely or tap <strong>Undo</strong>.
+            The PDF notes that the summary was drafted with AI and reviewed by
+            you.
+          </p>
           <h3 className="mt-2 font-semibold">ITPs, hold points and areas</h3>
           <p>
             Build a master inspection and test plan once under{" "}
@@ -346,6 +356,17 @@ function Help() {
             lot, stage or chainage; add a numbered series such as Level 1–12
             with <strong>Add a series</strong>). Editing the master later never
             changes a copy already in use.
+          </p>
+          <p>
+            Already have an ITP? Under <strong>ITP templates</strong>, tap{" "}
+            <strong>Import with AI</strong> and choose the PDF, the Excel or CSV
+            sheet, or take photos of the paper form. The AI reads it into
+            sections and lines; you check each line's wording, its H / W / R / I
+            code, criteria, reference, record, who signs it, and whether it
+            needs a photo or a measured value, add or remove lines, then tap{" "}
+            <strong>Save as master template</strong>. It is saved as a draft
+            master, marked as imported with AI, ready to publish and apply like
+            any other.
           </p>
           <p>
             A new account starts with eleven <strong>starter templates</strong>{" "}
@@ -515,6 +536,9 @@ function Help() {
               the form in yourself. AI never saves anything on its own, and
               every finding it helped with is marked{" "}
               <strong>AI-assisted</strong> with a note of how it was drafted.
+              The same applies to report summaries and ITP imports; an import
+              that finds no inspection lines says so — try a clearer scan or
+              photo.
             </HelpCard>
             <HelpCard title="iPad / Safari">
               The rebuilt viewer is checked on iPad Safari as part of the device

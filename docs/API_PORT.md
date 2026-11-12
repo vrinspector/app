@@ -391,6 +391,23 @@ error, tokens, who asked / confirmed, edited or not).
 `tags_confirmed_at`, `ai_suggestion_id`. Non-members get 404 on every route
 above, viewers 403 on the writes.
 
+## AI report drafting + ITP import (increment 16)
+
+PRD v2.62 Block 10C and v2.63 Block 10E, same guardrails as increment 15.
+
+| Route | Who | What |
+|---|---|---|
+| `POST /ai/report-draft {inspection_id}` | owner, inspector (inspection may be signed off) | 201 draft `{summary}` written from the recorded findings; 429 daily cap, 503 off, 502 model failure (logged as `failed`) |
+| `POST /reports/generate {inspection_id, summary?, ai_suggestion_id?}` | any member; `ai_suggestion_id` needs owner / inspector | `summary` (≤ 6000 chars, paragraphs tidied, blank → none) is printed at the top of the PDF and returned on the report; `ai_suggestion_id` must be a `report` draft of the same inspection (404 otherwise, 422 another kind or no summary, 409 not a draft) and is marked `confirmed`, `edited` when the words differ. Without either field the legacy body and response are unchanged |
+| `POST /ai/itp-import` (multipart `files[]`, `hint?`) | any signed-in user | 201 draft `{name, description, roles:[{name, party}], sections:[{title, lines:[{title, classification H/W/R/I, acceptance_criteria, reference, record_required, roles, photo_required, value_type none/number/text, unit}]}], notes}`; PDF (≤ 2), .xlsx, .csv, JPEG / PNG / HEIC / WebP; ≤ `AI_IMPORT_MAX_FILES` (8) files, 413 over `AI_IMPORT_MAX_BYTES` (20 MB); 422 unreadable file or no lines read; originals stored in S3 |
+| `POST /ai/itp-import/{id}/save {name, description?, draft}` | the account that imported | 201 `ItpTemplatePublic` — a new master (status `draft`) built from the submitted draft and validated like any template (422 with the template error, or "Keep at least one line"); the import is marked `confirmed` with `template_id`; 409 if not a draft; 404 for anyone else |
+| `GET /ai/suggestions?template_id=N` | the template's owner | the import behind a master (any version) |
+
+`AiSuggestionPublic.project_id` / `inspection_id` are nullable (imports) and
+it gains `template_id` and `source_files` (`name`, `content_type`, `size`).
+`ReportPublic` gains `summary` and `ai_suggestion_id`. An ITP import is
+visible only to the account that ran it (404 to anyone else).
+
 ## Authorization (carried over from the July 2026 hardening)
 
 * Every object is reached through its project; non-members get **404** with
