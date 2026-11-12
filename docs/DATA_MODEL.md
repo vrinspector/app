@@ -256,7 +256,7 @@ idempotent; downgrade refuses while rows exist.
 |---|---|
 | `id`, `public_id` | INTEGER PK + UUID, as everywhere |
 | `project_id` | FK `projects.id` **ON DELETE SET NULL** — the log outlives the project |
-| `email_type` | `member_invite` today; increment 14 adds signing links, reminders and witness notices |
+| `email_type` | `member_invite`; increment 14 adds `sign_request`, `sign_reminder` and `witness_notice` (`related_id` = the link, or the ITP line for a notice) |
 | `related_id` | the row the email is about (the member for an invite); no FK, so removing the member keeps the history |
 | `recipient`, `subject` | what was sent and to whom — the body is never stored |
 | `status` | `queued` → `sent` / `failed`; `skipped` when SMTP is not configured (check constraint) |
@@ -323,3 +323,20 @@ rules are unchanged.
   schema is evidenced. The route is ported in increment 10.5 as a lookup
   with an in-process cache (`app/core/weather.py`), still with no table; a
   stored reading per inspection can follow if the real dump shows one.
+
+
+## External sign-off (increment 14, migration `d8b3f5a2c614`)
+
+Additive and guarded (downgrade refuses while pack versions or link history
+exist):
+
+| Table | Change |
+|---|---|
+| `external_sign_tokens` | + `revoked_at` (timestamptz), `revoked_reason` (`withdrawn` / `replaced`), `reminder_count` (int, default 0). A reminder issues a new row and marks the old one `replaced`: the raw token is never stored, so it cannot be re-sent |
+| `itp_sign_packs` (new) | one row per generated pack PDF: `project_itp_id` / `area_id` (CASCADE; exactly one set — `ck_itp_sign_packs_one_document`), `version` (unique per document, two partial unique indexes), `s3_key`, `filename`, `file_size`, `content_hash` (SHA-256 of what the PDF shows), `signature_count`, `generated_by`, `created_at` |
+
+Existing increment-12 columns now in use: `itp_signatures.weather` (the stamp),
+`signature_s3_key` (the drawn PNG in S3), `external_token_id`, `method =
+external_link`; a row with `itp_item_id` NULL is the signer's signature on the
+pack. `project_itps.pack_s3_key` / `pack_version` follow the latest ITP pack.
+Deleting an unsigned ITP or an area removes its pack rows; the PDFs stay in S3.

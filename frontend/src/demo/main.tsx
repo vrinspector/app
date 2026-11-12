@@ -46,9 +46,16 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 0, refetchOnWindowFocus: false } },
 })
 
+function startPath(): string {
+  const start = new URLSearchParams(window.location.search).get("start")
+  return start?.startsWith("/") && !start.startsWith("//") ? start : "/"
+}
+
 const router = createRouter({
   routeTree,
-  history: createMemoryHistory({ initialEntries: ["/"] }),
+  // demo.html?start=/sign/demo-owners-rep opens a screen directly (the
+  // signing page a demo "Copy link" points at). Same-site paths only.
+  history: createMemoryHistory({ initialEntries: [startPath()] }),
   context: { auth: { isAuthenticated: true } } satisfies RouterContext,
   defaultPendingMs: 300,
 })

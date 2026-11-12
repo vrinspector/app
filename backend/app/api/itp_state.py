@@ -28,6 +28,7 @@ from sqlalchemy import func
 from sqlmodel import Session, col, select
 
 from app.core.doc_numbers import effective_project_code, itp_doc_number
+from app.core.storage import storage
 from app.models import (
     RELEASE_APPROVED_LABEL,
     RELEASE_CONDITIONAL_LABEL,
@@ -366,6 +367,10 @@ def signature_public(sig: ItpSignature) -> ItpSignaturePublic:
         signed_at=sig.signed_at,
         gps_lat=float(sig.gps_lat) if sig.gps_lat is not None else None,
         gps_lng=float(sig.gps_lng) if sig.gps_lng is not None else None,
+        weather=sig.weather,
+        signature_url=storage.presign_get(sig.signature_s3_key)
+        if sig.signature_s3_key
+        else None,
     )
 
 

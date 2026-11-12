@@ -17,6 +17,9 @@
  * Increment 13.8: document numbers (`seq`, `doc_number` from the project's
  * ITP code), the three-shot photo set (`photo_set`, `shot_slots`,
  * `evidenced`; photos carry `shot_slot`), and a failed sample line.
+ *
+ * Increment 14: external sign-off lives in `fakeSignoff.ts`, registered at
+ * the end with this module's tables.
  */
 import type {
   AreaPublic,
@@ -40,6 +43,7 @@ import {
   THREE_SHOT_SLOTS,
 } from "@/lib/itp"
 import { STARTER_LIBRARY } from "@/lib/itpLibrary"
+import { registerSignoffRoutes } from "./fakeSignoff"
 
 type Body = Record<string, unknown>
 type Handler = (args: {
@@ -61,6 +65,12 @@ export interface ItpContext {
   drawingTitle: (drawingId: number) => string | null
   drawingProject: (drawingId: number) => number | undefined
   nextPublicId: () => string
+  // Increment 14 (external sign-off, `fakeSignoff.ts`).
+  projectName: (projectId: number) => string
+  projectClient: (projectId: number) => string | null
+  projectLocation: (projectId: number) => string | null
+  canWrite: (projectId: number) => boolean
+  packUrl: string
 }
 
 interface TemplateRow {
@@ -1290,6 +1300,35 @@ export function registerItpRoutes(ctx: ItpContext) {
   record(third, "relief", "PRV-7 set at 245 psig")
   record(third, "test-medium", "Hydrant water, potable")
   record(third, "blinds", "Blinds B-1 to B-6 installed and tight")
+
+  // Increment 14: signing links, packs, notices and the signing page; one
+  // seeded link opens Stage 1's pre-pour release for the Owner's
+  // representative at /sign/demo-owners-rep.
+  const signoff = registerSignoffRoutes({
+    on,
+    fail,
+    me,
+    nextPublicId: ctx.nextPublicId,
+    itps,
+    areas,
+    roles,
+    signatures,
+    itemStates,
+    docNumber: (itp) => itpDocNumber(ctx.projectCode(itp.project_id), itp.seq),
+    resultLabel: (item) => resultLabel(item as ItemRow),
+    outOfTolerance: (item) => outOfTolerance(item as ItemRow),
+    projectName: ctx.projectName,
+    projectClient: ctx.projectClient,
+    projectLocation: ctx.projectLocation,
+    canWrite: ctx.canWrite,
+    packUrl: ctx.packUrl,
+  })
+  signoff.seedLink(
+    first.id,
+    "Owner's representative",
+    "owners.rep@example.com",
+    "demo-owners-rep",
+  )
 
   return { checkPinItem, checkEvidence, checkEvidenceDelete, checkShotSlot }
 }

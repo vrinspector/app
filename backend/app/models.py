@@ -33,6 +33,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     String,
@@ -139,7 +140,11 @@ ITP_ITEM_STATUSES = ("pending", "pass", "fail", "na")
 SIGNOFF_PARTIES = ("contractor", "client", "engineer")
 ITP_SIGNATURE_METHODS = ("in_app", "external_link")
 # Increment 13.5 outbound email (Block 7.1 pulled forward).
-EMAIL_TYPES = ("member_invite",)
+EMAIL_TYPES = ("member_invite", "sign_request", "sign_reminder", "witness_notice")
+# Increment 14: why a signing link stopped working before it was used.
+SIGN_LINK_REVOKE_REASONS = ("withdrawn", "replaced")
+# What a signing link looks like from the outside.
+SIGN_LINK_STATES = ("active", "used", "expired", "revoked", "replaced")
 EMAIL_STATUSES = ("queued", "sent", "failed", "skipped")
 
 # Byte-exact column comment from the Block 8E migration applied to RDS.
@@ -835,7 +840,80 @@ class ExternalSignToken(SQLModel, table=True):
         default=False,
         sa_column=Column(Boolean, nullable=False, server_default=text("false")),
     )
+    # Increment 14 (migration d8b3f5a2c614). ``withdrawn`` when someone on the
+    # project revoked the link; ``replaced`` when a reminder or a new request
+    # for the same role and document issued a fresh link in its place (the
+    # raw token is never stored, so a reminder cannot resend the old one).
+    revoked_at: datetime | None = Field(
+        default=None, sa_column=Column(DateTime(timezone=True))
+    )
+    revoked_reason: str | None = Field(default=None, sa_column=Column(String(20)))
+    # How many reminders came before this link (0 for the first request).
+    reminder_count: int = Field(
+        default=0,
+        sa_column=Column(Integer, nullable=False, server_default=text("0")),
+    )
     created_by: str | None = Field(default=None, sa_column=Column(String(255)))
+    created_at: datetime | None = Field(default=None, sa_column=_created_at_column())
+
+
+class ItpSignPack(SQLModel, table=True):
+    """One generated version of a sign-off pack PDF (increment 14).
+
+    A pack is either one ITP's or one area's combined pack (exactly one of
+    ``project_itp_id`` / ``area_id``). Versions are numbered per document and
+    never overwritten; the PDF lives in S3 (``s3_key``), never in the
+    database. ``content_hash`` is the SHA-256 of everything the PDF shows, so
+    asking for the pack again only renders a new version when something on
+    it changed (regenerate-on-change).
+    """
+
+    __tablename__ = "itp_sign_packs"
+    __table_args__ = (
+        CheckConstraint(
+            "num_nonnulls(project_itp_id, area_id) = 1",
+            name="ck_itp_sign_packs_one_document",
+        ),
+        Index(
+            "uq_itp_sign_packs_itp_version",
+            "project_itp_id",
+            "version",
+            unique=True,
+            postgresql_where=text("project_itp_id IS NOT NULL"),
+        ),
+        Index(
+            "uq_itp_sign_packs_area_version",
+            "area_id",
+            "version",
+            unique=True,
+            postgresql_where=text("area_id IS NOT NULL"),
+        ),
+    )
+
+    id: int | None = Field(default=None, sa_column=_pk_column())
+    public_id: uuid.UUID | None = Field(default=None, sa_column=_public_id_column())
+    project_itp_id: int | None = Field(
+        default=None,
+        sa_column=Column(
+            Integer, ForeignKey("project_itps.id", ondelete="CASCADE"), index=True
+        ),
+    )
+    area_id: int | None = Field(
+        default=None,
+        sa_column=Column(
+            Integer, ForeignKey("project_areas.id", ondelete="CASCADE"), index=True
+        ),
+    )
+    version: int = Field(sa_column=Column(Integer, nullable=False))
+    s3_key: str = Field(sa_column=Column(String(512), nullable=False))
+    filename: str = Field(sa_column=Column(String(255), nullable=False))
+    file_size: int = Field(sa_column=Column(Integer, nullable=False))
+    content_hash: str = Field(sa_column=Column(String(64), nullable=False))
+    signature_count: int = Field(
+        default=0,
+        sa_column=Column(Integer, nullable=False, server_default=text("0")),
+    )
+    generated_by: str | None = Field(default=None, sa_column=Column(String(255)))
     created_at: datetime | None = Field(default=None, sa_column=_created_at_column())
 
 
@@ -973,6 +1051,7 @@ DOMAIN_TABLES: tuple[str, ...] = (
     "external_sign_tokens",
     "itp_signatures",
     "email_send_log",
+    "itp_sign_packs",
 )
 
 
@@ -1624,6 +1703,11 @@ class ItpSignaturePublic(SQLModel):
     signed_at: datetime
     gps_lat: float | None
     gps_lng: float | None
+    # Increment 14: the weather at the project when it was signed (the same
+    # fields as the weather badge) and a short-lived link to the drawn
+    # signature, when one was captured.
+    weather: dict[str, Any] | None = None
+    signature_url: str | None = None
 
 
 class ItpPinRef(SQLModel):
@@ -1728,3 +1812,150 @@ class ItpItemRef(SQLModel):
     classification: str
     status: str
     released: bool
+
+
+# --- Increment 14: external sign-off, packs, witness notices ----------------
+
+
+class SignLinkCreate(SQLModel):
+    """Ask for signatures by email.
+
+    With ``signoff_role_id``: one link for that role (``signer_email``
+    overrides the role's address). Without it: one link for every required
+    role that has a signer email and still has lines to sign.
+    """
+
+    signoff_role_id: int | None = None
+    signer_email: EmailStr | None = None
+
+
+class SignLinkPublic(SQLModel):
+    id: int
+    public_id: uuid.UUID
+    project_itp_id: int | None
+    area_id: int | None
+    signoff_role_id: int
+    role_name: str
+    signer_email: str
+    # active | used | expired | revoked | replaced
+    status: str
+    expires_at: datetime
+    used_at: datetime | None
+    revoked_at: datetime | None
+    reminder_count: int
+    created_by: str | None
+    created_at: datetime
+    # Outcome of the email that carried this link (queued / sent / failed /
+    # skipped), when there is one.
+    email_status: str | None = None
+    # The link itself — only in the response that created it. Only its
+    # SHA-256 is stored, so it can never be read back later.
+    link: str | None = None
+
+
+class SignLinkBatch(SQLModel):
+    links: list[SignLinkPublic]
+    # Roles that were not sent a link, with the reason, in plain language.
+    skipped: list[str]
+
+
+class SignPackPublic(SQLModel):
+    id: int
+    project_itp_id: int | None
+    area_id: int | None
+    version: int
+    filename: str
+    file_size: int
+    signature_count: int
+    generated_by: str | None
+    created_at: datetime
+    download_url: str
+    # On POST: whether this request rendered a new version (false when the
+    # latest version already shows everything).
+    regenerated: bool = False
+
+
+class WitnessNoticeCreate(SQLModel):
+    # When the work is expected to be ready to witness (free text keeps it
+    # simple across time zones: "Thu 14 Nov, 7:30 am").
+    planned_for: str | None = Field(default=None, max_length=120)
+    message: str | None = Field(default=None, max_length=2000)
+
+
+class WitnessNoticeResult(SQLModel):
+    sent_to: list[str]
+    skipped: list[str]
+
+
+class SignLine(SQLModel):
+    """One line as the external signer sees it."""
+
+    id: int
+    number: int
+    section: str | None
+    requirement: str
+    classification: str
+    status: str
+    result_label: str | None
+    measured_value: str | None
+    value_unit: str | None
+    out_of_tolerance: bool | None
+    notes: str | None
+    conditions: str | None
+    acceptance_criteria: str | None
+    reference_doc: str | None
+    photo_count: int
+    # Does this line need the link's role at all?
+    needs_you: bool
+    # ready: can be signed now; signed: this role already signed it;
+    # waiting: needs this role but not yet ready (``waiting_reason`` says why).
+    sign_state: str | None
+    waiting_reason: str | None
+
+
+class SignDocument(SQLModel):
+    itp_id: int
+    doc_number: str | None
+    title: str
+    status: str
+    area_name: str | None
+    lines: list[SignLine]
+
+
+class SignSessionPublic(SQLModel):
+    project_name: str
+    project_client: str | None
+    project_location: str | None
+    # "itp" for one ITP's link, "area" for an area's combined pack.
+    kind: str
+    area_name: str | None
+    role_name: str
+    party: str
+    signer_email: str
+    expires_at: datetime
+    documents: list[SignDocument]
+    ready_count: int
+    waiting_count: int
+    signed_count: int
+    # The current pack PDF (rendered on demand), if it could be produced.
+    pack_url: str | None = None
+
+
+class SignSubmit(SQLModel):
+    signer_name: str = Field(min_length=1, max_length=255)
+    # The drawn signature as a PNG data URL (signature_pad's toDataURL()).
+    signature_png: str = Field(min_length=30, max_length=400_000)
+    # The signer ticks "I have reviewed the lines above"; must be true.
+    confirm: bool
+    gps_lat: float | None = Field(default=None, ge=-90, le=90)
+    gps_lng: float | None = Field(default=None, ge=-180, le=180)
+
+
+class SignResult(SQLModel):
+    signed_lines: int
+    documents: int
+    signed_at: datetime
+    weather: dict[str, Any] | None
+    # Lines that still need this role but were not ready (a new link is sent
+    # for them later).
+    still_waiting: int

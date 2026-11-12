@@ -122,6 +122,22 @@ class Settings(BaseSettings):
     # A member's invite email can be re-sent at most once per this many seconds.
     INVITE_RESEND_COOLDOWN_SECONDS: int = 60
 
+    # --- External sign-off (increment 14) ---
+    # How long a no-account signing link works (PRD v2.63 §5: 14 days).
+    SIGN_LINK_DAYS: int = 14
+    # A link can be reminded (re-issued) at most once per this many seconds,
+    # and a witness notice for the same line re-sent at most this often.
+    SIGN_REMINDER_COOLDOWN_SECONDS: int = 60
+    # Automatic reminders (``python -m app.sign_reminders``, run on a schedule
+    # set up at RG-3): remind after this many days without a signature, at
+    # most this many times per role and document.
+    SIGN_REMINDER_AFTER_DAYS: int = 3
+    SIGN_REMINDER_MAX: int = 2
+    # Render the sign-off pack in the background after every signature, so the
+    # signed version is in S3 straight away. Off only in tests that do not
+    # look at packs (rendering takes a second).
+    ITP_PACK_AUTOREGENERATE: bool = True
+
     @computed_field  # type: ignore[prop-decorator]
     @property
     def app_public_url(self) -> str:

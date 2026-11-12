@@ -11,6 +11,7 @@ from app.api.routes import (
     photos,
     projects,
     reports,
+    signoff,
     users,
     utils,
     weather,
@@ -36,3 +37,5 @@ api_router.include_router(itps.router)
 api_router.include_router(areas.router)
 # Increment 13.5 — outbound email: send log + invite resend (Block 7.1)
 api_router.include_router(emails.router)
+# Increment 14 — external sign-off links, sign-off packs, witness notices
+api_router.include_router(signoff.router)

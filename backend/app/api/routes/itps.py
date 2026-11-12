@@ -64,7 +64,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, select
@@ -95,6 +95,8 @@ from app.core.auth import AuthUser
 from app.core.config import settings
 from app.core.itp import DEFAULT_ROLES, TemplateError, parse_template_body
 from app.core.itp_library import seed_starter_library
+from app.core.packs import regenerate_in_background
+from app.core.signing import weather_stamp
 from app.models import (
     ItpItem,
     ItpItemPublic,
@@ -838,13 +840,15 @@ def sign_itp_item(
     payload: ItpSignatureCreate,
     session: SessionDep,
     current_user: CurrentUser,
+    background: BackgroundTasks,
 ) -> Any:
     """In-app sign-off of one line for one of its required roles.
 
     A role with a signer email is signed only by the member signed in with
     that email (any project role, so a client engineer invited as a viewer
     can sign); a role without one is signed by a project owner. External
-    no-account links are increment 14.
+    no-account links are increment 14 (``signoff.py``). Increment 14 adds the
+    weather stamp and refreshes the sign-off pack in the background.
     """
     item, itp = get_authorized_itp_item(session, item_id, current_user)
     member = require_project_member(session, itp.project_id, current_user)
@@ -896,6 +900,7 @@ def sign_itp_item(
         gps_lng=Decimal(str(round(payload.gps_lng, 6)))
         if payload.gps_lng is not None
         else None,
+        weather=weather_stamp(session.get(Project, itp.project_id)),
     )
     session.add(signature)
     if itp.status == "not_started":
@@ -903,4 +908,10 @@ def sign_itp_item(
         session.add(itp)
     session.commit()
     session.refresh(signature)
+    background.add_task(
+        regenerate_in_background,
+        [itp.id or 0],
+        [itp.area_id] if itp.area_id else [],
+        current_email(current_user),
+    )
     return signature_public(signature)

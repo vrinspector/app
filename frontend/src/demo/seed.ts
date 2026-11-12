@@ -22,6 +22,7 @@ import compressorSkid from "./assets/compressor-skid.jpg?url"
 import condensateDrain from "./assets/condensate-drain.jpg?url"
 import flange from "./assets/flange-ft104.jpg?url"
 import padPonding from "./assets/pad-ponding.jpg?url"
+import samplePack from "./assets/sample-pack.pdf?url"
 import pidPdf from "./assets/sample-pid.pdf?url"
 import sampleReport from "./assets/sample-report.pdf?url"
 import sitePlan from "./assets/sample-site-plan.png?url"
@@ -29,6 +30,8 @@ import valveTag from "./assets/valve-xv205.jpg?url"
 import { DEMO_USER } from "./auth0-stub"
 
 export const SAMPLE_REPORT_URL = sampleReport
+/** Increment 14: a real sign-off pack rendered by the API (Stage 1 concrete). */
+export const SAMPLE_PACK_URL = samplePack
 
 /** Static files that stand in for S3 objects, keyed by s3_key. */
 export const ASSET_URLS: Record<string, string> = {

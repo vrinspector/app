@@ -241,8 +241,8 @@ def test_deleting_the_inspection_removes_its_report_rows(
 
 
 def test_unreadable_photo_bytes_render_as_placeholder(fake_s3: FakeS3) -> None:
-    assert report_module._thumbnail_data_uri(b"not an image") is None
-    uri = report_module._thumbnail_data_uri(_jpeg(3000, 2000))
+    assert report_module.thumbnail_data_uri(b"not an image") is None
+    uri = report_module.thumbnail_data_uri(_jpeg(3000, 2000))
     assert uri is not None and uri.startswith("data:image/jpeg;base64,")
     # Downscaled: a 3000 px JPEG becomes at most THUMBNAIL_EDGE wide.
     import base64

@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { areasBulkCreateAreasData, areasBulkCreateAreasErrors, areasBulkCreateAreasResponses, areasCreateAreaData, areasCreateAreaErrors, areasCreateAreaResponses, areasDeleteAreaData, areasDeleteAreaErrors, areasDeleteAreaResponses, areasListAreasData, areasListAreasErrors, areasListAreasResponses, areasReadAreaData, areasReadAreaErrors, areasReadAreaResponses, areasReorderAreasData, areasReorderAreasErrors, areasReorderAreasResponses, areasUpdateAreaData, areasUpdateAreaErrors, areasUpdateAreaResponses, dashboardReadDashboardData, dashboardReadDashboardResponses, drawingsCreateDrawingData, drawingsCreateDrawingErrors, drawingsCreateDrawingResponses, drawingsCreatePinData, drawingsCreatePinErrors, drawingsCreatePinResponses, drawingsDeleteDrawingData, drawingsDeleteDrawingErrors, drawingsDeleteDrawingResponses, drawingsDeletePinData, drawingsDeletePinErrors, drawingsDeletePinResponses, drawingsListDrawingsData, drawingsListDrawingsErrors, drawingsListDrawingsResponses, drawingsListPinsData, drawingsListPinsErrors, drawingsListPinsResponses, drawingsPresignDrawingUploadData, drawingsPresignDrawingUploadErrors, drawingsPresignDrawingUploadResponses, drawingsReadDrawingData, drawingsReadDrawingErrors, drawingsReadDrawingResponses, drawingsReadDrawingViewUrlData, drawingsReadDrawingViewUrlErrors, drawingsReadDrawingViewUrlResponses, drawingsReadPinData, drawingsReadPinErrors, drawingsReadPinResponses, drawingsUpdateDrawingData, drawingsUpdateDrawingDimensionsData, drawingsUpdateDrawingDimensionsErrors, drawingsUpdateDrawingDimensionsResponses, drawingsUpdateDrawingErrors, drawingsUpdateDrawingResponses, drawingsUpdatePinData, drawingsUpdatePinErrors, drawingsUpdatePinResponses, emailsListProjectEmailsData, emailsListProjectEmailsErrors, emailsListProjectEmailsResponses, emailsResendMemberInviteData, emailsResendMemberInviteErrors, emailsResendMemberInviteResponses, findingsCreateFindingData, findingsCreateFindingErrors, findingsCreateFindingResponses, findingsDeleteFindingData, findingsDeleteFindingErrors, findingsDeleteFindingResponses, findingsListFindingsData, findingsListFindingsErrors, findingsListFindingsResponses, findingsReadFindingData, findingsReadFindingErrors, findingsReadFindingResponses, findingsResolveFindingData, findingsResolveFindingErrors, findingsResolveFindingResponses, findingsSetFindingStatusData, findingsSetFindingStatusErrors, findingsSetFindingStatusResponses, findingsUpdateFindingData, findingsUpdateFindingErrors, findingsUpdateFindingResponses, inspectionsCreateInspectionData, inspectionsCreateInspectionErrors, inspectionsCreateInspectionResponses, inspectionsDeleteInspectionData, inspectionsDeleteInspectionErrors, inspectionsDeleteInspectionResponses, inspectionsListInspectionsData, inspectionsListInspectionsErrors, inspectionsListInspectionsResponses, inspectionsReadInspectionData, inspectionsReadInspectionErrors, inspectionsReadInspectionResponses, inspectionsReopenInspectionData, inspectionsReopenInspectionErrors, inspectionsReopenInspectionResponses, inspectionsSignoffInspectionData, inspectionsSignoffInspectionErrors, inspectionsSignoffInspectionResponses, inspectionsUpdateInspectionData, inspectionsUpdateInspectionErrors, inspectionsUpdateInspectionResponses, itpsAddDefaultSignoffRolesData, itpsAddDefaultSignoffRolesErrors, itpsAddDefaultSignoffRolesResponses, itpsBulkCreateProjectItpsData, itpsBulkCreateProjectItpsErrors, itpsBulkCreateProjectItpsResponses, itpsCreateProjectItpData, itpsCreateProjectItpErrors, itpsCreateProjectItpResponses, itpsCreateSignoffRoleData, itpsCreateSignoffRoleErrors, itpsCreateSignoffRoleResponses, itpsCreateTemplateData, itpsCreateTemplateErrors, itpsCreateTemplateResponses, itpsDeleteProjectItpData, itpsDeleteProjectItpErrors, itpsDeleteProjectItpResponses, itpsDeleteSignoffRoleData, itpsDeleteSignoffRoleErrors, itpsDeleteSignoffRoleResponses, itpsListProjectItpItemsData, itpsListProjectItpItemsErrors, itpsListProjectItpItemsResponses, itpsListProjectItpsData, itpsListProjectItpsErrors, itpsListProjectItpsResponses, itpsListSignoffRolesData, itpsListSignoffRolesErrors, itpsListSignoffRolesResponses, itpsListTemplatesData, itpsListTemplatesErrors, itpsListTemplatesResponses, itpsReadProjectItpData, itpsReadProjectItpErrors, itpsReadProjectItpResponses, itpsReadTemplateData, itpsReadTemplateErrors, itpsReadTemplateResponses, itpsSignItpItemData, itpsSignItpItemErrors, itpsSignItpItemResponses, itpsUpdateItpItemData, itpsUpdateItpItemErrors, itpsUpdateItpItemResponses, itpsUpdateProjectItpData, itpsUpdateProjectItpErrors, itpsUpdateProjectItpResponses, itpsUpdateSignoffRoleData, itpsUpdateSignoffRoleErrors, itpsUpdateSignoffRoleResponses, itpsUpdateTemplateData, itpsUpdateTemplateErrors, itpsUpdateTemplateResponses, itpsUpdateTemplateStatusData, itpsUpdateTemplateStatusErrors, itpsUpdateTemplateStatusResponses, photosDeletePhotoData, photosDeletePhotoErrors, photosDeletePhotoResponses, photosListPhotosData, photosListPhotosErrors, photosListPhotosResponses, photosPresignPhotoUploadData, photosPresignPhotoUploadErrors, photosPresignPhotoUploadResponses, photosReadPhotoData, photosReadPhotoErrors, photosReadPhotoResponses, photosRegisterPhotoData, photosRegisterPhotoErrors, photosRegisterPhotoResponses, projectsCreateProjectData, projectsCreateProjectErrors, projectsCreateProjectResponses, projectsDeleteProjectData, projectsDeleteProjectErrors, projectsDeleteProjectResponses, projectsInviteMemberData, projectsInviteMemberErrors, projectsInviteMemberResponses, projectsListMembersData, projectsListMembersErrors, projectsListMembersResponses, projectsListProjectsData, projectsListProjectsResponses, projectsReadProjectData, projectsReadProjectErrors, projectsReadProjectResponses, projectsRemoveMemberData, projectsRemoveMemberErrors, projectsRemoveMemberResponses, projectsUpdateProjectData, projectsUpdateProjectErrors, projectsUpdateProjectResponses, reportsGenerateReportData, reportsGenerateReportErrors, reportsGenerateReportResponses, reportsListReportsData, reportsListReportsErrors, reportsListReportsResponses, reportsReadReportData, reportsReadReportErrors, reportsReadReportResponses, usersReadUserMeData, usersReadUserMeResponses, utilsHealthCheckData, utilsHealthCheckResponses, weatherReadWeatherData, weatherReadWeatherErrors, weatherReadWeatherResponses } from './types.gen';
+import type { areasBulkCreateAreasData, areasBulkCreateAreasErrors, areasBulkCreateAreasResponses, areasCreateAreaData, areasCreateAreaErrors, areasCreateAreaResponses, areasDeleteAreaData, areasDeleteAreaErrors, areasDeleteAreaResponses, areasListAreasData, areasListAreasErrors, areasListAreasResponses, areasReadAreaData, areasReadAreaErrors, areasReadAreaResponses, areasReorderAreasData, areasReorderAreasErrors, areasReorderAreasResponses, areasUpdateAreaData, areasUpdateAreaErrors, areasUpdateAreaResponses, dashboardReadDashboardData, dashboardReadDashboardResponses, drawingsCreateDrawingData, drawingsCreateDrawingErrors, drawingsCreateDrawingResponses, drawingsCreatePinData, drawingsCreatePinErrors, drawingsCreatePinResponses, drawingsDeleteDrawingData, drawingsDeleteDrawingErrors, drawingsDeleteDrawingResponses, drawingsDeletePinData, drawingsDeletePinErrors, drawingsDeletePinResponses, drawingsListDrawingsData, drawingsListDrawingsErrors, drawingsListDrawingsResponses, drawingsListPinsData, drawingsListPinsErrors, drawingsListPinsResponses, drawingsPresignDrawingUploadData, drawingsPresignDrawingUploadErrors, drawingsPresignDrawingUploadResponses, drawingsReadDrawingData, drawingsReadDrawingErrors, drawingsReadDrawingResponses, drawingsReadDrawingViewUrlData, drawingsReadDrawingViewUrlErrors, drawingsReadDrawingViewUrlResponses, drawingsReadPinData, drawingsReadPinErrors, drawingsReadPinResponses, drawingsUpdateDrawingData, drawingsUpdateDrawingDimensionsData, drawingsUpdateDrawingDimensionsErrors, drawingsUpdateDrawingDimensionsResponses, drawingsUpdateDrawingErrors, drawingsUpdateDrawingResponses, drawingsUpdatePinData, drawingsUpdatePinErrors, drawingsUpdatePinResponses, emailsListProjectEmailsData, emailsListProjectEmailsErrors, emailsListProjectEmailsResponses, emailsResendMemberInviteData, emailsResendMemberInviteErrors, emailsResendMemberInviteResponses, findingsCreateFindingData, findingsCreateFindingErrors, findingsCreateFindingResponses, findingsDeleteFindingData, findingsDeleteFindingErrors, findingsDeleteFindingResponses, findingsListFindingsData, findingsListFindingsErrors, findingsListFindingsResponses, findingsReadFindingData, findingsReadFindingErrors, findingsReadFindingResponses, findingsResolveFindingData, findingsResolveFindingErrors, findingsResolveFindingResponses, findingsSetFindingStatusData, findingsSetFindingStatusErrors, findingsSetFindingStatusResponses, findingsUpdateFindingData, findingsUpdateFindingErrors, findingsUpdateFindingResponses, inspectionsCreateInspectionData, inspectionsCreateInspectionErrors, inspectionsCreateInspectionResponses, inspectionsDeleteInspectionData, inspectionsDeleteInspectionErrors, inspectionsDeleteInspectionResponses, inspectionsListInspectionsData, inspectionsListInspectionsErrors, inspectionsListInspectionsResponses, inspectionsReadInspectionData, inspectionsReadInspectionErrors, inspectionsReadInspectionResponses, inspectionsReopenInspectionData, inspectionsReopenInspectionErrors, inspectionsReopenInspectionResponses, inspectionsSignoffInspectionData, inspectionsSignoffInspectionErrors, inspectionsSignoffInspectionResponses, inspectionsUpdateInspectionData, inspectionsUpdateInspectionErrors, inspectionsUpdateInspectionResponses, itpsAddDefaultSignoffRolesData, itpsAddDefaultSignoffRolesErrors, itpsAddDefaultSignoffRolesResponses, itpsBulkCreateProjectItpsData, itpsBulkCreateProjectItpsErrors, itpsBulkCreateProjectItpsResponses, itpsCreateProjectItpData, itpsCreateProjectItpErrors, itpsCreateProjectItpResponses, itpsCreateSignoffRoleData, itpsCreateSignoffRoleErrors, itpsCreateSignoffRoleResponses, itpsCreateTemplateData, itpsCreateTemplateErrors, itpsCreateTemplateResponses, itpsDeleteProjectItpData, itpsDeleteProjectItpErrors, itpsDeleteProjectItpResponses, itpsDeleteSignoffRoleData, itpsDeleteSignoffRoleErrors, itpsDeleteSignoffRoleResponses, itpsListProjectItpItemsData, itpsListProjectItpItemsErrors, itpsListProjectItpItemsResponses, itpsListProjectItpsData, itpsListProjectItpsErrors, itpsListProjectItpsResponses, itpsListSignoffRolesData, itpsListSignoffRolesErrors, itpsListSignoffRolesResponses, itpsListTemplatesData, itpsListTemplatesErrors, itpsListTemplatesResponses, itpsReadProjectItpData, itpsReadProjectItpErrors, itpsReadProjectItpResponses, itpsReadTemplateData, itpsReadTemplateErrors, itpsReadTemplateResponses, itpsSignItpItemData, itpsSignItpItemErrors, itpsSignItpItemResponses, itpsUpdateItpItemData, itpsUpdateItpItemErrors, itpsUpdateItpItemResponses, itpsUpdateProjectItpData, itpsUpdateProjectItpErrors, itpsUpdateProjectItpResponses, itpsUpdateSignoffRoleData, itpsUpdateSignoffRoleErrors, itpsUpdateSignoffRoleResponses, itpsUpdateTemplateData, itpsUpdateTemplateErrors, itpsUpdateTemplateResponses, itpsUpdateTemplateStatusData, itpsUpdateTemplateStatusErrors, itpsUpdateTemplateStatusResponses, photosDeletePhotoData, photosDeletePhotoErrors, photosDeletePhotoResponses, photosListPhotosData, photosListPhotosErrors, photosListPhotosResponses, photosPresignPhotoUploadData, photosPresignPhotoUploadErrors, photosPresignPhotoUploadResponses, photosReadPhotoData, photosReadPhotoErrors, photosReadPhotoResponses, photosRegisterPhotoData, photosRegisterPhotoErrors, photosRegisterPhotoResponses, projectsCreateProjectData, projectsCreateProjectErrors, projectsCreateProjectResponses, projectsDeleteProjectData, projectsDeleteProjectErrors, projectsDeleteProjectResponses, projectsInviteMemberData, projectsInviteMemberErrors, projectsInviteMemberResponses, projectsListMembersData, projectsListMembersErrors, projectsListMembersResponses, projectsListProjectsData, projectsListProjectsResponses, projectsReadProjectData, projectsReadProjectErrors, projectsReadProjectResponses, projectsRemoveMemberData, projectsRemoveMemberErrors, projectsRemoveMemberResponses, projectsUpdateProjectData, projectsUpdateProjectErrors, projectsUpdateProjectResponses, reportsGenerateReportData, reportsGenerateReportErrors, reportsGenerateReportResponses, reportsListReportsData, reportsListReportsErrors, reportsListReportsResponses, reportsReadReportData, reportsReadReportErrors, reportsReadReportResponses, signoffCreateAreaSignLinksData, signoffCreateAreaSignLinksErrors, signoffCreateAreaSignLinksResponses, signoffCreateItpSignLinksData, signoffCreateItpSignLinksErrors, signoffCreateItpSignLinksResponses, signoffCurrentAreaPackData, signoffCurrentAreaPackErrors, signoffCurrentAreaPackResponses, signoffCurrentItpPackData, signoffCurrentItpPackErrors, signoffCurrentItpPackResponses, signoffListAreaPacksData, signoffListAreaPacksErrors, signoffListAreaPacksResponses, signoffListAreaSignLinksData, signoffListAreaSignLinksErrors, signoffListAreaSignLinksResponses, signoffListItpPacksData, signoffListItpPacksErrors, signoffListItpPacksResponses, signoffListItpSignLinksData, signoffListItpSignLinksErrors, signoffListItpSignLinksResponses, signoffOpenSigningLinkData, signoffOpenSigningLinkErrors, signoffOpenSigningLinkResponses, signoffRemindSignLinkData, signoffRemindSignLinkErrors, signoffRemindSignLinkResponses, signoffRevokeSignLinkData, signoffRevokeSignLinkErrors, signoffRevokeSignLinkResponses, signoffSendWitnessNoticeData, signoffSendWitnessNoticeErrors, signoffSendWitnessNoticeResponses, signoffSubmitSignatureData, signoffSubmitSignatureErrors, signoffSubmitSignatureResponses, usersReadUserMeData, usersReadUserMeResponses, utilsHealthCheckData, utilsHealthCheckResponses, weatherReadWeatherData, weatherReadWeatherErrors, weatherReadWeatherResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -959,7 +959,8 @@ export class ItpsService {
      * A role with a signer email is signed only by the member signed in with
      * that email (any project role, so a client engineer invited as a viewer
      * can sign); a role without one is signed by a project owner. External
-     * no-account links are increment 14.
+     * no-account links are increment 14 (``signoff.py``). Increment 14 adds the
+     * weather stamp and refreshes the sign-off pack in the background.
      */
     public static signItpItem<ThrowOnError extends boolean = true>(options: Options<itpsSignItpItemData, ThrowOnError>) {
         return (options.client ?? client).post<itpsSignItpItemResponses, itpsSignItpItemErrors, ThrowOnError>({
@@ -1102,6 +1103,178 @@ export class EmailsService {
             security: [{ scheme: 'bearer', type: 'http' }],
             url: '/api/v1/projects/{project_id}/members/{member_id}/invite-email',
             ...options
+        });
+    }
+}
+
+export class SignoffService {
+    /**
+     * List Itp Sign Links
+     */
+    public static listItpSignLinks<ThrowOnError extends boolean = true>(options: Options<signoffListItpSignLinksData, ThrowOnError>) {
+        return (options.client ?? client).get<signoffListItpSignLinksResponses, signoffListItpSignLinksErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/itps/{itp_id}/sign-links',
+            ...options
+        });
+    }
+    
+    /**
+     * Create Itp Sign Links
+     */
+    public static createItpSignLinks<ThrowOnError extends boolean = true>(options: Options<signoffCreateItpSignLinksData, ThrowOnError>) {
+        return (options.client ?? client).post<signoffCreateItpSignLinksResponses, signoffCreateItpSignLinksErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/itps/{itp_id}/sign-links',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * List Area Sign Links
+     */
+    public static listAreaSignLinks<ThrowOnError extends boolean = true>(options: Options<signoffListAreaSignLinksData, ThrowOnError>) {
+        return (options.client ?? client).get<signoffListAreaSignLinksResponses, signoffListAreaSignLinksErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/areas/{area_id}/sign-links',
+            ...options
+        });
+    }
+    
+    /**
+     * Create Area Sign Links
+     */
+    public static createAreaSignLinks<ThrowOnError extends boolean = true>(options: Options<signoffCreateAreaSignLinksData, ThrowOnError>) {
+        return (options.client ?? client).post<signoffCreateAreaSignLinksResponses, signoffCreateAreaSignLinksErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/areas/{area_id}/sign-links',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Remind Sign Link
+     */
+    public static remindSignLink<ThrowOnError extends boolean = true>(options: Options<signoffRemindSignLinkData, ThrowOnError>) {
+        return (options.client ?? client).post<signoffRemindSignLinkResponses, signoffRemindSignLinkErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/sign-links/{link_id}/remind',
+            ...options
+        });
+    }
+    
+    /**
+     * Revoke Sign Link
+     */
+    public static revokeSignLink<ThrowOnError extends boolean = true>(options: Options<signoffRevokeSignLinkData, ThrowOnError>) {
+        return (options.client ?? client).post<signoffRevokeSignLinkResponses, signoffRevokeSignLinkErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/sign-links/{link_id}/revoke',
+            ...options
+        });
+    }
+    
+    /**
+     * List Itp Packs
+     */
+    public static listItpPacks<ThrowOnError extends boolean = true>(options: Options<signoffListItpPacksData, ThrowOnError>) {
+        return (options.client ?? client).get<signoffListItpPacksResponses, signoffListItpPacksErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/itps/{itp_id}/packs',
+            ...options
+        });
+    }
+    
+    /**
+     * Current Itp Pack
+     */
+    public static currentItpPack<ThrowOnError extends boolean = true>(options: Options<signoffCurrentItpPackData, ThrowOnError>) {
+        return (options.client ?? client).post<signoffCurrentItpPackResponses, signoffCurrentItpPackErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/itps/{itp_id}/packs',
+            ...options
+        });
+    }
+    
+    /**
+     * List Area Packs
+     */
+    public static listAreaPacks<ThrowOnError extends boolean = true>(options: Options<signoffListAreaPacksData, ThrowOnError>) {
+        return (options.client ?? client).get<signoffListAreaPacksResponses, signoffListAreaPacksErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/areas/{area_id}/packs',
+            ...options
+        });
+    }
+    
+    /**
+     * Current Area Pack
+     */
+    public static currentAreaPack<ThrowOnError extends boolean = true>(options: Options<signoffCurrentAreaPackData, ThrowOnError>) {
+        return (options.client ?? client).post<signoffCurrentAreaPackResponses, signoffCurrentAreaPackErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/areas/{area_id}/packs',
+            ...options
+        });
+    }
+    
+    /**
+     * Send Witness Notice
+     */
+    public static sendWitnessNotice<ThrowOnError extends boolean = true>(options: Options<signoffSendWitnessNoticeData, ThrowOnError>) {
+        return (options.client ?? client).post<signoffSendWitnessNoticeResponses, signoffSendWitnessNoticeErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/itp-items/{item_id}/witness-notice',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Open Signing Link
+     */
+    public static openSigningLink<ThrowOnError extends boolean = true>(options: Options<signoffOpenSigningLinkData, ThrowOnError>) {
+        return (options.client ?? client).get<signoffOpenSigningLinkResponses, signoffOpenSigningLinkErrors, ThrowOnError>({
+            responseType: 'json',
+            url: '/api/v1/sign/{token}',
+            ...options
+        });
+    }
+    
+    /**
+     * Submit Signature
+     */
+    public static submitSignature<ThrowOnError extends boolean = true>(options: Options<signoffSubmitSignatureData, ThrowOnError>) {
+        return (options.client ?? client).post<signoffSubmitSignatureResponses, signoffSubmitSignatureErrors, ThrowOnError>({
+            responseType: 'json',
+            url: '/api/v1/sign/{token}',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
         });
     }
 }

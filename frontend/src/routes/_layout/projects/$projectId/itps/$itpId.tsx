@@ -26,6 +26,7 @@ import {
   ItpStatusBadge,
 } from "@/components/Itps/ItpBadges"
 import { ItpItemRow, type SignerContext } from "@/components/Itps/ItpItemRow"
+import { SignoffPanel } from "@/components/Itps/SignoffPanel"
 import { SurveyPreview } from "@/components/Itps/SurveyPreview"
 import { Button } from "@/components/ui/button"
 import {
@@ -371,6 +372,9 @@ function ItpBody({
           <TabsTrigger value="form" data-testid="itp-form-tab">
             Form view
           </TabsTrigger>
+          <TabsTrigger value="signoff" data-testid="itp-signoff-tab">
+            Sign-off
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="checklist" className="flex flex-col gap-4 pt-2">
           {sections.map(([section, items]) => {
@@ -410,6 +414,17 @@ function ItpBody({
             on the checklist.
           </p>
           <SurveyPreview body={itp.body} results={results} />
+        </TabsContent>
+        <TabsContent value="signoff" className="pt-2">
+          <SignoffPanel
+            kind="itp"
+            id={itp.id}
+            projectId={projectId}
+            canWrite={canWrite}
+            disabled={
+              itp.status === "voided" ? "This ITP is voided." : undefined
+            }
+          />
         </TabsContent>
       </Tabs>
 
