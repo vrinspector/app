@@ -375,6 +375,28 @@ function Help() {
             it. A failed line turns brick red with its note underneath — tapping{" "}
             <strong>Fail</strong> opens the note box straight away.
           </p>
+          <p>
+            <strong>Signatures from people without an account.</strong> On an
+            ITP's <strong>Sign-off</strong> tab, or at the bottom of an area,{" "}
+            <strong>Email signing links</strong> sends each signer whose lines
+            are ready a link that works once, for 14 days. They open it on any
+            phone, review the lines waiting for them, draw their signature and
+            sign every ready line in one go; the signature is stamped with the
+            time, the weather at the site and, if they allow it, their location.
+            An area's link covers all of that area's ITPs, so a signer can do a
+            whole floor or lot in one visit. <strong>Remind</strong> sends a
+            fresh link (the old one stops working); <strong>Withdraw</strong>{" "}
+            cancels a link. A role needs a signer email under{" "}
+            <strong>Sign-off roles</strong>, or use{" "}
+            <strong>Send to one person</strong>.
+          </p>
+          <p>
+            <strong>Get the current pack</strong> makes the sign-off pack: one
+            PDF of every line, result, photo and signature. A new version is
+            made only when something on it changed, and every version is kept.
+            On a witness or hold point line, <strong>Send notice</strong> emails
+            its signers that the work is coming up, so they can attend.
+          </p>
         </HelpSection>
 
         <HelpSection id="handoff" title="Field-to-office handoff">

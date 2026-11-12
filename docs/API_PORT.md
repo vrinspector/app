@@ -314,6 +314,38 @@ Additive fields only; no route added or removed.
 - Template bodies take `resultScale` (`release` / `none`) and `approvedLabel`
   (≤ 60 characters, only with `resultScale`) per question.
 
+## External sign-off, packs and notices (increment 14)
+
+New routes (`app/api/routes/signoff.py`; PRD v2.63 §5), no legacy counterpart:
+
+| Route | Who | What |
+|---|---|---|
+| `GET /itps/{id}/sign-links`, `GET /areas/{id}/sign-links` | any member | the links, newest first: role, signer email, `status` (active / used / expired / revoked / replaced), expiry, reminder count, `email_status` |
+| `POST /itps/{id}/sign-links`, `POST /areas/{id}/sign-links` | owner, inspector | `{}` → one link per required role with a signer email and at least one ready line; `{signoff_role_id[, signer_email]}` → one link for that role. 201 `{links, skipped}`; each new link carries `link` once |
+| `POST /sign-links/{id}/remind` | owner, inspector | 201 a fresh link emailed as a reminder; the old one becomes `replaced` (429 within a minute of sending) |
+| `POST /sign-links/{id}/revoke` | owner, inspector | withdraws an unused link |
+| `GET /itps/{id}/packs`, `GET /areas/{id}/packs` | any member | pack versions, newest first, each with a presigned `download_url` |
+| `POST /itps/{id}/packs`, `POST /areas/{id}/packs` | any member | the current pack; renders version *n+1* only if something on it changed (`regenerated`) |
+| `POST /itp-items/{id}/witness-notice` | owner, inspector | `{planned_for?, message?}` → emails the line's signers (witness and hold points only; once a minute) |
+| `GET /sign/{token}` | **no account** | what the link signs: project, role, every line with `sign_state` ready / signed / waiting and the reason, `pack_url`; 404 unknown, 410 used / expired / withdrawn / replaced |
+| `POST /sign/{token}` | **no account** | `{signer_name, signature_png (PNG data URL), confirm: true, gps_lat?, gps_lng?}` → signs every ready line once (plus one pack-level signature per ITP), uses the link up; 409 if nothing is ready (the link still works) |
+
+Rules: tokens are 256 random bits (`secrets.token_urlsafe(32)`), stored only
+as SHA-256; single use; 14 days (`SIGN_LINK_DAYS`); one live link per role
+and document (a new request or a reminder replaces the old one). A line is
+*ready* for a role on the same terms as in-app signing (recorded Pass / N/A,
+photo evidence on file, not behind an unreleased hold point). The drawn
+signature is stored in S3 under `signatures/projects/{project_id}/`; the stamp
+is server time, the browser's GPS if shared, and the Open-Meteo reading for
+the project's location (`itp_signatures.weather`; in-app signatures get it
+too). Packs: WeasyPrint, `packs/itps/{id}/v{n}-….pdf` or
+`packs/areas/{id}/v{n}-….pdf`, one `itp_sign_packs` row per version, rendered
+when the content hash changes and refreshed in the background after every
+signature. Emails: `sign_request`, `sign_reminder`, `witness_notice` in the
+send log. Scheduled reminders: `python -m app.sign_reminders` reissues links
+left unused for `SIGN_REMINDER_AFTER_DAYS` (3), at most `SIGN_REMINDER_MAX`
+(2) times — scheduling it is an RG-3 deployment step.
+
 ## Authorization (carried over from the July 2026 hardening)
 
 * Every object is reached through its project; non-members get **404** with
@@ -383,6 +415,11 @@ Email (increment 13.5) — owner action at RG-3, nothing real is committed:
 | `EMAILS_REPLY_TO` | optional monitored inbox | — |
 | `SES_CONFIGURATION_SET` | optional, for bounce / complaint events | — |
 | `APP_PUBLIC_URL` | the web app's public URL (links in emails) | `FRONTEND_HOST` |
+
+External sign-off (increment 14): `SIGN_LINK_DAYS` (14),
+`SIGN_REMINDER_COOLDOWN_SECONDS` (60), `SIGN_REMINDER_AFTER_DAYS` (3),
+`SIGN_REMINDER_MAX` (2), `ITP_PACK_AUTOREGENERATE` (true). Signing links in
+emails use `APP_PUBLIC_URL`, so it must be the public address of the web app.
 
 SES must also have the sending domain verified (DKIM records) and the
 account moved out of the SES sandbox before it will mail arbitrary

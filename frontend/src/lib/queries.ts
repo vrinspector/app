@@ -27,7 +27,11 @@ import {
   ProjectsService,
   type ReportPublic,
   ReportsService,
+  type SignLinkPublic,
   type SignoffRolePublic,
+  SignoffService,
+  type SignPackPublic,
+  type SignSessionPublic,
   type WeatherReading,
   WeatherService,
 } from "@/client"
@@ -95,6 +99,16 @@ export const itpKeys = {
   template: (templateId: number) => ["itp-templates", templateId] as const,
   /** Evidence photos of one ITP line (increment 13.6). */
   photos: (itemId: number) => ["itp-items", itemId, "photos"] as const,
+}
+
+/** Increment 14: signing links and sign-off packs of an ITP or an area. */
+export type SignoffKind = "itp" | "area"
+export const signoffKeys = {
+  links: (kind: SignoffKind, id: number) =>
+    ["signoff", kind, id, "links"] as const,
+  packs: (kind: SignoffKind, id: number) =>
+    ["signoff", kind, id, "packs"] as const,
+  session: (token: string) => ["sign", token] as const,
 }
 
 export const drawingKeys = {
@@ -366,6 +380,37 @@ export const signoffRolesQuery = (projectId: number) =>
     queryFn: async () =>
       (await ItpsService.listSignoffRoles({ path: { project_id: projectId } }))
         .data ?? [],
+  })
+
+export const signLinksQuery = (kind: SignoffKind, id: number) =>
+  queryOptions<SignLinkPublic[]>({
+    queryKey: signoffKeys.links(kind, id),
+    queryFn: async () =>
+      (kind === "itp"
+        ? (await SignoffService.listItpSignLinks({ path: { itp_id: id } })).data
+        : (await SignoffService.listAreaSignLinks({ path: { area_id: id } }))
+            .data) ?? [],
+  })
+
+export const signPacksQuery = (kind: SignoffKind, id: number) =>
+  queryOptions<SignPackPublic[]>({
+    queryKey: signoffKeys.packs(kind, id),
+    queryFn: async () =>
+      (kind === "itp"
+        ? (await SignoffService.listItpPacks({ path: { itp_id: id } })).data
+        : (await SignoffService.listAreaPacks({ path: { area_id: id } }))
+            .data) ?? [],
+  })
+
+/** The no-account signing page (the link is the credential). */
+export const signSessionQuery = (token: string) =>
+  queryOptions<SignSessionPublic>({
+    queryKey: signoffKeys.session(token),
+    queryFn: async () =>
+      (await SignoffService.openSigningLink({ path: { token } }))
+        .data as SignSessionPublic,
+    // 404 / 410 are answers, not blips.
+    retry: false,
   })
 
 /** Route params arrive as strings; anything that is not a positive integer is a 404. */

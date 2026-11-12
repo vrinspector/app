@@ -514,6 +514,10 @@ def test_pack_html_shows_lines_evidence_and_stamps(
     assert "Partly cloudy, 61.3 °F" in html
     assert "data:image/png;base64," in html  # the drawn signature
     assert "Pack version 3" in html and "Waiting for: Client engineer" in html
+    # The register lists each signing once, with what it covered.
+    assert "Signature register" in html and "1 line + the pack" in html
+    # Two signings (in the app, by link), each stamped once.
+    assert html.count("Weather: Partly cloudy") == 2
 
 
 def test_witness_notice(

@@ -14,6 +14,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
 import { Route as LayoutHelpRouteImport } from './routes/_layout/help'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
+import { Route as SignTokenRouteImport } from './routes/sign.$token'
 import { Route as LayoutItpTemplatesIndexRouteImport } from './routes/_layout/itp-templates/index'
 import { Route as LayoutItpTemplatesTemplateIdRouteImport } from './routes/_layout/itp-templates/$templateId'
 import { Route as LayoutProjectsIndexRouteImport } from './routes/_layout/projects/index'
@@ -46,6 +47,11 @@ const LayoutSettingsRoute = LayoutSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
   getParentRoute: () => LayoutRoute,
+} as any)
+const SignTokenRoute = SignTokenRouteImport.update({
+  id: '/sign/$token',
+  path: '/sign/$token',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const LayoutItpTemplatesIndexRoute = LayoutItpTemplatesIndexRouteImport.update({
   id: '/itp-templates/',
@@ -99,6 +105,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/help': typeof LayoutHelpRoute
   '/settings': typeof LayoutSettingsRoute
+  '/sign/$token': typeof SignTokenRoute
   '/itp-templates/$templateId': typeof LayoutItpTemplatesTemplateIdRoute
   '/itp-templates/': typeof LayoutItpTemplatesIndexRoute
   '/projects/': typeof LayoutProjectsIndexRoute
@@ -112,6 +119,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/help': typeof LayoutHelpRoute
   '/settings': typeof LayoutSettingsRoute
+  '/sign/$token': typeof SignTokenRoute
   '/': typeof LayoutIndexRoute
   '/itp-templates/$templateId': typeof LayoutItpTemplatesTemplateIdRoute
   '/itp-templates': typeof LayoutItpTemplatesIndexRoute
@@ -128,6 +136,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/_layout/help': typeof LayoutHelpRoute
   '/_layout/settings': typeof LayoutSettingsRoute
+  '/sign/$token': typeof SignTokenRoute
   '/_layout/': typeof LayoutIndexRoute
   '/_layout/itp-templates/$templateId': typeof LayoutItpTemplatesTemplateIdRoute
   '/_layout/itp-templates/': typeof LayoutItpTemplatesIndexRoute
@@ -145,6 +154,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/help'
     | '/settings'
+    | '/sign/$token'
     | '/itp-templates/$templateId'
     | '/itp-templates/'
     | '/projects/'
@@ -158,6 +168,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/help'
     | '/settings'
+    | '/sign/$token'
     | '/'
     | '/itp-templates/$templateId'
     | '/itp-templates'
@@ -173,6 +184,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/_layout/help'
     | '/_layout/settings'
+    | '/sign/$token'
     | '/_layout/'
     | '/_layout/itp-templates/$templateId'
     | '/_layout/itp-templates/'
@@ -187,6 +199,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   LayoutRoute: typeof LayoutRouteWithChildren
   LoginRoute: typeof LoginRoute
+  SignTokenRoute: typeof SignTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -225,6 +238,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings'
       preLoaderRoute: typeof LayoutSettingsRouteImport
       parentRoute: typeof LayoutRoute
+    }
+    '/sign/$token': {
+      id: '/sign/$token'
+      path: '/sign/$token'
+      fullPath: '/sign/$token'
+      preLoaderRoute: typeof SignTokenRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_layout/itp-templates/': {
       id: '/_layout/itp-templates/'
@@ -322,6 +342,7 @@ const LayoutRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   LayoutRoute: LayoutRouteWithChildren,
   LoginRoute: LoginRoute,
+  SignTokenRoute: SignTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

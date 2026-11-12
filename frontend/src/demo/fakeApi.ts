@@ -36,6 +36,7 @@ import {
   createSeed,
   type DemoDb,
   nextPublicId,
+  SAMPLE_PACK_URL,
   SAMPLE_REPORT_URL,
 } from "./seed"
 
@@ -149,7 +150,11 @@ type Handler = (args: { params: string[]; query: Query; body: Body }) => unknown
 const routes: Array<[string, RegExp, Handler]> = []
 const on = (method: string, pattern: string, handler: Handler) => {
   const regex = new RegExp(
-    `^/api/v1${pattern.replace(/\{[a-z_]+\}/g, "(\\d+)")}/?$`,
+    `^/api/v1${pattern
+      // {token} (the signing link, increment 14) is text; every other
+      // parameter is an integer id.
+      .replace(/\{token\}/g, "([A-Za-z0-9_-]+)")
+      .replace(/\{[a-z_]+\}/g, "(\\d+)")}/?$`,
   )
   for (const m of method.split("|")) routes.push([m, regex, handler])
 }
@@ -780,6 +785,18 @@ const itpRoutes = registerItpRoutes({
   drawingTitle: (id) => db.drawings.find((d) => d.id === id)?.title ?? null,
   drawingProject: (id) => db.drawings.find((d) => d.id === id)?.project_id,
   nextPublicId,
+  projectName: (id) => db.projects.find((p) => p.id === id)?.name ?? "Project",
+  projectClient: (id) => db.projects.find((p) => p.id === id)?.client ?? null,
+  projectLocation: (id) =>
+    db.projects.find((p) => p.id === id)?.location ?? null,
+  canWrite: (projectId) =>
+    db.members.some(
+      (m) =>
+        m.project_id === projectId &&
+        m.user_email === me &&
+        (m.role === "owner" || m.role === "inspector"),
+    ),
+  packUrl: SAMPLE_PACK_URL,
 })
 
 // --- Adapter ---------------------------------------------------------------

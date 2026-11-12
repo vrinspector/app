@@ -15,6 +15,7 @@ import { StatusBadge } from "@/components/Common/StatusBadge"
 import { ApplyTemplateDialog } from "@/components/Itps/ApplyTemplateDialog"
 import { ItpProgress } from "@/components/Itps/ItpBadges"
 import { ItpCard } from "@/components/Itps/ItpCard"
+import { SignoffPanel } from "@/components/Itps/SignoffPanel"
 import { Button } from "@/components/ui/button"
 import { useProjectRole } from "@/hooks/useProjectRole"
 import { joinMeta } from "@/lib/format"
@@ -93,7 +94,8 @@ function AreaDetail({
 /**
  * An area (level, lot, stage, chainage): its ITPs with completion and
  * hold-point status, any areas inside it, and "Apply template" pre-set to
- * this area. Increment 14 adds the area's combined sign-off pack here.
+ * this area, and (increment 14) the area's combined sign-off pack with one
+ * signing link per signer for the whole area.
  */
 function AreaBody({
   projectId,
@@ -228,6 +230,18 @@ function AreaBody({
           )}
         </QueryState>
       </section>
+
+      <SignoffPanel
+        kind="area"
+        id={area.id}
+        projectId={projectId}
+        canWrite={canWrite}
+        disabled={
+          itpQueryForArea.data && itpQueryForArea.data.length === 0
+            ? "Apply an ITP to this area first."
+            : undefined
+        }
+      />
 
       <ApplyTemplateDialog
         open={applying}

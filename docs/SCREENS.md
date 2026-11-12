@@ -1042,3 +1042,54 @@ item 7; …") so a line can be traced back to the book.
     accounts with no masters, so an account seeded with the 13.7 library does
     not get the new starters automatically (no live accounts yet). *New
     template → Start from* offers every new starter.
+
+## Increment 14 — external sign-off (PRD v2.63 §5)
+
+| Where | What |
+|---|---|
+| ITP screen → **Sign-off** tab | `Itps/SignoffPanel`: **Sign-off pack** (Get the current pack → Download vN; versions with time, size, signatures) and **Signatures by email** (Email signing links, Send to one person…, each link with role, email, status, sent / emailed / works-until, **Copy link** and **Open signing page** right after sending, **Remind**, **Withdraw**). Viewers see both cards without the buttons |
+| Area screen | the same panel for the area: one combined pack and one link per signer covering every ITP in the area |
+| ITP line | signatures show "by email link", the weather stamp and the drawn signature; witness and hold point lines with unsigned roles have **Send notice** (Expected + Message) |
+| `/sign/<token>` (no account) | brand header; project, document, "You are signing as …", link expiry, counts, **Download the full pack (PDF)**; per ITP the lines for this signer with result, value, conditions, notes and **Ready for you** / **Signed** / **Not ready: reason** (Show all lines toggles the rest); the form: full name, drawn signature (`signature_pad`, MIT), "I have reviewed…", "Add my location"; then a thank-you with what was signed and the weather; used / expired / withdrawn / replaced / unknown links get a plain explanation. A signed-in visitor (someone previewing from the panel) gets **Back to the app** |
+
+Demo: `src/demo/fakeSignoff.ts` answers every route with the same rules and
+seeds a link for Stage 1's Owner's representative —
+`demo.html?start=/sign/demo-owners-rep` opens it directly; the pack download is
+a real pack rendered by the API (`src/demo/assets/sample-pack.pdf`).
+
+Tests: backend 16 new (`tests/api/routes/test_signoff.py`,
+`tests/core/test_signing.py`) plus the migration guard; frontend 8 new unit
+tests (`src/test/signing.test.tsx`, `src/lib/signoff.test.ts`) and 2
+Playwright walks in the demo at phone size (`tests/demo/signoff.spec.ts`:
+pack → open the link → draw on a real canvas → sign → back on the ITP with
+the stamp, pack v2).
+
+### Decisions for the owner (increment 14)
+
+73. **One link signs every ready line for that signer, once.** If more lines
+    become ready later, send a new link (or let the reminder do it). Lines
+    that are not ready are shown with the reason and left alone.
+74. **Reminders send a new link.** Only a fingerprint of each link is kept
+    (so a leaked database cannot be used to sign), which means the old link
+    cannot be re-sent; a reminder issues a fresh one and the old one says
+    "replaced by a newer one". Automatic reminders (after 3 days, at most
+    twice) run from a scheduled job set up at RG-3 deployment.
+75. **The signer types their name and draws a signature; their email is the
+    one the link was sent to.** No account, no code by SMS. Say if you want a
+    one-time code as a second check for hold points.
+76. **The weather stamp is the reading at the project's location** (same
+    service as the weather badge), not at the signer's GPS position. In-app
+    signatures now get it too. If the weather service is down, the signature
+    still goes through without it.
+77. **Packs are made when asked for and after every signature,** and only
+    when something on them changed — opening the pack twice does not create
+    two versions. Every version is kept in S3. Photos print as thumbnails (up
+    to six per line); the line shows a compact signature mark and each
+    ITP ends with a signature register carrying the full stamps.
+78. **Owners and inspectors send, remind and withdraw links and notices;**
+    viewers can see the links and download packs.
+79. **Witness / hold point notices** go to the line's signers that have an
+    email, with a free-text "expected" time and message; they are not
+    calendar invites.
+80. **An area pack covers the area's own ITPs** (not those of areas nested
+    inside it) and leaves voided ITPs out.

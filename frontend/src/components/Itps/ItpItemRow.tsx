@@ -49,11 +49,13 @@ import {
   releaseResults,
 } from "@/lib/itp"
 import { drawingsQuery, itpKeys } from "@/lib/queries"
+import { weatherText } from "@/lib/signoff"
 import { cn } from "@/lib/utils"
 import { extractErrorMessage } from "@/utils"
 
 import { ClassificationChip } from "./ItpBadges"
 import { LineCriteria, LinePhotos, MeasuredValue } from "./ItpLineEvidence"
+import { WitnessNoticeButton } from "./SignoffPanel"
 
 /*
  * One ITP line, built for the field: three large Pass / Fail / N/A buttons,
@@ -486,9 +488,23 @@ export function ItpItemRow({
                       <strong>{role.role_name}</strong> signed by{" "}
                       {sig.signer_name || sig.signer_email},{" "}
                       {formatDateTime(sig.signed_at)}
+                      {sig.method === "external_link" ? " · by email link" : ""}
                       {sig.gps_lat !== null && sig.gps_lng !== null
                         ? ` · ${sig.gps_lat.toFixed(4)}, ${sig.gps_lng.toFixed(4)}`
                         : ""}
+                      {weatherText(sig.weather) ? (
+                        <span className="text-muted-foreground">
+                          {` · ${weatherText(sig.weather)}`}
+                        </span>
+                      ) : null}
+                      {sig.signature_url ? (
+                        <img
+                          src={sig.signature_url}
+                          alt={`Signature of ${sig.signer_name || sig.signer_email}`}
+                          className="mt-1 block h-10 max-w-48 rounded border bg-white object-contain"
+                          data-testid="itp-signature-image"
+                        />
+                      ) : null}
                     </span>
                   </li>
                 )
@@ -556,6 +572,17 @@ export function ItpItemRow({
             ))}
             {who.canWrite && itp.status !== "voided" ? (
               <MarkOnDrawingMenu projectId={projectId} itemId={item.id} />
+            ) : null}
+            {editable &&
+            who.canWrite &&
+            (isHold || item.classification === "witness") &&
+            item.required_roles.length &&
+            item.signatures.length < item.required_roles.length ? (
+              <WitnessNoticeButton
+                itemId={item.id}
+                isHold={isHold}
+                requirement={item.requirement}
+              />
             ) : null}
             {editable && who.canWrite && !blocked ? (
               <Button

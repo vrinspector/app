@@ -305,17 +305,47 @@ def render_html(
     content: dict[str, Any], *, version: int, generated_by: str, generated_at: datetime
 ) -> str:
     """The pack as HTML, with photos and signatures resolved to data URIs."""
+    images: dict[str, str | None] = {}
+
+    def image(key: str | None) -> str | None:
+        if key is None:
+            return None
+        if key not in images:
+            images[key] = _png_data_uri(key)
+        return images[key]
+
+    def enter(
+        register: dict[tuple[Any, ...], dict[str, Any]],
+        sig: dict[str, Any],
+        *,
+        pack: bool,
+    ) -> None:
+        """One register entry per signing (same signer, role, time, method)."""
+        key = (sig["role_name"], sig["signer_email"], sig["signed_at"], sig["method"])
+        entry = register.setdefault(key, {**sig, "lines": 0, "pack": False})
+        if pack:
+            entry["pack"] = True
+        else:
+            entry["lines"] += 1
+
     docs = []
     for doc in content["documents"]:
         doc = json.loads(json.dumps(doc))  # private copy to decorate
-        for sig in doc["pack_signatures"]:
-            sig["image"] = _png_data_uri(sig["signature_key"])
+        # The lines show a compact mark; the register carries full stamps.
+        register: dict[tuple[Any, ...], dict[str, Any]] = {}
         for section in doc["sections"]:
             for line in section["lines"]:
                 for photo in line["photos"]:
                     photo["src"] = _image_data_uri(photo["key"], PACK_PHOTO_EDGE)
                 for sig in line["signatures"]:
-                    sig["image"] = _png_data_uri(sig["signature_key"])
+                    sig["image"] = image(sig["signature_key"])
+                    enter(register, sig, pack=False)
+        for sig in doc["pack_signatures"]:
+            enter(register, sig, pack=True)
+        doc["register"] = sorted(
+            ({**e, "image": image(e["signature_key"])} for e in register.values()),
+            key=lambda e: (e["signed_at"] or "", e["role_name"]),
+        )
         docs.append(doc)
     template = _env.get_template(TEMPLATE_NAME)
     return template.render(

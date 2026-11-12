@@ -58,10 +58,12 @@
   .note { margin-top: 2px; white-space: pre-wrap; color: #2B2B2B; }
   .cond { margin-top: 3px; padding: 3px 6px; border-left: 3px solid #B8960C; background: #fffdf6; white-space: pre-wrap; }
   .photos { margin-top: 4px; }
-  .photo { display: inline-block; width: 31%; margin: 0 1.5% 4px 0; vertical-align: top; border: 1px solid #e4dccf; border-radius: 4px; overflow: hidden; background: #F7F5F0; }
-  .photo img { display: block; width: 100%; height: 34mm; object-fit: cover; }
-  .photo .missing { height: 34mm; text-align: center; padding-top: 14mm; color: #6c6258; font-size: 7.5pt; }
+  .photo { display: inline-block; width: 23%; margin: 0 1.5% 4px 0; vertical-align: top; border: 1px solid #e4dccf; border-radius: 4px; overflow: hidden; background: #F7F5F0; }
+  .photo img { display: block; width: 100%; height: 26mm; object-fit: cover; }
+  .photo .missing { height: 26mm; text-align: center; padding-top: 10mm; color: #6c6258; font-size: 7.5pt; }
   .photo .cap { padding: 2px 5px; font-size: 7pt; color: #4a443d; }
+  .lsig { margin-top: 3px; font-size: 7.5pt; color: #2E3D2E; }
+  .lsig img { height: 7mm; max-width: 30mm; vertical-align: middle; margin-left: 4px; }
   .sigs { margin-top: 4px; }
   .sig { display: inline-block; width: 48%; margin: 0 1.5% 4px 0; vertical-align: top; border: 1px solid #c9d8c9; border-radius: 4px; padding: 4px 6px; background: #f6faf6; font-size: 7.5pt; page-break-inside: avoid; }
   .sig .who { font-weight: 700; color: #2E3D2E; font-size: 8pt; }
@@ -86,6 +88,7 @@
   <div class="stamp">{{ sig.method }} · {{ sig.signed_at|dt }}</div>
   {% if sig.gps %}<div class="stamp">GPS {{ sig.gps }}</div>{% endif %}
   {% if sig.weather %}<div class="stamp">Weather: {{ sig.weather }}</div>{% endif %}
+  {% if sig.lines %}<div class="stamp">{{ sig.lines }} line{{ "" if sig.lines == 1 else "s" }}{{ " + the pack" if sig.pack else "" }}</div>{% elif sig.pack %}<div class="stamp">Signed the pack</div>{% endif %}
 </div>
 {% endmacro %}
 
@@ -152,9 +155,9 @@
             {% if line.more_photos %}<div class="crit">+ {{ line.more_photos }} more photo{{ "" if line.more_photos == 1 else "s" }} in the app</div>{% endif %}
           </div>
           {% endif %}
-          {% if line.signatures %}
-          <div class="sigs">{% for sig in line.signatures %}{{ signature(sig) }}{% endfor %}</div>
-          {% endif %}
+          {% for sig in line.signatures %}
+          <div class="lsig">&#10003; <b>{{ sig.role_name }}</b> — {{ sig.signer_name or sig.signer_email }} · {{ sig.signed_at|dt }} · {{ "email link" if sig.method == "Signed by email link" else "in the app" }}{% if sig.image %}<img src="{{ sig.image }}" alt="Signature">{% endif %}</div>
+          {% endfor %}
           {% if line.missing_roles and line.status != "fail" %}
           <div class="waiting">Waiting for: {{ line.missing_roles|join(", ") }}</div>
           {% endif %}
@@ -172,11 +175,12 @@
   {% endfor %}
 
   <div class="packsigs">
-    <h3>Pack signatures</h3>
-    {% if doc.pack_signatures %}
-    <div class="sigs">{% for sig in doc.pack_signatures %}{{ signature(sig) }}{% endfor %}</div>
+    <h3>Signature register</h3>
+    {% if doc.register %}
+    <div class="crit" style="margin-bottom:4px">Each signing with its full stamp; the lines above show who signed each line.</div>
+    <div class="sigs">{% for sig in doc.register %}{{ signature(sig) }}{% endfor %}</div>
     {% else %}
-    <div class="empty">No one has signed this pack by link yet.</div>
+    <div class="empty">Nothing on this ITP has been signed yet.</div>
     {% endif %}
   </div>
 </section>
