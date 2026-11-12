@@ -15,12 +15,15 @@ import useCustomToast from "@/hooks/useCustomToast"
 import { formatDateTime } from "@/lib/format"
 import { inspectionKeys, itpKeys } from "@/lib/queries"
 import { extractErrorMessage } from "@/utils"
+import { PhotoFilingPanel } from "./PhotoFilingPanel"
 
 /*
  * Full-size view of one site photo with its filename, who took it and
  * when, previous / next through the inspection's photos, and Delete for
  * inspectors and owners. The legacy grid only showed thumbnails; a photo
- * had to be opened in a new tab to be read.
+ * had to be opened in a new tab to be read. Increment 15 adds the photo's
+ * filing (category, defects, severity) and AI analysis under inspection
+ * photos — see PhotoFilingPanel.
  */
 
 interface PhotoViewerDialogProps {
@@ -152,6 +155,9 @@ export function PhotoViewerDialog({
                   </>
                 ) : null}
               </div>
+              {photo.inspection_id !== null ? (
+                <PhotoFilingPanel photo={photo} canWrite={canWrite} />
+              ) : null}
               {canWrite ? (
                 <div className="flex justify-end">
                   <Button

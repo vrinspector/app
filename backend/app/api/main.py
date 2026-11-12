@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.routes import (
+    ai,
     areas,
     dashboard,
     drawings,
@@ -39,3 +40,5 @@ api_router.include_router(areas.router)
 api_router.include_router(emails.router)
 # Increment 14 — external sign-off links, sign-off packs, witness notices
 api_router.include_router(signoff.router)
+# Increment 15 — Block 10A photo analysis + 10B voice-to-finding (Claude API)
+api_router.include_router(ai.router)

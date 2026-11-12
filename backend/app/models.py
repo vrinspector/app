@@ -266,6 +266,14 @@ class Inspection(SQLModel, table=True):
 
 class Finding(SQLModel, table=True):
     __tablename__ = "findings"
+    __table_args__ = (
+        Index(
+            "uq_findings_ai_suggestion",
+            "ai_suggestion_id",
+            unique=True,
+            postgresql_where=text("ai_suggestion_id IS NOT NULL"),
+        ),
+    )
 
     id: int | None = Field(default=None, sa_column=_pk_column())
     public_id: uuid.UUID | None = Field(default=None, sa_column=_public_id_column())
@@ -294,6 +302,18 @@ class Finding(SQLModel, table=True):
         default=None, sa_column=Column(DateTime(timezone=True))
     )
     resolution_notes: str | None = Field(default=None, sa_column=Column(Text))
+    # Increment 15 (Block 10B): the discipline the finding belongs to (the
+    # drawing discipline vocabulary); NULL for findings logged before it.
+    discipline: str | None = Field(default=None, sa_column=Column(String(40)))
+    # Increment 15 guardrail: the AI draft this finding was confirmed from, so
+    # the prompt and model version stay traceable per finding. At most one
+    # finding per draft; SET NULL keeps the finding if the log row goes.
+    ai_suggestion_id: int | None = Field(
+        default=None,
+        sa_column=Column(
+            Integer, ForeignKey("ai_suggestions.id", ondelete="SET NULL"), nullable=True
+        ),
+    )
     created_at: datetime | None = Field(default=None, sa_column=_created_at_column())
     updated_at: datetime | None = Field(default=None, sa_column=_updated_at_column())
 
@@ -357,6 +377,22 @@ class Photo(SQLModel, table=True):
     # file, EXIF included, is stored unchanged in S3). NULL when unknown.
     captured_at: datetime | None = Field(
         default=None, sa_column=Column(DateTime(timezone=True))
+    )
+    # Increment 15 (Block 10A): how the inspector filed the photo — category,
+    # defect tags and severity — set by hand or confirmed from an AI draft.
+    # All NULL until someone files it.
+    category: str | None = Field(default=None, sa_column=Column(String(30)))
+    defect_tags: list[str] | None = Field(default=None, sa_column=Column(JSONB))
+    severity: str | None = Field(default=None, sa_column=Column(String(10)))
+    tags_confirmed_by: str | None = Field(default=None, sa_column=Column(String(255)))
+    tags_confirmed_at: datetime | None = Field(
+        default=None, sa_column=Column(DateTime(timezone=True))
+    )
+    ai_suggestion_id: int | None = Field(
+        default=None,
+        sa_column=Column(
+            Integer, ForeignKey("ai_suggestions.id", ondelete="SET NULL"), nullable=True
+        ),
     )
     created_at: datetime | None = Field(default=None, sa_column=_created_at_column())
 
@@ -1067,6 +1103,76 @@ class EmailSendLog(SQLModel, table=True):
     )
 
 
+class AiSuggestion(SQLModel, table=True):
+    """One AI draft (rebuild increment 15; PRD v2.62 Block 10 guardrails).
+
+    Every call to the model writes a row — the draft it returned or the error
+    — with the exact prompt text, prompt version and model version, so a
+    finding confirmed from it stays defensible. Rows start as ``draft`` and
+    move to ``confirmed`` (the inspector saved it, ``edited`` says whether they
+    changed anything first) or ``dismissed``; a call that produced nothing is
+    ``failed``. The photo itself is never stored here (only its id); the
+    transcript is, because it is the input the draft was made from.
+    """
+
+    __tablename__ = "ai_suggestions"
+    __table_args__ = (
+        CheckConstraint("kind IN ('photo', 'voice')", name="ck_ai_suggestions_kind"),
+        CheckConstraint(
+            "status IN ('draft', 'confirmed', 'dismissed', 'failed')",
+            name="ck_ai_suggestions_status",
+        ),
+    )
+
+    id: int | None = Field(default=None, sa_column=_pk_column())
+    public_id: uuid.UUID | None = Field(default=None, sa_column=_public_id_column())
+    kind: str = Field(sa_column=Column(String(10), nullable=False))
+    status: str = Field(
+        default="draft",
+        sa_column=Column(String(20), nullable=False, server_default=text("'draft'")),
+    )
+    project_id: int = Field(
+        sa_column=Column(
+            Integer,
+            ForeignKey("projects.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        )
+    )
+    inspection_id: int = Field(
+        sa_column=Column(
+            Integer,
+            ForeignKey("inspections.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        )
+    )
+    photo_id: int | None = Field(
+        default=None,
+        sa_column=Column(
+            Integer, ForeignKey("photos.id", ondelete="SET NULL"), index=True
+        ),
+    )
+    model: str = Field(sa_column=Column(String(100), nullable=False))
+    prompt_version: str = Field(sa_column=Column(String(40), nullable=False))
+    system_prompt: str = Field(sa_column=Column(Text, nullable=False))
+    user_prompt: str = Field(sa_column=Column(Text, nullable=False))
+    # 10B: the spoken observation as transcribed on the phone.
+    input_text: str | None = Field(default=None, sa_column=Column(Text))
+    draft: dict[str, Any] | None = Field(default=None, sa_column=Column(JSONB))
+    error: str | None = Field(default=None, sa_column=Column(Text))
+    input_tokens: int | None = Field(default=None, sa_column=Column(Integer))
+    output_tokens: int | None = Field(default=None, sa_column=Column(Integer))
+    edited: bool | None = Field(default=None, sa_column=Column(Boolean))
+    requested_by: str = Field(sa_column=Column(String(255), nullable=False))
+    requested_by_sub: str = Field(sa_column=Column(String(255), nullable=False))
+    decided_by: str | None = Field(default=None, sa_column=Column(String(255)))
+    decided_at: datetime | None = Field(
+        default=None, sa_column=Column(DateTime(timezone=True))
+    )
+    created_at: datetime | None = Field(default=None, sa_column=_created_at_column())
+
+
 # The seven tables that exist on the live (pre-rebuild) staging database.
 LEGACY_TABLES: tuple[str, ...] = (
     "projects",
@@ -1092,6 +1198,7 @@ DOMAIN_TABLES: tuple[str, ...] = (
     "itp_signatures",
     "email_send_log",
     "itp_sign_packs",
+    "ai_suggestions",
 )
 
 
@@ -1121,6 +1228,16 @@ class UserPublic(SQLModel):
 ProjectStatus = Literal["active", "on_hold", "complete"]
 InspectionType = Literal[
     "civil", "structural", "mechanical", "electrical", "piping", "general"
+]
+DrawingDiscipline = Literal[
+    "general",
+    "pid",
+    "grading",
+    "civil_structural",
+    "equipment_layout",
+    "steel_erection",
+    "electrical",
+    "other",
 ]
 FindingPriority = Literal["high", "medium", "low"]
 FindingStatus = Literal["open", "in-progress", "resolved"]
@@ -1274,6 +1391,10 @@ class FindingCreate(SQLModel):
     priority: FindingPriority = "medium"
     location_ref: str | None = Field(default=None, max_length=255)
     status: FindingStatus = "open"
+    # Increment 15: discipline (drawing vocabulary) and the AI draft this
+    # finding is confirmed from — sending it is the inspector's confirmation.
+    discipline: DrawingDiscipline | None = None
+    ai_suggestion_id: int | None = None
 
 
 class FindingUpdate(SQLModel):
@@ -1281,6 +1402,7 @@ class FindingUpdate(SQLModel):
     description: str | None = None
     priority: FindingPriority | None = None
     location_ref: str | None = Field(default=None, max_length=255)
+    discipline: DrawingDiscipline | None = None
 
 
 class FindingStatusUpdate(SQLModel):
@@ -1303,6 +1425,8 @@ class FindingPublic(SQLModel):
     resolved_by: str | None
     resolved_at: datetime | None
     resolution_notes: str | None
+    discipline: str | None = None
+    ai_suggestion_id: int | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -1350,8 +1474,79 @@ class PhotoPublic(SQLModel):
     created_at: datetime
     shot_slot: str | None = None
     captured_at: datetime | None = None
+    # Increment 15 (Block 10A): how the photo is filed.
+    category: str | None = None
+    defect_tags: list[str] | None = None
+    severity: str | None = None
+    tags_confirmed_by: str | None = None
+    tags_confirmed_at: datetime | None = None
+    ai_suggestion_id: int | None = None
     # Presigned S3 GET URL, generated per response (never stored).
     view_url: str | None = None
+
+
+# --- Increment 15: AI capture assistance (Block 10A / 10B) --------------------
+
+PhotoCategory = Literal[
+    "progress", "defect", "safety", "materials", "equipment", "documentation", "other"
+]
+DefectType = Literal["crack", "corrosion", "water_ingress", "damage", "safety_hazard"]
+Severity = Literal["low", "medium", "high"]
+
+
+class PhotoTagsUpdate(SQLModel):
+    """File a photo: by hand, or confirming an AI draft (``ai_suggestion_id``)."""
+
+    category: PhotoCategory | None = None
+    defect_tags: list[DefectType] = Field(default_factory=list, max_length=5)
+    severity: Severity | None = None
+    ai_suggestion_id: int | None = None
+
+
+class AiStatus(SQLModel):
+    enabled: bool
+    model: str | None
+    daily_limit: int
+    used_today: int
+
+
+class PhotoAnalysisRequest(SQLModel):
+    photo_id: int
+
+
+class VoiceFindingRequest(SQLModel):
+    inspection_id: int
+    transcript: str = Field(min_length=1, max_length=20000)
+    location_ref: str | None = Field(default=None, max_length=255)
+
+
+class AiSuggestionPublic(SQLModel):
+    id: int
+    kind: str
+    status: str
+    project_id: int
+    inspection_id: int
+    photo_id: int | None
+    model: str
+    prompt_version: str
+    draft: dict[str, Any] | None
+    edited: bool | None
+    requested_by: str
+    decided_by: str | None
+    decided_at: datetime | None
+    created_at: datetime
+
+
+class AiSuggestionLog(AiSuggestionPublic):
+    """The full audit row (prompts, transcript, tokens, error)."""
+
+    system_prompt: str
+    user_prompt: str
+    input_text: str | None
+    error: str | None
+    input_tokens: int | None
+    output_tokens: int | None
+    finding_id: int | None = None
 
 
 # --- Increment 05: drawings + pins (Block 8D/8E router, hardening carried over) ---
@@ -1361,16 +1556,6 @@ class PhotoPublic(SQLModel):
 # columns (pin percentages, PDF page dimensions) are returned as JSON numbers,
 # which is what the SPA's pin overlay and PDF.js scaling arithmetic consume.
 
-DrawingDiscipline = Literal[
-    "general",
-    "pid",
-    "grading",
-    "civil_structural",
-    "equipment_layout",
-    "steel_erection",
-    "electrical",
-    "other",
-]
 DrawingFileType = Literal["pdf", "png", "jpg", "jpeg", "svg"]
 PinStatus = Literal[
     "verified", "in_progress", "punch_item", "not_installed", "not_started"

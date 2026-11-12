@@ -37,6 +37,7 @@ You can also configure these environment variables as needed:
 * `SMTP_USER`: The SMTP server user.
 * `EMAILS_FROM_EMAIL`: The email account used to send emails.
 * `SENTRY_DSN`: The DSN for Sentry.
+* `ANTHROPIC_API_KEY`: Claude API key for AI capture assistance (photo analysis, voice-to-finding). Leave empty to switch the AI buttons off. Optional `AI_MODEL` overrides the model alias (default `claude-sonnet-4-5`).
 
 ### Secrets
 

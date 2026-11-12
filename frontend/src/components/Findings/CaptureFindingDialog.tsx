@@ -22,6 +22,11 @@ import {
   FindingsService,
   type PinPublic,
 } from "@/client"
+import {
+  AiDraftNotice,
+  DraftWithAiButton,
+  useVoiceDraft,
+} from "@/components/Ai/VoiceDraft"
 import { usePhotoPicker } from "@/components/Photos/PhotoCapture"
 import { Button } from "@/components/ui/button"
 import {
@@ -62,7 +67,12 @@ import {
 } from "@/lib/capture"
 import { drawingKeys, inspectionKeys, inspectionsQuery } from "@/lib/queries"
 import { cn } from "@/lib/utils"
-import { FINDING_PRIORITY_OPTIONS, FINDING_PRIORITY_VALUES } from "@/lib/vocab"
+import {
+  DRAWING_DISCIPLINE_OPTIONS,
+  DRAWING_DISCIPLINE_VALUES,
+  FINDING_PRIORITY_OPTIONS,
+  FINDING_PRIORITY_VALUES,
+} from "@/lib/vocab"
 import { extractErrorMessage } from "@/utils"
 
 /*
@@ -82,6 +92,13 @@ import { extractErrorMessage } from "@/utils"
  * belong to inspections, so the form picks the open inspection the
  * inspector came from (or last used, or the newest) and lets them change it.
  * "Keep pin only" leaves the pin as placed, exactly as before this increment.
+ *
+ * Increment 15 (Block 10B) closes the PRD v2.62 loop "speak observation →
+ * AI fills label, status and notes → confirm": when AI is switched on, the
+ * moment dictation stops the note is sent for a draft (or tap Draft with AI
+ * after typing). The draft fills title, priority, discipline, description and
+ * location under a gold "AI draft" notice with Undo; Save finding is the
+ * confirmation. Discipline starts from the drawing's own discipline.
  */
 
 const schema = z.object({
@@ -90,7 +107,16 @@ const schema = z.object({
   description: z.string().trim().max(5000),
   priority: z.enum(FINDING_PRIORITY_VALUES),
   location_ref: z.string().trim().max(255),
+  discipline: z.union([z.literal(""), z.enum(DRAWING_DISCIPLINE_VALUES)]),
 })
+
+function asDiscipline(
+  value: string | null | undefined,
+): FormValues["discipline"] {
+  return (DRAWING_DISCIPLINE_VALUES as readonly string[]).includes(value ?? "")
+    ? (value as FormValues["discipline"])
+    : ""
+}
 
 type FormValues = z.infer<typeof schema>
 
@@ -138,6 +164,7 @@ export function CaptureFindingDialog({
       description: "",
       priority: "medium",
       location_ref: "",
+      discipline: "",
     },
   })
   const titleTouchedRef = useRef(false)
@@ -153,7 +180,9 @@ export function CaptureFindingDialog({
       description: "",
       priority: "medium",
       location_ref: defaultLocationRef(pin, drawing, isPdf),
+      discipline: asDiscipline(drawing.discipline),
     })
+    voice.reset()
   }, [open, pin?.id])
 
   useEffect(() => {
@@ -177,6 +206,24 @@ export function CaptureFindingDialog({
   const staged = useStagedPhotoUpload(inspectionId)
   const picker = usePhotoPicker(staged.addFiles)
 
+  const voice = useVoiceDraft<FormValues>(inspectionId, {
+    transcript: () => form.getValues("description"),
+    location: () => form.getValues("location_ref"),
+    snapshot: () => form.getValues(),
+    apply: (draft) => {
+      const opts = { shouldDirty: true, shouldValidate: true }
+      if (!titleTouchedRef.current) form.setValue("title", draft.title, opts)
+      form.setValue("description", draft.description, opts)
+      form.setValue("priority", draft.priority, opts)
+      if (draft.location_ref) {
+        form.setValue("location_ref", draft.location_ref, opts)
+      }
+      const discipline = asDiscipline(draft.discipline)
+      if (discipline) form.setValue("discipline", discipline, opts)
+    },
+    restore: (values) => form.reset(values),
+  })
+
   const dictation = useDictation({
     onTranscript: (text) => {
       const current = form.getValues("description")
@@ -189,6 +236,25 @@ export function CaptureFindingDialog({
       }
     },
   })
+
+  // Dictation just stopped with a note and no draft yet: ask for one at once,
+  // so speaking and tapping Stop is all it takes (PRD v2.62 capture loop).
+  const wasListeningRef = useRef(false)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: fire on the listening edge only
+  useEffect(() => {
+    const was = wasListeningRef.current
+    wasListeningRef.current = dictation.listening
+    if (
+      was &&
+      !dictation.listening &&
+      voice.enabled &&
+      !voice.suggestion &&
+      !voice.pending &&
+      form.getValues("description").trim()
+    ) {
+      voice.request()
+    }
+  }, [dictation.listening])
 
   // Release the microphone and discard staged photos when the dialog closes.
   useEffect(() => {
@@ -210,7 +276,16 @@ export function CaptureFindingDialog({
             description: nullIfBlank(values.description),
             priority: values.priority,
             location_ref: nullIfBlank(values.location_ref),
-            status: "open",
+            ...(values.discipline ? { discipline: values.discipline } : {}),
+            status:
+              (voice.suggestion?.draft?.status as
+                | "open"
+                | "in-progress"
+                | "resolved"
+                | undefined) ?? "open",
+            ...(voice.suggestion
+              ? { ai_suggestion_id: voice.suggestion.id }
+              : {}),
           },
         })
       ).data as FindingPublic
@@ -453,7 +528,24 @@ export function CaptureFindingDialog({
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>What you see</FormLabel>
+                    <div className="flex items-center justify-between gap-2">
+                      <FormLabel>What you see</FormLabel>
+                      {voice.enabled ? (
+                        <DraftWithAiButton
+                          onClick={() => {
+                            dictation.stop()
+                            voice.request()
+                          }}
+                          pending={voice.pending}
+                          disabled={
+                            busy ||
+                            inspectionId === null ||
+                            !form.watch("description").trim()
+                          }
+                          testId="capture-ai-draft"
+                        />
+                      ) : null}
+                    </div>
                     <FormControl>
                       <Textarea
                         placeholder="Dictate or type the observation…"
@@ -465,6 +557,10 @@ export function CaptureFindingDialog({
                   </FormItem>
                 )}
               />
+
+              {voice.suggestion ? (
+                <AiDraftNotice saveLabel="Save finding" onUndo={voice.undo} />
+              ) : null}
 
               <FormField
                 control={form.control}
@@ -538,19 +634,44 @@ export function CaptureFindingDialog({
                 />
               </div>
 
-              <FormField
-                control={form.control}
-                name="location_ref"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Location reference</FormLabel>
-                    <FormControl>
-                      <Input {...field} data-testid="capture-location" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="location_ref"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Location reference</FormLabel>
+                      <FormControl>
+                        <Input {...field} data-testid="capture-location" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="discipline"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Discipline</FormLabel>
+                      <FormControl>
+                        <NativeSelect
+                          {...field}
+                          data-testid="capture-discipline"
+                        >
+                          <option value="">Not set</option>
+                          {DRAWING_DISCIPLINE_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </NativeSelect>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               <DialogFooter className="sm:justify-between">
                 <Button

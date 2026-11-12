@@ -318,7 +318,9 @@ rules are unchanged.
 ## Not ported (by design)
 
 * `voice_notes` (Block 1) — the deployed SPA uses browser speech recognition
-  only; no route reads or writes the table. Revisit with Block 10B.
+  only; no route reads or writes the table. Block 10B (increment 15) keeps it
+  that way: the transcript a finding was drafted from is stored with the AI
+  log row (`ai_suggestions.input_text`), not as a separate voice note.
 * Weather — the SPA calls `GET /weather?location&inspection_id`; no stored
   schema is evidenced. The route is ported in increment 10.5 as a lookup
   with an in-process cache (`app/core/weather.py`), still with no table; a
@@ -354,3 +356,18 @@ pin was carried from another revision):
 A new revision is a new `drawings` row in the same series; the previous row
 gets `superseded_at` and keeps its pins untouched. Pins on the new row are
 copies (`created_by` and links kept, `created_at` new).
+
+## AI capture assistance (increment 15, migration `f1c7a3e8b524`)
+
+Additive and guarded (downgrade refuses while any AI suggestion is logged,
+any photo is filed, or any finding has a discipline):
+
+| Table | Change |
+|---|---|
+| `ai_suggestions` (new) | `id`, `public_id`, `kind` (`photo` / `voice`), `status` (`draft` / `confirmed` / `dismissed` / `failed`), `project_id` (FK CASCADE), `inspection_id` (FK CASCADE), `photo_id` (FK SET NULL), `model` (the version that answered), `prompt_version`, `system_prompt`, `user_prompt`, `input_text` (10B transcript), `draft` (JSONB), `error`, `input_tokens`, `output_tokens`, `edited`, `requested_by` / `requested_by_sub`, `decided_by` / `decided_at`, `created_at` |
+| `findings` | + `discipline` (varchar 40, drawing vocabulary), `ai_suggestion_id` (FK SET NULL; partial unique index `uq_findings_ai_suggestion` — a draft backs at most one finding) |
+| `photos` | + `category` (varchar 30), `defect_tags` (JSONB list), `severity` (varchar 10), `tags_confirmed_by`, `tags_confirmed_at`, `ai_suggestion_id` (FK SET NULL) |
+
+The photo itself is never copied into the log — only its id; the model is
+sent a downscaled copy read from S3 at request time.
+

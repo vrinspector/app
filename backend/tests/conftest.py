@@ -88,6 +88,23 @@ def offline_weather() -> Generator[None]:
 
 
 @pytest.fixture(autouse=True)
+def offline_ai(monkeypatch: pytest.MonkeyPatch) -> Generator[None]:
+    """The AI routes never reach the Claude API in tests.
+
+    AI is off (no key) unless a test turns it on with the ``claude`` fixture
+    (``tests/api/routes/test_ai.py``); a stray call would get a 500.
+    """
+    import httpx
+
+    from app.core.ai import ai
+
+    monkeypatch.setattr(settings, "ANTHROPIC_API_KEY", None)
+    ai.use_transport(httpx.MockTransport(lambda request: httpx.Response(500)))
+    yield
+    ai.use_transport(None)
+
+
+@pytest.fixture(autouse=True)
 def clean_domain_tables() -> Generator[None]:
     """API tests commit real rows; wipe the domain tables after each test."""
     yield

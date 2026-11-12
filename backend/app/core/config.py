@@ -138,6 +138,29 @@ class Settings(BaseSettings):
     # look at packs (rendering takes a second).
     ITP_PACK_AUTOREGENERATE: bool = True
 
+    # --- AI capture assistance (increment 15; Block 10A / 10B) ---
+    # Claude API key for the contracted model API. Supplied by the environment
+    # at RG-3 — never committed. Without it every AI button is hidden and the
+    # /ai routes answer 503; the rest of the app is unaffected.
+    ANTHROPIC_API_KEY: str | None = None
+    ANTHROPIC_API_URL: str = "https://api.anthropic.com/v1/messages"
+    # Model alias asked for; the exact version that answered is logged per
+    # suggestion. Change here (environment) when a newer model is adopted.
+    AI_MODEL: str = "claude-sonnet-4-5"
+    AI_TIMEOUT_SECONDS: float = 30.0
+    # Long edge (pixels) of the copy of a photo sent for analysis.
+    AI_IMAGE_MAX_EDGE: int = 1568
+    # Cost guard for a low-budget project: drafts one person may ask for per
+    # UTC day (photo + voice together). 0 switches the cap off.
+    AI_DAILY_LIMIT_PER_USER: int = 200
+    # Longest transcript accepted for voice-to-finding (characters).
+    AI_MAX_TRANSCRIPT_CHARS: int = 4000
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def ai_enabled(self) -> bool:
+        return bool(self.ANTHROPIC_API_KEY)
+
     @computed_field  # type: ignore[prop-decorator]
     @property
     def app_public_url(self) -> str:

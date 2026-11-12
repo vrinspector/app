@@ -1144,3 +1144,60 @@ demo at phone size (`tests/demo/drawing-revisions.spec.ts`).
     wide) and are coloured by the most urgent status inside (punch item,
     then not installed, in progress, not started, verified). Filters are per
     device and project, not shared with the team.
+
+## Increment 15 — AI capture assistance (PRD v2.62 Block 10A / 10B)
+
+The guardrails decide the shape of every screen: AI output is only ever a
+**draft** in a form the inspector already uses, marked with a gold "AI
+draft" notice, and nothing is saved until the inspector's own button. The
+save carries the draft's id so the server logs the confirmation (and whether
+anything was changed) next to the prompt and model version. With no API key
+on the server (`GET /ai/status` → `enabled: false`) every AI button is
+hidden and the screens are exactly as before.
+
+| Where | What |
+|---|---|
+| Inspection → **Log a finding** | **Draft with AI** beside Dictate, once there is a note: the dictated / typed description is structured into title, priority, discipline, description and location (and status, when the note says it is being fixed or already fixed). Gold notice "AI draft — check every field. Nothing is saved until you tap Log finding." with **Undo** (puts the inspector's own words back; the draft is logged as dismissed). New optional **Discipline** select (drawing disciplines) on create and edit |
+| Drawing → pin → capture form (11a) | the same, and automatic: when **Dictate → Stop** ends with a note, the draft is asked for at once, so the loop is tap → photo → speak → check → **Save finding** (PRD v2.62 §3). The title is left alone if the inspector typed one. **Discipline** starts from the drawing's own discipline |
+| Inspection → photo → viewer | under each site photo: its filing (category, defect tags, severity, "AI-assisted") and **Analyse with AI** / **File photo**. Analysis shows the draft in an editor: category, defect toggles with the model's confidence and a note of where in the frame, severity. **File photo** confirms (edited or not), **Log as finding** opens Log a finding pre-filled with the draft's title, description and severity-as-priority, **Dismiss** sets it aside. Filing by hand works without AI. ITP line evidence is not analysed |
+| Finding card | discipline beside the location, a copper **AI-assisted** mark; expanded, "Drafted with AI from a dictated note / a photo, edited before saving / saved as drafted", the model version, prompt version, who asked and confirmed, and the transcript |
+
+Demo: the in-browser API answers the AI routes with canned photo analyses
+for the five sample photos and a small keyword reading of a note
+(`src/demo/fakeAi.ts`), labelled as the demo model. Playwright walks both
+halves at phone size (`tests/demo/ai-capture.spec.ts`).
+
+Tests: backend 21 new (`tests/api/routes/test_ai.py`, the model replaced by
+`tests/utils/claude.py`) plus the migration guard; frontend 9 new unit tests
+(`src/test/ai.test.tsx`) and 2 Playwright demo walks.
+
+### Decisions for the owner (increment 15)
+
+87. **Model and cost.** The server asks for `claude-sonnet-4-5` (setting
+    `AI_MODEL`, changeable without code) and logs the exact version that
+    answered. Photos are sent as a 1568-pixel JPEG copy (the original in S3
+    is untouched). Each person can ask for at most 200 drafts a day
+    (`AI_DAILY_LIMIT_PER_USER`, 0 = no cap) — a cost guard for a low-budget
+    project; past it the screens say so and the form is filled by hand.
+88. **The API key is an owner action at RG-3** (`ANTHROPIC_API_KEY` in the
+    server environment, never in the repo). Until then AI stays hidden in the
+    real app; the demo shows it with canned answers.
+89. **What is sent to the model:** the photo (straight from S3, server side)
+    or the transcript, plus the inspection's type and title and the location
+    already filled in. Nothing else — no names, no project or client. This is
+    the PRD guardrail "no photo or transcript leaves S3 / RDS except to the
+    contracted model API".
+90. **Dictation drafts automatically in the capture form** (the 15-second
+    loop) but only on request in Log a finding. Say so if either should be
+    the other way.
+91. **Photo vocabulary.** Categories: progress, defect, safety, materials,
+    equipment, documentation, other. Defects are the five the PRD names
+    (crack, corrosion, water ingress, damage, safety hazard); severity low /
+    medium / high, which becomes the finding's priority on Log as finding.
+    "Log as finding" does not yet file the photo under the new finding;
+    attach it from the inspection screen if needed (small follow-up).
+92. **The AI log is kept even when a draft is dismissed or fails**, and a
+    database downgrade refuses to drop it. Viewers can read it; only owners
+    and inspectors can ask for or act on drafts, and only while the
+    inspection is open.
+

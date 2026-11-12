@@ -152,6 +152,23 @@ function Help() {
                   browser supports speech recognition; type instead if voice
                   input is not available.
                 </li>
+                <li>
+                  <strong>Draft with AI</strong> (when switched on for your
+                  account) turns the note into a title, priority, discipline and
+                  tidy description. The fields are marked{" "}
+                  <strong>AI draft</strong> until you save: check each one,
+                  change what is wrong, or tap <strong>Undo</strong> to get your
+                  own words back. Nothing is saved until you tap{" "}
+                  <strong>Log finding</strong>.
+                </li>
+                <li>
+                  Open a photo and tap <strong>Analyse with AI</strong> to have
+                  it filed: a category, the defects it seems to show (crack,
+                  corrosion, water ingress, damage, safety hazard) and a
+                  severity. Correct anything, then <strong>File photo</strong>{" "}
+                  or <strong>Log as finding</strong>.{" "}
+                  <strong>File photo</strong> also works by hand without AI.
+                </li>
               </ul>
             </HelpCard>
             <HelpCard
@@ -255,11 +272,13 @@ function Help() {
               finding with a photo" ticked (the default), choosing the status
               opens the finding form straight away — <strong>Take photo</strong>
               ,<strong>Dictate</strong> a sentence,{" "}
-              <strong>Save finding</strong>. The finding is filed in the
-              inspection shown (change it if needed), its photo stays with it,
-              and the pin links to it. From an inspection,{" "}
-              <strong>Pin on drawing</strong> opens a sheet with that inspection
-              pre-selected. Untick the box to place pins on their own.
+              <strong>Save finding</strong>. With AI switched on, stopping the
+              dictation fills the fields as an <strong>AI draft</strong> for you
+              to check before saving. The finding is filed in the inspection
+              shown (change it if needed), its photo stays with it, and the pin
+              links to it. From an inspection, <strong>Pin on drawing</strong>{" "}
+              opens a sheet with that inspection pre-selected. Untick the box to
+              place pins on their own.
             </li>
             <li>
               <strong>Moving a pin:</strong> open it, tap <strong>Move</strong>,
@@ -488,6 +507,14 @@ function Help() {
             <HelpCard title="Voice dictation is unavailable">
               Voice input depends on browser support. Use Chrome or Edge where
               supported, or type the finding description.
+            </HelpCard>
+            <HelpCard title="No Draft with AI or Analyse with AI button">
+              AI help appears only when it is switched on for the app, for
+              owners and inspectors, and while the inspection is open. If the AI
+              service is busy or a daily limit is reached, the app says so; fill
+              the form in yourself. AI never saves anything on its own, and
+              every finding it helped with is marked{" "}
+              <strong>AI-assisted</strong> with a note of how it was drafted.
             </HelpCard>
             <HelpCard title="iPad / Safari">
               The rebuilt viewer is checked on iPad Safari as part of the device

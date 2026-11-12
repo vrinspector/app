@@ -7,12 +7,14 @@ import {
   MoreHorizontal,
   Pencil,
   RotateCcw,
+  Sparkles,
   Trash2,
   Wrench,
 } from "lucide-react"
 import { useState } from "react"
 
 import { type FindingPublic, FindingsService, type PhotoPublic } from "@/client"
+import { AiProvenance } from "@/components/Ai/AiProvenance"
 import { StatusBadge } from "@/components/Common/StatusBadge"
 import { PhotoViewerDialog } from "@/components/Photos/PhotoViewerDialog"
 import { Button } from "@/components/ui/button"
@@ -28,7 +30,11 @@ import useCustomToast from "@/hooks/useCustomToast"
 import { formatDate, formatDateTime } from "@/lib/format"
 import { inspectionKeys } from "@/lib/queries"
 import { cn } from "@/lib/utils"
-import { FINDING_PRIORITY_OPTIONS, optionLabel } from "@/lib/vocab"
+import {
+  DRAWING_DISCIPLINE_OPTIONS,
+  FINDING_PRIORITY_OPTIONS,
+  optionLabel,
+} from "@/lib/vocab"
 import { extractErrorMessage } from "@/utils"
 
 /*
@@ -47,6 +53,10 @@ import { extractErrorMessage } from "@/utils"
  *
  * Increment 11a: photos filed under the finding (`photos.finding_id`, taken
  * in the capture loop) show as a thumbnail strip and open in the viewer.
+ *
+ * Increment 15: the discipline shows beside the location, an "AI-assisted"
+ * mark when the finding was confirmed from an AI draft, and the expanded card
+ * says how it was drafted (model, prompt version, who confirmed, edited).
  */
 
 export type FindingStatusValue = "open" | "in-progress" | "resolved"
@@ -200,6 +210,9 @@ export function FindingCard({
               ? ` · updated ${formatDateTime(finding.updated_at)}`
               : ""}
           </p>
+          {finding.ai_suggestion_id ? (
+            <AiProvenance findingId={finding.id} />
+          ) : null}
         </div>
       ) : null}
 
@@ -270,6 +283,25 @@ export function FindingCard({
           <span className="inline-flex items-center gap-1 text-xs text-vri-copper">
             <MapPin className="size-3.5" aria-hidden="true" />
             {finding.location_ref}
+          </span>
+        ) : null}
+        {finding.discipline ? (
+          <span
+            className="text-xs text-muted-foreground"
+            data-testid="finding-discipline"
+          >
+            {optionLabel(DRAWING_DISCIPLINE_OPTIONS, finding.discipline) ??
+              finding.discipline}
+          </span>
+        ) : null}
+        {finding.ai_suggestion_id ? (
+          <span
+            className="inline-flex items-center gap-1 text-xs text-vri-copper"
+            title="Confirmed by the inspector from an AI draft"
+            data-testid="finding-ai-assisted"
+          >
+            <Sparkles className="size-3.5" aria-hidden="true" />
+            AI-assisted
           </span>
         ) : null}
       </div>
