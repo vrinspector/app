@@ -340,3 +340,17 @@ Existing increment-12 columns now in use: `itp_signatures.weather` (the stamp),
 external_link`; a row with `itp_item_id` NULL is the signer's signature on the
 pack. `project_itps.pack_s3_key` / `pack_version` follow the latest ITP pack.
 Deleting an unsigned ITP or an area removes its pack rows; the PDFs stay in S3.
+
+## Drawing revisions (increment 14.5, migration `e4a7c9b2d816`)
+
+Additive and guarded (downgrade refuses while a drawing is superseded or a
+pin was carried from another revision):
+
+| Table | Change |
+|---|---|
+| `drawings` | + `series_id` (int, indexed, no FK so the group survives deleting its first row; backfilled to `id`), `revision` (varchar 20, upper-case label, NULL = never labelled), `superseded_at` (timestamptz, NULL = current); partial unique index `uq_drawings_series_current` — one current revision per sheet |
+| `inspection_pins` | + `carried_from_pin_id` (FK `inspection_pins.id` ON DELETE SET NULL, indexed), `position_check` (bool, default false), `position_confirmed_by` (varchar 255), `position_confirmed_at` (timestamptz) |
+
+A new revision is a new `drawings` row in the same series; the previous row
+gets `superseded_at` and keeps its pins untouched. Pins on the new row are
+copies (`created_by` and links kept, `created_at` new).

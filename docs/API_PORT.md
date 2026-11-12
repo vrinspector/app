@@ -346,6 +346,27 @@ send log. Scheduled reminders: `python -m app.sign_reminders` reissues links
 left unused for `SIGN_REMINDER_AFTER_DAYS` (3), at most `SIGN_REMINDER_MAX`
 (2) times — scheduling it is an RG-3 deployment step.
 
+## Drawing revisions and pin moves (increment 14.5)
+
+Owner decision 2026-11-10. Additive: existing drawings are one-revision
+sheets, so every legacy route behaves exactly as before for them.
+
+| Route | Who | What |
+|---|---|---|
+| `GET /drawings?project_id=N[&include_superseded=true]` | any member | current revisions only unless asked |
+| `POST /drawings` | owner, inspector | + optional `revision` label |
+| `GET /drawings/{id}/revisions` | any member | the sheet's revisions, newest first |
+| `POST /drawings/{id}/revisions` | owner, inspector | `{filename, s3_key, file_type, file_size?, page_width_pts?, page_height_pts?, revision?, title?, drawing_number?}` (key from the usual `POST /drawings/presign`, bound to the project prefix) → 201 the new current revision; every pin copied with `carried_from_pin_id` and `position_check: true`; 409 on an old revision or a label already used |
+| `PUT /drawings/{id}`, `POST /drawings/{id}/pins`, `PUT` / `DELETE /pins/{id}` | owner, inspector | 409 on an old revision ("kept read-only") |
+| `DELETE /drawings/{id}[?revision_only=true]` | owner, inspector | the whole sheet (every revision), or only the current revision (the previous becomes current again); 409 on an old revision |
+| `PUT /pins/{id}` | owner, inspector | + `x_pct`, `y_pct`, `page_number` (move) and `position_confirmed: true`; either settles a carried pin (`position_confirmed_by` / `_at`) |
+
+`DrawingPublic` gains `series_id`, `revision`, `superseded_at`, `is_current`,
+`revision_count`, `pins_to_check`; `PinPublic` gains `carried_from_pin_id`,
+`carried_from_revision`, `position_check`, `position_confirmed_by`,
+`position_confirmed_at`. ITP line pin lists (`pins` on ITP items) show only
+pins on current revisions.
+
 ## Authorization (carried over from the July 2026 hardening)
 
 * Every object is reached through its project; non-members get **404** with

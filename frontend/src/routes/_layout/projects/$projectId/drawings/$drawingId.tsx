@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { MoreHorizontal, Pencil, Trash2 } from "lucide-react"
+import { FileUp, History, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { z } from "zod"
 
@@ -14,6 +14,10 @@ import {
 } from "@/components/Common/States"
 import { DrawingFormDialog } from "@/components/Drawings/DrawingFormDialog"
 import { DrawingViewer } from "@/components/Drawings/DrawingViewer"
+import {
+  NewRevisionDialog,
+  RevisionsDialog,
+} from "@/components/Drawings/RevisionDialogs"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -25,6 +29,7 @@ import {
 import useCustomToast from "@/hooks/useCustomToast"
 import { useProjectRole } from "@/hooks/useProjectRole"
 import { formatDate, joinMeta } from "@/lib/format"
+import { revisionLabel } from "@/lib/pinView"
 import {
   drawingKeys,
   drawingQuery,
@@ -65,6 +70,11 @@ export const Route = createFileRoute(
  * One drawing with its pins (legacy `openDrawingViewer`): header with the
  * sheet's title, number and discipline, then the viewer. Inspectors and
  * owners can rename the sheet or delete it from the header menu.
+ *
+ * Increment 14.5: the header names the revision ("Rev B"); the menu adds
+ * Upload new revision and Revisions; deleting a sheet with several
+ * revisions offers "this revision only" (the previous one becomes current
+ * again) or the whole drawing. An old revision has no edit actions.
  */
 function DrawingScreen() {
   const { projectId: rawProjectId, drawingId: rawDrawingId } = Route.useParams()
@@ -141,17 +151,51 @@ function DrawingBody({
   const project = useQuery(projectQuery(projectId))
   const viewUrl = useQuery(drawingViewUrlQuery(drawing.id))
   const [editing, setEditing] = useState(false)
-  const [deleting, setDeleting] = useState(false)
+  const [deleting, setDeleting] = useState<"all" | "revision" | null>(null)
+  const [revising, setRevising] = useState(false)
+  const [listing, setListing] = useState(false)
+  const isCurrent = !drawing.superseded_at
+  const revisionCount = drawing.revision_count ?? 1
+  const rev = revisionLabel(drawing)
 
   const deleteMutation = useMutation({
-    mutationFn: () =>
-      DrawingsService.deleteDrawing({ path: { drawing_id: drawing.id } }),
-    onSuccess: () => {
-      showSuccessToast("Drawing deleted")
+    mutationFn: async (scope: "all" | "revision") => {
+      await DrawingsService.deleteDrawing({
+        path: { drawing_id: drawing.id },
+        ...(scope === "revision" ? { query: { revision_only: true } } : {}),
+      })
+      if (scope !== "revision") return null
+      // The previous revision is current again: open it.
+      const left = (
+        await DrawingsService.listDrawings({
+          query: { project_id: projectId },
+        })
+      ).data?.find((d) => d.series_id === drawing.series_id)
+      return left ?? null
+    },
+    onSuccess: (restored) => {
+      showSuccessToast(
+        restored
+          ? `${rev ?? "Revision"} deleted — ${revisionLabel(restored) ?? "the previous revision"} is current again`
+          : "Drawing deleted",
+      )
+      setDeleting(null)
       queryClient.removeQueries({ queryKey: drawingKeys.detail(drawing.id) })
+      queryClient.invalidateQueries({ queryKey: ["drawings"] })
       queryClient.invalidateQueries({
         queryKey: projectKeys.drawings(projectId),
       })
+      if (restored) {
+        navigate({
+          to: "/projects/$projectId/drawings/$drawingId",
+          params: {
+            projectId: String(projectId),
+            drawingId: String(restored.id),
+          },
+          replace: true,
+        })
+        return
+      }
       navigate({
         to: "/projects/$projectId",
         params: { projectId: String(projectId) },
@@ -159,7 +203,7 @@ function DrawingBody({
       })
     },
     onError: (error: Error) => {
-      setDeleting(false)
+      setDeleting(null)
       showErrorToast(extractErrorMessage(error))
     },
   })
@@ -173,6 +217,7 @@ function DrawingBody({
         title={drawing.title || drawing.filename}
         description={joinMeta(
           drawing.drawing_number,
+          rev ? `${rev}${isCurrent ? "" : " (old revision)"}` : null,
           discipline ?? drawing.discipline,
           formatDate(drawing.created_at),
         )}
@@ -181,7 +226,7 @@ function DrawingBody({
         backLabel="Back to project"
         className="pb-3"
         actions={
-          canWrite ? (
+          canWrite || revisionCount > 1 ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -194,18 +239,54 @@ function DrawingBody({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onSelect={() => setEditing(true)}>
-                  <Pencil />
-                  Edit drawing
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  variant="destructive"
-                  onSelect={() => setDeleting(true)}
-                >
-                  <Trash2 />
-                  Delete drawing
-                </DropdownMenuItem>
+                {canWrite && isCurrent ? (
+                  <>
+                    <DropdownMenuItem
+                      onSelect={() => setRevising(true)}
+                      data-testid="upload-revision"
+                    >
+                      <FileUp />
+                      Upload new revision
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setEditing(true)}>
+                      <Pencil />
+                      Edit drawing
+                    </DropdownMenuItem>
+                  </>
+                ) : null}
+                {revisionCount > 1 ? (
+                  <DropdownMenuItem
+                    onSelect={() => setListing(true)}
+                    data-testid="show-revisions"
+                  >
+                    <History />
+                    Revisions ({revisionCount})
+                  </DropdownMenuItem>
+                ) : null}
+                {canWrite && isCurrent ? (
+                  <>
+                    <DropdownMenuSeparator />
+                    {revisionCount > 1 ? (
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onSelect={() => setDeleting("revision")}
+                        data-testid="delete-revision"
+                      >
+                        <Trash2 />
+                        Delete {rev ?? "this revision"} only
+                      </DropdownMenuItem>
+                    ) : null}
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onSelect={() => setDeleting("all")}
+                    >
+                      <Trash2 />
+                      {revisionCount > 1
+                        ? "Delete drawing (all revisions)"
+                        : "Delete drawing"}
+                    </DropdownMenuItem>
+                  </>
+                ) : null}
               </DropdownMenuContent>
             </DropdownMenu>
           ) : null
@@ -243,21 +324,57 @@ function DrawingBody({
         onOpenChange={setEditing}
         drawing={drawing}
       />
-      <ConfirmDialog
-        open={deleting}
-        onOpenChange={setDeleting}
-        title="Delete this drawing?"
-        description={
-          <>
-            <strong>{drawing.title || drawing.filename}</strong> and every pin
-            on it will be removed for every member. Findings linked from its
-            pins are kept. This cannot be undone.
-          </>
+      <NewRevisionDialog
+        open={revising}
+        onOpenChange={setRevising}
+        drawing={drawing}
+        onUploaded={(revision) =>
+          navigate({
+            to: "/projects/$projectId/drawings/$drawingId",
+            params: {
+              projectId: String(projectId),
+              drawingId: String(revision.id),
+            },
+          })
         }
-        confirmLabel="Delete drawing"
+      />
+      <RevisionsDialog
+        open={listing}
+        onOpenChange={setListing}
+        drawing={drawing}
+      />
+      <ConfirmDialog
+        open={deleting !== null}
+        onOpenChange={(open) => !open && setDeleting(null)}
+        title={
+          deleting === "revision"
+            ? `Delete ${rev ?? "this revision"}?`
+            : "Delete this drawing?"
+        }
+        description={
+          deleting === "revision" ? (
+            <>
+              <strong>{rev ?? "This revision"}</strong> and the pins on it are
+              removed, and the previous revision becomes the current one again
+              with its pins as they were. This cannot be undone.
+            </>
+          ) : (
+            <>
+              <strong>{drawing.title || drawing.filename}</strong>
+              {revisionCount > 1
+                ? `, all ${revisionCount} of its revisions`
+                : ""}{" "}
+              and every pin on it will be removed for every member. Findings
+              linked from its pins are kept. This cannot be undone.
+            </>
+          )
+        }
+        confirmLabel={
+          deleting === "revision" ? "Delete revision" : "Delete drawing"
+        }
         variant="destructive"
         pending={deleteMutation.isPending}
-        onConfirm={() => deleteMutation.mutate()}
+        onConfirm={() => deleteMutation.mutate(deleting ?? "all")}
       />
     </>
   )

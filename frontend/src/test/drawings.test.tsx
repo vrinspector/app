@@ -64,6 +64,8 @@ const api = vi.hoisted(() => ({
   createPin: vi.fn(),
   updatePin: vi.fn(),
   deletePin: vi.fn(),
+  listDrawingRevisions: vi.fn(),
+  createDrawingRevision: vi.fn(),
 }))
 
 vi.mock("@/client", () => ({
@@ -89,6 +91,8 @@ vi.mock("@/client", () => ({
     createPin: api.createPin,
     updatePin: api.updatePin,
     deletePin: api.deletePin,
+    listDrawingRevisions: api.listDrawingRevisions,
+    createDrawingRevision: api.createDrawingRevision,
   },
   // Weather (increment 10.5) is a silent badge; no reading here.
   ItpsService: { listProjectItpItems: async () => ({ data: [] }) },
@@ -1016,5 +1020,310 @@ describe("raster viewer", () => {
         body: { x_pct: 50, y_pct: 50, status: "verified", page_number: 1 },
       }),
     )
+  })
+})
+
+/*
+ * Increment 14.5 — drawing pins, round two: revisions (read-only old
+ * revisions, carried pins with a position check, upload), pin clustering
+ * and pin filters.
+ */
+describe("drawing revisions, clusters and filters", () => {
+  function loadImage() {
+    const image = screen.getByTestId("raster-image") as HTMLImageElement
+    Object.defineProperty(image, "naturalWidth", { value: 1600 })
+    Object.defineProperty(image, "naturalHeight", { value: 1200 })
+    fireEvent.load(image)
+    return image
+  }
+
+  const revB = {
+    ...rasterDrawing,
+    revision: "B",
+    series_id: 30,
+    revision_count: 2,
+    superseded_at: null,
+    is_current: true,
+    pins_to_check: 1,
+  }
+  const revA = {
+    ...rasterDrawing,
+    id: 30,
+    public_id: "drw_30",
+    filename: "flare-revA.png",
+    revision: "A",
+    series_id: 30,
+    revision_count: 2,
+    superseded_at: "2026-07-05T09:00:00Z",
+    is_current: false,
+    pins_to_check: 0,
+  }
+
+  beforeEach(() => {
+    api.readDrawing.mockImplementation(async ({ path }) => {
+      if (path.drawing_id === 32) return ok(revB)
+      if (path.drawing_id === 30) return ok(revA)
+      throw apiError(404, "Drawing not found")
+    })
+    api.listDrawingRevisions.mockResolvedValue(ok([revB, revA]))
+  })
+
+  it("opens an old revision read-only, pointing at the current one", async () => {
+    pinStore = [{ ...pins[0], drawing_id: 30 }]
+    renderApp("/projects/7/drawings/30")
+    await screen.findByTestId("raster-image")
+    loadImage()
+
+    const banner = await screen.findByTestId("old-revision-banner")
+    expect(banner).toHaveTextContent("You're looking at Rev A")
+    expect(banner).toHaveTextContent("its pins can't be changed")
+    expect(
+      await within(banner).findByTestId("open-current-revision"),
+    ).toHaveAttribute("href", "/projects/7/drawings/32")
+    expect(screen.queryByTestId("pin-mode")).not.toBeInTheDocument()
+    expect(screen.getByText(/Rev A \(old revision\)/)).toBeInTheDocument()
+
+    await userEvent.click(await screen.findByTestId("pin-marker"))
+    const dialog = await screen.findByTestId("pin-detail-dialog")
+    expect(within(dialog).queryByTestId("save-pin")).not.toBeInTheDocument()
+    await userEvent.keyboard("{Escape}")
+    await waitFor(() =>
+      expect(screen.queryByTestId("pin-detail-dialog")).not.toBeInTheDocument(),
+    )
+
+    // The menu only offers the revision list.
+    await userEvent.click(screen.getByTestId("drawing-actions"))
+    expect(await screen.findByTestId("show-revisions")).toHaveTextContent(
+      "Revisions (2)",
+    )
+    expect(screen.queryByTestId("upload-revision")).not.toBeInTheDocument()
+    expect(screen.queryByText("Edit drawing")).not.toBeInTheDocument()
+  })
+
+  it("flags carried pins and walks through confirming their position", async () => {
+    pinStore = [
+      {
+        ...pins[0],
+        id: 950,
+        drawing_id: 32,
+        carried_from_pin_id: 901,
+        carried_from_revision: "A",
+        position_check: true,
+      },
+      { ...pins[1], id: 951, drawing_id: 32, page_number: 1, x_pct: 80 },
+    ]
+    renderApp(RASTER_URL)
+    await screen.findByTestId("raster-image")
+    loadImage()
+
+    const banner = await screen.findByTestId("pins-to-check-banner")
+    expect(banner).toHaveTextContent("1 pin carried from Rev A")
+    const flagged = (await screen.findAllByTestId("pin-marker")).find(
+      (m) => m.getAttribute("data-position-check") === "true",
+    )
+    expect(flagged).toHaveAccessibleName(/carried from Rev A, check position/)
+
+    await userEvent.click(within(banner).getByTestId("next-pin-to-check"))
+    const dialog = await screen.findByTestId("pin-detail-dialog")
+    expect(within(dialog).getByTestId("pin-position-check")).toHaveTextContent(
+      "Carried from Rev A — check position.",
+    )
+    // The API settles the check (the shared mock only merges the body).
+    api.updatePin.mockImplementationOnce(async () => {
+      pinStore[0] = { ...pinStore[0], position_check: false }
+      return ok(pinStore[0])
+    })
+    await userEvent.click(within(dialog).getByTestId("pin-confirm-position"))
+    await waitFor(() =>
+      expect(api.updatePin).toHaveBeenCalledWith({
+        path: { pin_id: 950 },
+        body: { position_confirmed: true },
+      }),
+    )
+    await waitFor(() =>
+      expect(
+        screen.queryByTestId("pins-to-check-banner"),
+      ).not.toBeInTheDocument(),
+    )
+  })
+
+  it("moves a pin with the next tap on the sheet", async () => {
+    stubOverlayRect()
+    pinStore = [{ ...pins[0], drawing_id: 32 }]
+    renderApp(RASTER_URL)
+    await screen.findByTestId("raster-image")
+    loadImage()
+
+    await userEvent.click(await screen.findByTestId("pin-marker"))
+    const dialog = await screen.findByTestId("pin-detail-dialog")
+    await userEvent.click(within(dialog).getByTestId("pin-move"))
+    expect(await screen.findByTestId("move-pin-banner")).toHaveTextContent(
+      "Tap the drawing where pin V-101 belongs",
+    )
+    fireEvent.click(screen.getByTestId("pin-overlay"), {
+      clientX: 100,
+      clientY: 50,
+    })
+    await waitFor(() =>
+      expect(api.updatePin).toHaveBeenCalledWith({
+        path: { pin_id: 901 },
+        body: { x_pct: 25, y_pct: 25, page_number: 1 },
+      }),
+    )
+    await waitFor(() =>
+      expect(screen.queryByTestId("move-pin-banner")).not.toBeInTheDocument(),
+    )
+    expect(screen.queryByTestId("pin-status-dialog")).not.toBeInTheDocument()
+  })
+
+  it("collapses overlapping pins into a cluster that zooms in on tap", async () => {
+    pinStore = [
+      { ...pins[0], drawing_id: 32 },
+      { ...pins[1], drawing_id: 32, page_number: 1, x_pct: 25.5, y_pct: 40.5 },
+    ]
+    renderApp(RASTER_URL)
+    await screen.findByTestId("raster-image")
+    loadImage()
+    await waitFor(() =>
+      expect(screen.getByTestId("zoom-indicator")).toHaveTextContent("100%"),
+    )
+
+    const cluster = await screen.findByTestId("pin-cluster")
+    expect(cluster).toHaveAttribute("data-count", "2")
+    expect(cluster).toHaveAccessibleName(/2 pins close together/)
+    expect(screen.queryAllByTestId("pin-marker")).toHaveLength(0)
+
+    await userEvent.click(cluster)
+    await waitFor(() =>
+      expect(screen.getByTestId("zoom-indicator")).toHaveTextContent("300%"),
+    )
+    await waitFor(() =>
+      expect(screen.getAllByTestId("pin-marker")).toHaveLength(2),
+    )
+    expect(screen.queryByTestId("pin-cluster")).not.toBeInTheDocument()
+  })
+
+  it("lists pins on the very same spot instead of zooming forever", async () => {
+    pinStore = [
+      { ...pins[0], drawing_id: 32 },
+      { ...pins[1], drawing_id: 32, page_number: 1, x_pct: 25, y_pct: 40 },
+    ]
+    renderApp(RASTER_URL)
+    await screen.findByTestId("raster-image")
+    loadImage()
+    await userEvent.click(await screen.findByTestId("pin-cluster"))
+    const list = await screen.findByTestId("pin-cluster-dialog")
+    const items = within(list).getAllByTestId("pin-cluster-item")
+    expect(items).toHaveLength(2)
+    await userEvent.click(items[0])
+    expect(await screen.findByTestId("pin-detail-dialog")).toHaveTextContent(
+      "Pin #V-101",
+    )
+  })
+
+  it("filters pins by status and link, and remembers the choice", async () => {
+    pinStore = [
+      { ...pins[0], drawing_id: 32 },
+      { ...pins[1], drawing_id: 32, page_number: 1 },
+    ]
+    renderApp(RASTER_URL)
+    await screen.findByTestId("raster-image")
+    loadImage()
+    expect(await screen.findAllByTestId("pin-marker")).toHaveLength(2)
+
+    await userEvent.click(screen.getByTestId("pin-filter"))
+    await userEvent.click(
+      await screen.findByTestId("pin-filter-status-verified"),
+    )
+    await waitFor(() =>
+      expect(screen.getAllByTestId("pin-marker")).toHaveLength(1),
+    )
+    expect(screen.getByTestId("pin-count")).toHaveTextContent("1 of 2 pins")
+    expect(
+      JSON.parse(window.localStorage.getItem("vri.pinFilters.v1.7") ?? "{}"),
+    ).toMatchObject({ hiddenStatuses: ["verified"], link: "all" })
+
+    // Only pins linked to a finding: the punch item (finding 101) stays.
+    await userEvent.click(screen.getByTestId("pin-filter-status-verified"))
+    await userEvent.click(screen.getByTestId("pin-filter-link-finding"))
+    await waitFor(() =>
+      expect(screen.getAllByTestId("pin-marker")).toHaveLength(1),
+    )
+    expect(screen.getAllByTestId("pin-marker")[0]).toHaveAttribute(
+      "data-pin-status",
+      "punch_item",
+    )
+    await userEvent.click(screen.getByTestId("pin-filter-reset"))
+    await waitFor(() =>
+      expect(screen.getAllByTestId("pin-marker")).toHaveLength(2),
+    )
+    expect(window.localStorage.getItem("vri.pinFilters.v1.7")).toBeNull()
+  })
+
+  it("uploads a new revision and opens it", async () => {
+    const xhr = stubXhr()
+    pinStore = [{ ...pins[0], drawing_id: 31 }]
+    api.presignDrawingUpload.mockResolvedValue(
+      ok({
+        upload_url: "https://s3.example.com/put?sig=2",
+        s3_key: "drawings/projects/7/ddd.pdf",
+      }),
+    )
+    const revised = {
+      ...pdfDrawing,
+      id: 34,
+      public_id: "drw_34",
+      filename: "C-101 grading revB.pdf",
+      revision: "B",
+      series_id: 31,
+      revision_count: 2,
+      superseded_at: null,
+      is_current: true,
+      pins_to_check: 1,
+    }
+    api.createDrawingRevision.mockResolvedValue(ok(revised))
+    api.readDrawing.mockImplementation(async ({ path }) => {
+      if (path.drawing_id === 31) return ok(pdfDrawing)
+      if (path.drawing_id === 34) return ok(revised)
+      throw apiError(404, "Drawing not found")
+    })
+    const router = renderApp(PDF_URL)
+    await screen.findByTestId("drawing-viewer")
+
+    await userEvent.click(screen.getByTestId("drawing-actions"))
+    await userEvent.click(await screen.findByTestId("upload-revision"))
+    const dialog = await screen.findByTestId("new-revision-dialog")
+    expect(within(dialog).getByTestId("revision-label")).toHaveValue("B")
+    expect(within(dialog).getByTestId("revision-upload")).toBeDisabled()
+    const file = new File(["%PDF-1.4"], "C-101 grading revB.pdf", {
+      type: "application/pdf",
+    })
+    await userEvent.upload(
+      within(dialog).getByTestId("revision-file-input"),
+      file,
+    )
+    await userEvent.click(within(dialog).getByTestId("revision-upload"))
+
+    await waitFor(() => expect(xhr.requests).toHaveLength(1))
+    expect(xhr.requests[0].url).toBe("https://s3.example.com/put?sig=2")
+    xhr.succeed()
+    await waitFor(() =>
+      expect(api.createDrawingRevision).toHaveBeenCalledWith({
+        path: { drawing_id: 31 },
+        body: {
+          filename: "C-101 grading revB.pdf",
+          s3_key: "drawings/projects/7/ddd.pdf",
+          file_type: "pdf",
+          file_size: file.size,
+          revision: "B",
+        },
+      }),
+    )
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe("/projects/7/drawings/34"),
+    )
+    expect(
+      await screen.findByText("Rev B uploaded — 1 pin carried over to check"),
+    ).toBeInTheDocument()
   })
 })

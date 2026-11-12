@@ -321,6 +321,10 @@ export type DrawingCreate = {
      * Uploaded By
      */
     uploaded_by?: string | null;
+    /**
+     * Revision
+     */
+    revision?: string | null;
 };
 
 /**
@@ -461,6 +465,78 @@ export type DrawingPublic = {
      * Updated At
      */
     updated_at: string;
+    /**
+     * Series Id
+     */
+    series_id?: number | null;
+    /**
+     * Revision
+     */
+    revision?: string | null;
+    /**
+     * Superseded At
+     */
+    superseded_at?: string | null;
+    /**
+     * Revision Count
+     */
+    revision_count?: number;
+    /**
+     * Pins To Check
+     */
+    pins_to_check?: number;
+    /**
+     * Is Current
+     */
+    readonly is_current: boolean;
+};
+
+/**
+ * DrawingRevisionCreate
+ *
+ * Increment 14.5: register a new revision of an existing drawing.
+ *
+ * The file goes up exactly like a new drawing (``POST /drawings/presign`` →
+ * S3 PUT); this registers it against the drawing's series instead of as a
+ * separate drawing. Title, number and discipline carry over unless sent.
+ */
+export type DrawingRevisionCreate = {
+    /**
+     * Filename
+     */
+    filename: string;
+    /**
+     * S3 Key
+     */
+    s3_key: string;
+    /**
+     * File Type
+     */
+    file_type?: 'pdf' | 'png' | 'jpg' | 'jpeg' | 'svg';
+    /**
+     * File Size
+     */
+    file_size?: number | null;
+    /**
+     * Page Width Pts
+     */
+    page_width_pts?: number | null;
+    /**
+     * Page Height Pts
+     */
+    page_height_pts?: number | null;
+    /**
+     * Revision
+     */
+    revision?: string | null;
+    /**
+     * Title
+     */
+    title?: string | null;
+    /**
+     * Drawing Number
+     */
+    drawing_number?: string | null;
 };
 
 /**
@@ -1663,6 +1739,26 @@ export type PinPublic = {
      * Itp Item Id
      */
     itp_item_id?: number | null;
+    /**
+     * Carried From Pin Id
+     */
+    carried_from_pin_id?: number | null;
+    /**
+     * Carried From Revision
+     */
+    carried_from_revision?: string | null;
+    /**
+     * Position Check
+     */
+    position_check?: boolean;
+    /**
+     * Position Confirmed By
+     */
+    position_confirmed_by?: string | null;
+    /**
+     * Position Confirmed At
+     */
+    position_confirmed_at?: string | null;
 };
 
 /**
@@ -1693,6 +1789,22 @@ export type PinUpdate = {
      * Notes
      */
     notes?: string | null;
+    /**
+     * X Pct
+     */
+    x_pct?: number | null;
+    /**
+     * Y Pct
+     */
+    y_pct?: number | null;
+    /**
+     * Page Number
+     */
+    page_number?: number | null;
+    /**
+     * Position Confirmed
+     */
+    position_confirmed?: boolean | null;
 };
 
 /**
@@ -2676,6 +2788,100 @@ export type WitnessNoticeResult = {
 };
 
 /**
+ * DrawingPublic
+ */
+export type DrawingPublicWritable = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Public Id
+     */
+    public_id: string;
+    /**
+     * Project Id
+     */
+    project_id: number;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Drawing Number
+     */
+    drawing_number: string | null;
+    /**
+     * Discipline
+     */
+    discipline: string;
+    /**
+     * Filename
+     */
+    filename: string;
+    /**
+     * S3 Key
+     */
+    s3_key: string;
+    /**
+     * File Type
+     */
+    file_type: string;
+    /**
+     * File Size
+     */
+    file_size: number | null;
+    /**
+     * View Url
+     */
+    view_url: string | null;
+    /**
+     * Thumbnail Url
+     */
+    thumbnail_url: string | null;
+    /**
+     * Page Width Pts
+     */
+    page_width_pts: number | null;
+    /**
+     * Page Height Pts
+     */
+    page_height_pts: number | null;
+    /**
+     * Uploaded By
+     */
+    uploaded_by: string | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+    /**
+     * Series Id
+     */
+    series_id?: number | null;
+    /**
+     * Revision
+     */
+    revision?: string | null;
+    /**
+     * Superseded At
+     */
+    superseded_at?: string | null;
+    /**
+     * Revision Count
+     */
+    revision_count?: number;
+    /**
+     * Pins To Check
+     */
+    pins_to_check?: number;
+};
+
+/**
  * ProjectPublic
  */
 export type ProjectPublicWritable = {
@@ -3601,6 +3807,12 @@ export type drawingsListDrawingsData = {
          * Discipline
          */
         discipline?: 'general' | 'pid' | 'grading' | 'civil_structural' | 'equipment_layout' | 'steel_erection' | 'electrical' | 'other' | null;
+        /**
+         * Include Superseded
+         *
+         * Also list old revisions (increment 14.5).
+         */
+        include_superseded?: boolean;
     };
     url: '/api/v1/drawings';
 };
@@ -3658,7 +3870,14 @@ export type drawingsDeleteDrawingData = {
          */
         drawing_id: number;
     };
-    query?: never;
+    query?: {
+        /**
+         * Revision Only
+         *
+         * Remove only this (current) revision; the previous revision becomes current again (increment 14.5).
+         */
+        revision_only?: boolean;
+    };
     url: '/api/v1/drawings/{drawing_id}';
 };
 
@@ -3739,6 +3958,68 @@ export type drawingsUpdateDrawingResponses = {
 };
 
 export type drawingsUpdateDrawingResponse = drawingsUpdateDrawingResponses[keyof drawingsUpdateDrawingResponses];
+
+export type drawingsListDrawingRevisionsData = {
+    body?: never;
+    path: {
+        /**
+         * Drawing Id
+         */
+        drawing_id: number;
+    };
+    query?: never;
+    url: '/api/v1/drawings/{drawing_id}/revisions';
+};
+
+export type drawingsListDrawingRevisionsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type drawingsListDrawingRevisionsError = drawingsListDrawingRevisionsErrors[keyof drawingsListDrawingRevisionsErrors];
+
+export type drawingsListDrawingRevisionsResponses = {
+    /**
+     * Response Drawings-List Drawing Revisions
+     *
+     * Successful Response
+     */
+    200: Array<DrawingPublic>;
+};
+
+export type drawingsListDrawingRevisionsResponse = drawingsListDrawingRevisionsResponses[keyof drawingsListDrawingRevisionsResponses];
+
+export type drawingsCreateDrawingRevisionData = {
+    body: DrawingRevisionCreate;
+    path: {
+        /**
+         * Drawing Id
+         */
+        drawing_id: number;
+    };
+    query?: never;
+    url: '/api/v1/drawings/{drawing_id}/revisions';
+};
+
+export type drawingsCreateDrawingRevisionErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type drawingsCreateDrawingRevisionError = drawingsCreateDrawingRevisionErrors[keyof drawingsCreateDrawingRevisionErrors];
+
+export type drawingsCreateDrawingRevisionResponses = {
+    /**
+     * Successful Response
+     */
+    201: DrawingPublic;
+};
+
+export type drawingsCreateDrawingRevisionResponse = drawingsCreateDrawingRevisionResponses[keyof drawingsCreateDrawingRevisionResponses];
 
 export type drawingsUpdateDrawingDimensionsData = {
     body: DrawingDimensionsUpdate;

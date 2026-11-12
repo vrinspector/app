@@ -1,5 +1,14 @@
+import { useMemo } from "react"
+
 import type { ItpItemRef, PinPublic } from "@/client"
 import { type PointPercent, pinLabel, pointToPercent } from "@/lib/drawings"
+import {
+  carriedFromText,
+  clusterPins,
+  clusterStatus,
+  needsPositionCheck,
+  type PinCluster,
+} from "@/lib/pinView"
 import { cn } from "@/lib/utils"
 import { pinStatusOption } from "@/lib/vocab"
 
@@ -13,6 +22,12 @@ import { pinStatusOption } from "@/lib/vocab"
  * In pin mode the layer takes the clicks (legacy `handleDrawingClick`) and
  * reports the percentage point; otherwise it is transparent to pointer
  * events and only the markers are interactive.
+ *
+ * Increment 14.5: with `boxSize` given, pins whose markers would overlap at
+ * the current zoom collapse into one numbered cluster marker
+ * (`clusterPins`); tapping it calls `onOpenCluster` with the marker's
+ * screen position so the viewer can zoom in on it. A pin carried from an
+ * earlier revision and not yet checked gets a dashed ring and a "?".
  */
 
 interface PinOverlayProps {
@@ -25,6 +40,11 @@ interface PinOverlayProps {
   onPlace: (point: PointPercent) => void
   onSelect: (pin: PinPublic) => void
   selectedPinId?: number | null
+  /** Marker labels by pin id (numbered over the whole page, not the filtered list). */
+  labels?: Map<number, string>
+  /** The rendered drawing box in px; turns clustering on. */
+  boxSize?: { width: number; height: number } | null
+  onOpenCluster?: (cluster: PinCluster, at: DOMRect) => void
 }
 
 export function PinOverlay({
@@ -35,7 +55,26 @@ export function PinOverlay({
   onPlace,
   onSelect,
   selectedPinId,
+  labels,
+  boxSize,
+  onOpenCluster,
 }: PinOverlayProps) {
+  const clusters = useMemo(
+    () =>
+      boxSize && onOpenCluster
+        ? clusterPins(pins, boxSize)
+        : pins.map((pin) => ({
+            key: pin.id,
+            pins: [pin],
+            x_pct: Number(pin.x_pct),
+            y_pct: Number(pin.y_pct),
+          })),
+    [pins, boxSize, onOpenCluster],
+  )
+  const order = useMemo(
+    () => new Map(pins.map((pin, index) => [pin.id, index])),
+    [pins],
+  )
   return (
     // biome-ignore lint/a11y/useKeyWithClickEvents: keyboard users place pins through the markers and the status dialog; the layer is a pointer target only.
     // biome-ignore lint/a11y/noStaticElementInteractions: see above.
@@ -60,17 +99,89 @@ export function PinOverlay({
         if (point) onPlace(point)
       }}
     >
-      {pins.map((pin, index) => (
-        <PinMarker
-          key={pin.id}
-          pin={pin}
-          label={pinLabel(pin, index)}
-          itpItem={pin.itp_item_id ? itpItems?.get(pin.itp_item_id) : undefined}
-          selected={pin.id === selectedPinId}
-          onSelect={() => onSelect(pin)}
-        />
-      ))}
+      {clusters.map((cluster) => {
+        if (cluster.pins.length > 1) {
+          return (
+            <ClusterMarker
+              key={`cluster-${cluster.key}`}
+              cluster={cluster}
+              containsSelected={cluster.pins.some(
+                (p) => p.id === selectedPinId,
+              )}
+              onOpen={(rect) => onOpenCluster?.(cluster, rect)}
+            />
+          )
+        }
+        const pin = cluster.pins[0]
+        return (
+          <PinMarker
+            key={pin.id}
+            pin={pin}
+            label={labels?.get(pin.id) ?? pinLabel(pin, order.get(pin.id) ?? 0)}
+            itpItem={
+              pin.itp_item_id ? itpItems?.get(pin.itp_item_id) : undefined
+            }
+            selected={pin.id === selectedPinId}
+            onSelect={() => onSelect(pin)}
+          />
+        )
+      })}
     </div>
+  )
+}
+
+/*
+ * Increment 14.5: several pins too close to tell apart at this zoom. The
+ * marker is a round badge with the count, coloured by the most urgent status
+ * inside it, centred on the pins' mean position.
+ */
+function ClusterMarker({
+  cluster,
+  containsSelected,
+  onOpen,
+}: {
+  cluster: PinCluster
+  containsSelected: boolean
+  onOpen: (rect: DOMRect) => void
+}) {
+  const status = pinStatusOption(clusterStatus(cluster))
+  const toCheck = cluster.pins.filter(needsPositionCheck).length
+  return (
+    <button
+      type="button"
+      data-testid="pin-cluster"
+      data-count={cluster.pins.length}
+      data-pin-marker
+      aria-label={`${cluster.pins.length} pins close together${toCheck ? `, ${toCheck} to check` : ""} — zoom in to separate them`}
+      onClick={(event) => {
+        event.stopPropagation()
+        onOpen(event.currentTarget.getBoundingClientRect())
+      }}
+      className="pointer-events-auto absolute z-20 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center focus-visible:outline-none"
+      style={{ left: `${cluster.x_pct}%`, top: `${cluster.y_pct}%` }}
+    >
+      <span
+        className={cn(
+          "flex size-8 items-center justify-center rounded-full border-[3px] border-white text-xs font-bold text-white",
+        )}
+        style={{
+          background: status.color,
+          // A soft halo in the same colour reads as "more than one"; gold
+          // when the selected pin is inside.
+          boxShadow: `0 0 0 4px ${containsSelected ? "var(--color-vri-gold)" : `${status.color}66`}, 0 2px 8px rgba(0,0,0,.6)`,
+        }}
+      >
+        {cluster.pins.length}
+      </span>
+      {toCheck ? (
+        <span
+          className="absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full bg-vri-gold text-[9px] font-bold text-vri-charcoal"
+          aria-hidden="true"
+        >
+          ?
+        </span>
+      ) : null}
+    </button>
   )
 }
 
@@ -96,6 +207,7 @@ export function PinMarker({
   onSelect,
 }: PinMarkerProps) {
   const status = pinStatusOption(pin.status)
+  const check = needsPositionCheck(pin)
   const isHold = itpItem?.classification === "hold"
   const itpText = itpItem
     ? ` — ITP ${isHold ? "hold point" : itpItem.classification}${isHold ? (itpItem.released ? " (released)" : " (waiting for sign-off)") : ""}: ${itpItem.requirement}`
@@ -111,7 +223,8 @@ export function PinMarker({
         itpItem ? (isHold ? "hold" : itpItem.classification) : undefined
       }
       data-itp-released={itpItem ? String(itpItem.released) : undefined}
-      aria-label={`Pin ${label}: ${status.label}${pin.label ? ` — ${pin.label}` : ""}${itpText}`}
+      data-position-check={check ? "true" : undefined}
+      aria-label={`Pin ${label}: ${status.label}${pin.label ? ` — ${pin.label}` : ""}${itpText}${check ? ` — carried from ${carriedFromText(pin)}, check position` : ""}`}
       aria-pressed={selected}
       onClick={(event) => {
         event.stopPropagation()
@@ -130,12 +243,24 @@ export function PinMarker({
                 ? "outline-status-positive-fg"
                 : "outline-status-critical-fg"
               : "outline-status-attention-fg"),
+          check &&
+            !itpItem &&
+            "outline-2 outline-offset-2 outline-dashed outline-vri-gold",
           selected && "scale-125 ring-2 ring-vri-gold",
         )}
         style={{ background: status.color }}
       >
         {label}
       </span>
+      {check ? (
+        <span
+          className="absolute -top-1.5 -right-2 flex size-4 items-center justify-center rounded-full border border-white bg-vri-gold text-[9px] font-bold text-vri-charcoal"
+          aria-hidden="true"
+          data-testid="pin-check-badge"
+        >
+          ?
+        </span>
+      ) : null}
       <span
         className="h-2 w-0.5 opacity-80"
         style={{ background: status.color }}

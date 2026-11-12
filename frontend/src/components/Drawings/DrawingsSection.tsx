@@ -285,7 +285,29 @@ function DrawingCard({
               className="px-2 py-0 text-[0.6rem]"
               data-testid="drawing-discipline"
             />
+            {drawing.revision ? (
+              <span
+                className="rounded border px-1.5 text-[0.6rem] font-semibold text-foreground"
+                data-testid="drawing-revision"
+                title={
+                  (drawing.revision_count ?? 1) > 1
+                    ? `${drawing.revision_count} revisions`
+                    : undefined
+                }
+              >
+                Rev {drawing.revision}
+              </span>
+            ) : null}
           </span>
+          {drawing.pins_to_check ? (
+            <span
+              className="text-xs font-medium text-status-attention-fg"
+              data-testid="drawing-pins-to-check"
+            >
+              {drawing.pins_to_check} pin
+              {drawing.pins_to_check === 1 ? "" : "s"} to check
+            </span>
+          ) : null}
           <span className="truncate text-xs text-muted-foreground">
             {formatDate(drawing.created_at)}
           </span>

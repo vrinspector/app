@@ -25,7 +25,9 @@ BASELINE_REVISION = "b7d3e9a1c204"
 # The revision before the baseline: downgrading to it removes every domain table.
 PRE_BASELINE_REVISION = "3f1c2d9a8b70"
 # Head of the chain (later increments add tables on top of the baseline).
-HEAD_REVISION = "d8b3f5a2c614"
+HEAD_REVISION = "e4a7c9b2d816"
+# The external sign-off revision (increment 14), just below head.
+SIGNOFF_REVISION = "d8b3f5a2c614"
 # The release-result revision (increment 13.9), just below head.
 RELEASE_REVISION = "c6f1a8d3e529"
 # The document-number / three-shot revision (increment 13.8), just below head.
@@ -618,3 +620,67 @@ def test_external_signoff_migration_is_additive_and_guarded(legacy_db: str) -> N
     assert "revoked_reason" not in _columns(legacy_db, "external_sign_tokens")
     # Idempotent and repeatable.
     assert run_alembic(legacy_db, "upgrade", "head").returncode == 0
+
+
+def test_drawing_revision_migration_is_additive_and_guarded(legacy_db: str) -> None:
+    """Increment 14.5: drawing revisions + carried pins, legacy rows untouched."""
+    assert run_alembic(legacy_db, "upgrade", "head").returncode == 0
+    drawings = _columns(legacy_db, "drawings")
+    assert drawings["series_id"]["nullable"] is True
+    assert drawings["revision"]["nullable"] is True
+    assert drawings["superseded_at"]["nullable"] is True
+    pins = _columns(legacy_db, "inspection_pins")
+    assert pins["position_check"]["nullable"] is False
+    assert pins["carried_from_pin_id"]["nullable"] is True
+    # Every legacy drawing is a one-revision series of its own, still current.
+    assert _scalar(legacy_db, "SELECT count(*) FROM drawings WHERE series_id = id") == 1
+    assert _scalar(
+        legacy_db, "SELECT count(*) FROM drawings WHERE superseded_at IS NULL"
+    ) == 1
+    assert _scalar(
+        legacy_db, "SELECT count(*) FROM inspection_pins WHERE position_check"
+    ) == 0
+
+    engine = create_engine(legacy_db, isolation_level="AUTOCOMMIT")
+    try:
+        with engine.connect() as conn:
+            # A second current revision of the same sheet is refused.
+            try:
+                conn.exec_driver_sql(
+                    """INSERT INTO drawings (project_id, title, filename, s3_key,
+                                            file_type, series_id, revision)
+                           VALUES (1, 'P&ID-001', 'pid-b.pdf',
+                                   'drawings/projects/1/b.pdf', 'pdf', 1, 'B')"""
+                )
+            except Exception as exc:  # noqa: BLE001
+                assert "uq_drawings_series_current" in str(exc)
+            else:  # pragma: no cover
+                raise AssertionError("one-current-revision index missing")
+    finally:
+        engine.dispose()
+
+    engine = create_engine(legacy_db, isolation_level="AUTOCOMMIT")
+    try:
+        with engine.connect() as conn:
+            conn.exec_driver_sql("UPDATE drawings SET superseded_at = now() WHERE id = 1")
+            conn.exec_driver_sql(
+                """INSERT INTO drawings (project_id, title, filename, s3_key,
+                                        file_type, series_id, revision)
+                       VALUES (1, 'P&ID-001', 'pid-b.pdf',
+                               'drawings/projects/1/b.pdf', 'pdf', 1, 'B')"""
+            )
+            result = run_alembic(legacy_db, "downgrade", SIGNOFF_REVISION)
+            assert result.returncode != 0
+            assert "Refusing to downgrade e4a7c9b2d816" in (
+                result.stderr + result.stdout
+            )
+            conn.exec_driver_sql("DELETE FROM drawings WHERE revision = 'B'")
+            conn.exec_driver_sql("UPDATE drawings SET superseded_at = NULL")
+    finally:
+        engine.dispose()
+    assert run_alembic(legacy_db, "downgrade", SIGNOFF_REVISION).returncode == 0
+    assert "series_id" not in _columns(legacy_db, "drawings")
+    assert "position_check" not in _columns(legacy_db, "inspection_pins")
+    # Idempotent and repeatable.
+    assert run_alembic(legacy_db, "upgrade", "head").returncode == 0
+    assert _scalar(legacy_db, "SELECT count(*) FROM drawings WHERE series_id = id") == 1

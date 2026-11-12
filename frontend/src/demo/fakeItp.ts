@@ -63,6 +63,8 @@ export interface ItpContext {
   pins: PinPublic[]
   photos: PhotoPublic[]
   drawingTitle: (drawingId: number) => string | null
+  /** Increment 14.5: false for an old drawing revision (its pins are history). */
+  drawingCurrent: (drawingId: number) => boolean
   drawingProject: (drawingId: number) => number | undefined
   nextPublicId: () => string
   // Increment 14 (external sign-off, `fakeSignoff.ts`).
@@ -264,7 +266,9 @@ export function registerItpRoutes(ctx: ItpContext) {
       released: s.released,
       blocked_by_item_id: s.blockedBy?.id ?? null,
       pins: ctx.pins
-        .filter((p) => p.itp_item_id === item.id)
+        .filter(
+          (p) => p.itp_item_id === item.id && ctx.drawingCurrent(p.drawing_id),
+        )
         .map((p) => ({
           id: p.id,
           drawing_id: p.drawing_id,

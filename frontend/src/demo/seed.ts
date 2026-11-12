@@ -420,6 +420,10 @@ export function createSeed(): DemoDb {
       uploaded_by: me,
       created_at: ago(30 * DAY),
       updated_at: ago(30 * DAY),
+      series_id: 1,
+      revision: null,
+      superseded_at: null,
+      is_current: true,
     },
     {
       id: 2,
@@ -437,8 +441,37 @@ export function createSeed(): DemoDb {
       page_width_pts: null,
       page_height_pts: null,
       uploaded_by: me,
+      created_at: ago(2 * DAY),
+      updated_at: ago(2 * DAY),
+      // Increment 14.5: the Site Plan is on Rev B; Rev A (id 3) is kept
+      // read-only and its pin was carried over, waiting for a position check.
+      series_id: 3,
+      revision: "B",
+      superseded_at: null,
+      is_current: true,
+    },
+    {
+      id: 3,
+      public_id: publicId(),
+      project_id: 1,
+      title: "Site Plan",
+      drawing_number: "C-001",
+      discipline: "civil_structural",
+      filename: "sample-site-plan-revA.png",
+      s3_key: "drawings/projects/1/sample-site-plan.png",
+      file_type: "png",
+      file_size: 46081,
+      view_url: null,
+      thumbnail_url: null,
+      page_width_pts: null,
+      page_height_pts: null,
+      uploaded_by: me,
       created_at: ago(30 * DAY),
       updated_at: ago(30 * DAY),
+      series_id: 3,
+      revision: "A",
+      superseded_at: ago(2 * DAY),
+      is_current: false,
     },
   ]
 
@@ -460,7 +493,25 @@ export function createSeed(): DemoDb {
     pin(5, 1, 2, 26.5, 36.4, "punch_item", "C-201", "Grout outstanding", 3),
     pin(6, 1, 2, 56.5, 36.4, "in_progress", "XV-205", "Tag mismatch", 2),
     pin(7, 1, 2, 68.8, 41.4, "not_started", "M-302", "Membrane module 2"),
-    pin(8, 2, 1, 65.9, 70.7, "punch_item", "SE", "Ponding", 7),
+    // Rev B's pin, carried from Rev A's pin 9 and not yet checked (14.5).
+    {
+      ...pin(8, 2, 1, 65.9, 70.7, "punch_item", "SE", "Ponding", 7),
+      carried_from_pin_id: 9,
+      position_check: true,
+    },
+    pin(9, 3, 1, 65.9, 70.7, "punch_item", "SE", "Ponding", 7),
+    // Two valves a few millimetres apart on page 1 of the P&ID: they cluster
+    // when the sheet is zoomed out (14.5).
+    pin(
+      10,
+      1,
+      1,
+      61.9,
+      37.1,
+      "punch_item",
+      "V-103",
+      "Drain valve chained open",
+    ),
   ]
 
   const reports: ReportPublic[] = [

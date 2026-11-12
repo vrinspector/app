@@ -27,6 +27,7 @@ import type {
 } from "@/client"
 
 import { derivedProjectCode, normaliseProjectCode } from "@/lib/itp"
+import { nextRevisionLabel, normaliseRevisionLabel } from "@/lib/pinView"
 
 import { DEMO_USER } from "./auth0-stub"
 import { registerItpRoutes } from "./fakeItp"
@@ -597,6 +598,39 @@ on("DELETE", "/photos/{photo_id}", ({ params }) => {
 })
 
 // --- Drawings & pins -------------------------------------------------------
+// Increment 14.5: revisions. Each revision is its own row grouped by
+// `series_id`; the derived fields (count, pins to check) are computed here
+// as the API computes them.
+const seriesOf = (d: DrawingPublic) => d.series_id ?? d.id
+function drawingOut(d: DrawingPublic): DrawingPublic {
+  return {
+    ...d,
+    series_id: seriesOf(d),
+    is_current: !d.superseded_at,
+    revision_count: db.drawings.filter((x) => seriesOf(x) === seriesOf(d))
+      .length,
+    pins_to_check: db.pins.filter(
+      (p) => p.drawing_id === d.id && p.position_check,
+    ).length,
+  }
+}
+function pinOut(pin: PinPublic): PinPublic {
+  const source = pin.carried_from_pin_id
+    ? db.pins.find((p) => p.id === pin.carried_from_pin_id)
+    : undefined
+  const from = source
+    ? db.drawings.find((d) => d.id === source.drawing_id)
+    : undefined
+  return { ...pin, carried_from_revision: from?.revision ?? null }
+}
+function currentOnly(d: DrawingPublic): void {
+  if (d.superseded_at) {
+    throw new HttpError(
+      409,
+      "This is an old revision of the drawing; it is kept read-only. Open the current revision to make changes.",
+    )
+  }
+}
 on("POST", "/drawings/presign", ({ body }) => {
   const projectId = Number(body.project_id)
   find(db.projects, projectId, "Project")
@@ -608,19 +642,23 @@ on("GET", "/drawings", ({ query }) => {
   const projectId = num(query.get("project_id") ?? "0")
   find(db.projects, projectId, "Project")
   const discipline = query.get("discipline")
+  const all = query.get("include_superseded") === "true"
   return db.drawings
     .filter(
       (d) =>
         d.project_id === projectId &&
-        (!discipline || d.discipline === discipline),
+        (!discipline || d.discipline === discipline) &&
+        (all || !d.superseded_at),
     )
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
+    .map(drawingOut)
 })
 on("POST", "/drawings", ({ body }) => {
   const projectId = Number(body.project_id)
   find(db.projects, projectId, "Project")
+  const id = nextId(db.drawings)
   const created: DrawingPublic = {
-    id: nextId(db.drawings),
+    id,
     public_id: nextPublicId(),
     project_id: projectId,
     title: String(body.title ?? body.filename ?? "Drawing"),
@@ -637,28 +675,103 @@ on("POST", "/drawings", ({ body }) => {
     uploaded_by: me,
     created_at: stamp(),
     updated_at: stamp(),
+    series_id: id,
+    revision: normaliseRevisionLabel(body.revision),
+    superseded_at: null,
+    is_current: true,
   }
   db.drawings.push(created)
-  return created
+  return drawingOut(created)
 })
 on("GET", "/drawings/{drawing_id}", ({ params }) =>
-  find(db.drawings, num(params[0]), "Drawing"),
+  drawingOut(find(db.drawings, num(params[0]), "Drawing")),
 )
+on("GET", "/drawings/{drawing_id}/revisions", ({ params }) => {
+  const d = find(db.drawings, num(params[0]), "Drawing")
+  return db.drawings
+    .filter((x) => seriesOf(x) === seriesOf(d))
+    .sort((a, b) => b.created_at.localeCompare(a.created_at) || b.id - a.id)
+    .map(drawingOut)
+})
+on("POST", "/drawings/{drawing_id}/revisions", ({ params, body }) => {
+  const old = find(db.drawings, num(params[0]), "Drawing")
+  currentOnly(old)
+  const series = db.drawings.filter((x) => seriesOf(x) === seriesOf(old))
+  if (!old.revision && series.every((x) => !x.revision)) old.revision = "A"
+  const label =
+    normaliseRevisionLabel(body.revision) ?? nextRevisionLabel(old.revision)
+  if (series.some((x) => x.revision === label)) {
+    throw new HttpError(
+      409,
+      `Revision ${label} already exists for this drawing`,
+    )
+  }
+  const now = stamp()
+  old.superseded_at = now
+  old.series_id = seriesOf(old)
+  const id = nextId(db.drawings)
+  const revised: DrawingPublic = {
+    ...old,
+    id,
+    public_id: nextPublicId(),
+    title: (body.title as string) || old.title,
+    filename: String(body.filename ?? "drawing"),
+    s3_key: String(body.s3_key),
+    file_type: (body.file_type as string) ?? old.file_type,
+    file_size: (body.file_size as number) ?? null,
+    page_width_pts: null,
+    page_height_pts: null,
+    uploaded_by: me,
+    created_at: now,
+    updated_at: now,
+    revision: label,
+    superseded_at: null,
+    is_current: true,
+  }
+  db.drawings.push(revised)
+  for (const pin of db.pins.filter((p) => p.drawing_id === old.id)) {
+    db.pins.push({
+      ...pin,
+      id: nextId(db.pins),
+      public_id: nextPublicId(),
+      drawing_id: id,
+      created_at: now,
+      carried_from_pin_id: pin.id,
+      position_check: true,
+      position_confirmed_by: null,
+      position_confirmed_at: null,
+    })
+  }
+  return drawingOut(revised)
+})
 on("PUT|PATCH", "/drawings/{drawing_id}", ({ params, body }) => {
   const d = find(db.drawings, num(params[0]), "Drawing")
+  currentOnly(d)
   for (const [key, value] of Object.entries(body)) {
     if (value !== null && value !== undefined) {
       ;(d as Record<string, unknown>)[key] = value
     }
   }
   d.updated_at = stamp()
-  return d
+  return drawingOut(d)
 })
-on("DELETE", "/drawings/{drawing_id}", ({ params }) => {
+on("DELETE", "/drawings/{drawing_id}", ({ params, query }) => {
   const d = find(db.drawings, num(params[0]), "Drawing")
-  forgetStoredFile(d.s3_key)
-  remove(db.pins, (p) => p.drawing_id !== d.id)
-  remove(db.drawings, (x) => x.id !== d.id)
+  currentOnly(d)
+  const series = db.drawings
+    .filter((x) => seriesOf(x) === seriesOf(d))
+    .sort((a, b) => b.created_at.localeCompare(a.created_at) || b.id - a.id)
+  const revisionOnly = query.get("revision_only") === "true"
+  const doomed = new Set(revisionOnly ? [d.id] : series.map((x) => x.id))
+  for (const row of series) if (doomed.has(row.id)) forgetStoredFile(row.s3_key)
+  remove(db.pins, (p) => !doomed.has(p.drawing_id))
+  remove(db.drawings, (x) => !doomed.has(x.id))
+  if (revisionOnly) {
+    const previous = series.find((x) => x.id !== d.id)
+    if (previous) {
+      previous.superseded_at = null
+    }
+  }
   return null
 })
 on("PATCH|PUT", "/drawings/{drawing_id}/dimensions", ({ params, body }) => {
@@ -678,11 +791,11 @@ on("GET", "/drawings/{drawing_id}/view-url", ({ params }) => {
 on("GET", "/drawings/{drawing_id}/pins", ({ params }) => {
   const id = num(params[0])
   find(db.drawings, id, "Drawing")
-  return db.pins.filter((p) => p.drawing_id === id)
+  return db.pins.filter((p) => p.drawing_id === id).map(pinOut)
 })
 on("POST", "/drawings/{drawing_id}/pins", ({ params, body }) => {
   const drawingId = num(params[0])
-  find(db.drawings, drawingId, "Drawing")
+  currentOnly(find(db.drawings, drawingId, "Drawing"))
   const created: PinPublic = {
     id: nextId(db.pins),
     public_id: nextPublicId(),
@@ -699,24 +812,39 @@ on("POST", "/drawings/{drawing_id}/pins", ({ params, body }) => {
     created_by: me,
     created_at: stamp(),
     itp_item_id: (body.itp_item_id as number) ?? null,
+    carried_from_pin_id: null,
+    position_check: false,
+    position_confirmed_by: null,
+    position_confirmed_at: null,
   }
   itpRoutes.checkPinItem(drawingId, created.itp_item_id)
   db.pins.push(created)
-  return created
+  return pinOut(created)
 })
 on("GET", "/pins/{pin_id}", ({ params }) =>
-  find(db.pins, num(params[0]), "Pin"),
+  pinOut(find(db.pins, num(params[0]), "Pin")),
 )
 on("PUT|PATCH", "/pins/{pin_id}", ({ params, body }) => {
   const pin = find(db.pins, num(params[0]), "Pin")
+  currentOnly(find(db.drawings, pin.drawing_id, "Drawing"))
   itpRoutes.checkPinItem(pin.drawing_id, body.itp_item_id)
-  for (const [key, value] of Object.entries(body)) {
+  const { position_confirmed: confirmed, ...changes } = body
+  const moved = ["x_pct", "y_pct", "page_number"].some(
+    (key) => changes[key] !== undefined && changes[key] !== null,
+  )
+  if ((moved || confirmed) && pin.position_check) {
+    pin.position_check = false
+    pin.position_confirmed_by = me
+    pin.position_confirmed_at = stamp()
+  }
+  for (const [key, value] of Object.entries(changes)) {
     if (value !== undefined) (pin as Record<string, unknown>)[key] = value
   }
-  return pin
+  return pinOut(pin)
 })
 on("DELETE", "/pins/{pin_id}", ({ params }) => {
-  find(db.pins, num(params[0]), "Pin")
+  const pin = find(db.pins, num(params[0]), "Pin")
+  currentOnly(find(db.drawings, pin.drawing_id, "Drawing"))
   remove(db.pins, (p) => p.id !== num(params[0]))
   return null
 })
@@ -783,6 +911,7 @@ const itpRoutes = registerItpRoutes({
   pins: db.pins,
   photos: db.photos,
   drawingTitle: (id) => db.drawings.find((d) => d.id === id)?.title ?? null,
+  drawingCurrent: (id) => !db.drawings.find((d) => d.id === id)?.superseded_at,
   drawingProject: (id) => db.drawings.find((d) => d.id === id)?.project_id,
   nextPublicId,
   projectName: (id) => db.projects.find((p) => p.id === id)?.name ?? "Project",

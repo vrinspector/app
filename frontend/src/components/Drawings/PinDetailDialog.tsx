@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
-import { ExternalLink, Trash2 } from "lucide-react"
+import { CheckCircle2, ExternalLink, Move, Trash2 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
@@ -33,6 +33,7 @@ import useCustomToast from "@/hooks/useCustomToast"
 import { useProjectFindings } from "@/hooks/useProjectFindings"
 import { formatDateTime } from "@/lib/format"
 import { classificationInfo } from "@/lib/itp"
+import { carriedFromText, needsPositionCheck } from "@/lib/pinView"
 import { drawingKeys, itpItemsQuery, projectKeys } from "@/lib/queries"
 import {
   PIN_STATUS_OPTIONS,
@@ -80,6 +81,11 @@ interface PinDetailDialogProps {
   isPdf: boolean
   canWrite: boolean
   onClose: () => void
+  /**
+   * Increment 14.5: start moving this pin — the viewer closes the dialog and
+   * the next tap on the sheet becomes the pin's new position.
+   */
+  onMove?: (pin: PinPublic) => void
 }
 
 export function PinDetailDialog({
@@ -89,6 +95,7 @@ export function PinDetailDialog({
   isPdf,
   canWrite,
   onClose,
+  onMove,
 }: PinDetailDialogProps) {
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
@@ -165,7 +172,33 @@ export function PinDetailDialog({
     },
   })
 
-  const busy = saveMutation.isPending || deleteMutation.isPending
+  // Increment 14.5: a pin carried from the previous revision is settled by
+  // confirming it where it is (or by moving it).
+  const confirmMutation = useMutation({
+    mutationFn: async () => {
+      if (!pin) throw new Error("No pin selected.")
+      const response = await DrawingsService.updatePin({
+        path: { pin_id: pin.id },
+        body: { position_confirmed: true },
+      })
+      return response.data as PinPublic
+    },
+    onSuccess: (saved) => {
+      updatePins((pins) => pins.map((p) => (p.id === saved.id ? saved : p)))
+      queryClient.invalidateQueries({ queryKey: drawingKeys.detail(drawingId) })
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.drawings(projectId),
+      })
+      showSuccessToast("Pin position confirmed")
+      onClose()
+    },
+    onError: (error: Error) => showErrorToast(extractErrorMessage(error)),
+  })
+
+  const busy =
+    saveMutation.isPending ||
+    deleteMutation.isPending ||
+    confirmMutation.isPending
   const status = pinStatusOption(pin?.status)
   const linked = pin?.finding_id
     ? projectFindings.byId.get(pin.finding_id)
@@ -202,6 +235,60 @@ export function PinDetailDialog({
               {pin?.created_by ? ` by ${pin.created_by}` : ""}
             </DialogDescription>
           </DialogHeader>
+
+          {pin && needsPositionCheck(pin) ? (
+            <div
+              className="flex flex-col gap-2 rounded-md border border-vri-gold/60 bg-status-attention-bg px-3 py-2 text-sm text-status-attention-fg"
+              data-testid="pin-position-check"
+            >
+              <p>
+                <strong>
+                  Carried from {carriedFromText(pin)} — check position.
+                </strong>{" "}
+                This pin was copied to the same spot on the new revision. Make
+                sure it still marks the right place.
+              </p>
+              {canWrite ? (
+                <div className="flex flex-wrap gap-2">
+                  <LoadingButton
+                    type="button"
+                    size="sm"
+                    loading={confirmMutation.isPending}
+                    disabled={busy}
+                    onClick={() => confirmMutation.mutate()}
+                    data-testid="pin-confirm-position"
+                  >
+                    <CheckCircle2 />
+                    Position is right
+                  </LoadingButton>
+                  {onMove ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() => onMove(pin)}
+                      data-testid="pin-move-check"
+                    >
+                      <Move />
+                      Move pin
+                    </Button>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          ) : pin?.position_confirmed_at ? (
+            <p
+              className="text-xs text-muted-foreground"
+              data-testid="pin-position-confirmed"
+            >
+              Carried from {carriedFromText(pin)}; position checked
+              {pin.position_confirmed_by
+                ? ` by ${pin.position_confirmed_by}`
+                : ""}{" "}
+              {formatDateTime(pin.position_confirmed_at)}.
+            </p>
+          ) : null}
 
           {canWrite ? (
             <Form {...form}>
@@ -339,7 +426,19 @@ export function PinDetailDialog({
                     <Trash2 />
                     Delete pin
                   </Button>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
+                    {onMove && pin && !needsPositionCheck(pin) ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => onMove(pin)}
+                        disabled={busy}
+                        data-testid="pin-move"
+                      >
+                        <Move />
+                        Move
+                      </Button>
+                    ) : null}
                     <Button
                       type="button"
                       variant="outline"
