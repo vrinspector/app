@@ -1200,4 +1200,3 @@ Tests: backend 21 new (`tests/api/routes/test_ai.py`, the model replaced by
     database downgrade refuses to drop it. Viewers can read it; only owners
     and inspectors can ask for or act on drafts, and only while the
     inspection is open.
-

@@ -370,4 +370,3 @@ any photo is filed, or any finding has a discipline):
 
 The photo itself is never copied into the log — only its id; the model is
 sent a downscaled copy read from S3 at request time.
-
