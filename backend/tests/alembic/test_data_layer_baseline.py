@@ -25,7 +25,9 @@ BASELINE_REVISION = "b7d3e9a1c204"
 # The revision before the baseline: downgrading to it removes every domain table.
 PRE_BASELINE_REVISION = "3f1c2d9a8b70"
 # Head of the chain (later increments add tables on top of the baseline).
-HEAD_REVISION = "e4a7c9b2d816"
+HEAD_REVISION = "f1c7a3e8b524"
+# The drawing-revision revision (increment 14.5), just below head.
+DRAWING_REVISION = "e4a7c9b2d816"
 # The external sign-off revision (increment 14), just below head.
 SIGNOFF_REVISION = "d8b3f5a2c614"
 # The release-result revision (increment 13.9), just below head.
@@ -684,3 +686,72 @@ def test_drawing_revision_migration_is_additive_and_guarded(legacy_db: str) -> N
     # Idempotent and repeatable.
     assert run_alembic(legacy_db, "upgrade", "head").returncode == 0
     assert _scalar(legacy_db, "SELECT count(*) FROM drawings WHERE series_id = id") == 1
+
+
+def test_ai_capture_migration_is_additive_and_guarded(legacy_db: str) -> None:
+    """Increment 15: AI suggestion log + photo filing + finding discipline."""
+    assert run_alembic(legacy_db, "upgrade", "head").returncode == 0
+    assert "ai_suggestions" in inspect(create_engine(legacy_db)).get_table_names()
+    findings = _columns(legacy_db, "findings")
+    assert findings["discipline"]["nullable"] is True
+    assert findings["ai_suggestion_id"]["nullable"] is True
+    photos = _columns(legacy_db, "photos")
+    for column in ("category", "defect_tags", "severity", "ai_suggestion_id"):
+        assert photos[column]["nullable"] is True
+    # Legacy rows untouched.
+    assert _scalar(legacy_db, "SELECT count(*) FROM findings WHERE discipline IS NULL") == 1
+    assert _scalar(legacy_db, "SELECT count(*) FROM photos WHERE category IS NULL") == 1
+
+    engine = create_engine(legacy_db, isolation_level="AUTOCOMMIT")
+    try:
+        with engine.connect() as conn:
+            conn.exec_driver_sql(
+                """INSERT INTO ai_suggestions (kind, project_id, inspection_id, model,
+                       prompt_version, system_prompt, user_prompt, requested_by,
+                       requested_by_sub)
+                   VALUES ('voice', 1, 1, 'claude-test', '10B-test', 's', 'u',
+                           'owner@example.com', 'auth0|owner')"""
+            )
+            # The vocabulary is enforced.
+            try:
+                conn.exec_driver_sql(
+                    """INSERT INTO ai_suggestions (kind, project_id, inspection_id,
+                           model, prompt_version, system_prompt, user_prompt,
+                           requested_by, requested_by_sub)
+                       VALUES ('video', 1, 1, 'm', 'v', 's', 'u', 'a', 'b')"""
+                )
+            except Exception as exc:  # noqa: BLE001
+                assert "ck_ai_suggestions_kind" in str(exc)
+            else:  # pragma: no cover
+                raise AssertionError("kind check missing")
+            # One finding per draft.
+            conn.exec_driver_sql("UPDATE findings SET ai_suggestion_id = 1")
+            try:
+                conn.exec_driver_sql(
+                    """INSERT INTO findings (inspection_id, title, ai_suggestion_id)
+                       VALUES (1, 'Second', 1)"""
+                )
+            except Exception as exc:  # noqa: BLE001
+                assert "uq_findings_ai_suggestion" in str(exc)
+            else:  # pragma: no cover
+                raise AssertionError("one-finding-per-draft index missing")
+
+            result = run_alembic(legacy_db, "downgrade", DRAWING_REVISION)
+            assert result.returncode != 0
+            assert "Refusing to downgrade f1c7a3e8b524" in (
+                result.stderr + result.stdout
+            )
+            conn.exec_driver_sql("UPDATE findings SET ai_suggestion_id = NULL")
+            conn.exec_driver_sql("DELETE FROM ai_suggestions")
+            conn.exec_driver_sql("UPDATE photos SET category = 'defect'")
+            result = run_alembic(legacy_db, "downgrade", DRAWING_REVISION)
+            assert result.returncode != 0
+            conn.exec_driver_sql("UPDATE photos SET category = NULL")
+    finally:
+        engine.dispose()
+    assert run_alembic(legacy_db, "downgrade", DRAWING_REVISION).returncode == 0
+    assert "ai_suggestions" not in inspect(create_engine(legacy_db)).get_table_names()
+    assert "discipline" not in _columns(legacy_db, "findings")
+    assert "category" not in _columns(legacy_db, "photos")
+    # Idempotent and repeatable.
+    assert run_alembic(legacy_db, "upgrade", "head").returncode == 0

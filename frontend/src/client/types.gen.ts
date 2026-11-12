@@ -5,6 +5,186 @@ export type ClientOptions = {
 };
 
 /**
+ * AiStatus
+ */
+export type AiStatus = {
+    /**
+     * Enabled
+     */
+    enabled: boolean;
+    /**
+     * Model
+     */
+    model: string | null;
+    /**
+     * Daily Limit
+     */
+    daily_limit: number;
+    /**
+     * Used Today
+     */
+    used_today: number;
+};
+
+/**
+ * AiSuggestionLog
+ *
+ * The full audit row (prompts, transcript, tokens, error).
+ */
+export type AiSuggestionLog = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Kind
+     */
+    kind: string;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Project Id
+     */
+    project_id: number;
+    /**
+     * Inspection Id
+     */
+    inspection_id: number;
+    /**
+     * Photo Id
+     */
+    photo_id: number | null;
+    /**
+     * Model
+     */
+    model: string;
+    /**
+     * Prompt Version
+     */
+    prompt_version: string;
+    /**
+     * Draft
+     */
+    draft: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Edited
+     */
+    edited: boolean | null;
+    /**
+     * Requested By
+     */
+    requested_by: string;
+    /**
+     * Decided By
+     */
+    decided_by: string | null;
+    /**
+     * Decided At
+     */
+    decided_at: string | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * System Prompt
+     */
+    system_prompt: string;
+    /**
+     * User Prompt
+     */
+    user_prompt: string;
+    /**
+     * Input Text
+     */
+    input_text: string | null;
+    /**
+     * Error
+     */
+    error: string | null;
+    /**
+     * Input Tokens
+     */
+    input_tokens: number | null;
+    /**
+     * Output Tokens
+     */
+    output_tokens: number | null;
+    /**
+     * Finding Id
+     */
+    finding_id?: number | null;
+};
+
+/**
+ * AiSuggestionPublic
+ */
+export type AiSuggestionPublic = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Kind
+     */
+    kind: string;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Project Id
+     */
+    project_id: number;
+    /**
+     * Inspection Id
+     */
+    inspection_id: number;
+    /**
+     * Photo Id
+     */
+    photo_id: number | null;
+    /**
+     * Model
+     */
+    model: string;
+    /**
+     * Prompt Version
+     */
+    prompt_version: string;
+    /**
+     * Draft
+     */
+    draft: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Edited
+     */
+    edited: boolean | null;
+    /**
+     * Requested By
+     */
+    requested_by: string;
+    /**
+     * Decided By
+     */
+    decided_by: string | null;
+    /**
+     * Decided At
+     */
+    decided_at: string | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+};
+
+/**
  * AreaBulkCreate
  *
  * A numbered series: ``Level 1`` … ``Level 12``.
@@ -659,6 +839,14 @@ export type FindingCreate = {
      * Status
      */
     status?: 'open' | 'in-progress' | 'resolved';
+    /**
+     * Discipline
+     */
+    discipline?: 'general' | 'pid' | 'grading' | 'civil_structural' | 'equipment_layout' | 'steel_erection' | 'electrical' | 'other' | null;
+    /**
+     * Ai Suggestion Id
+     */
+    ai_suggestion_id?: number | null;
 };
 
 /**
@@ -710,6 +898,14 @@ export type FindingPublic = {
      */
     resolution_notes: string | null;
     /**
+     * Discipline
+     */
+    discipline?: string | null;
+    /**
+     * Ai Suggestion Id
+     */
+    ai_suggestion_id?: number | null;
+    /**
      * Created At
      */
     created_at: string;
@@ -759,6 +955,10 @@ export type FindingUpdate = {
      * Location Ref
      */
     location_ref?: string | null;
+    /**
+     * Discipline
+     */
+    discipline?: 'general' | 'pid' | 'grading' | 'civil_structural' | 'equipment_layout' | 'steel_erection' | 'electrical' | 'other' | null;
 };
 
 /**
@@ -1496,6 +1696,16 @@ export type MemberPublic = {
 };
 
 /**
+ * PhotoAnalysisRequest
+ */
+export type PhotoAnalysisRequest = {
+    /**
+     * Photo Id
+     */
+    photo_id: number;
+};
+
+/**
  * PhotoCreate
  */
 export type PhotoCreate = {
@@ -1626,9 +1836,57 @@ export type PhotoPublic = {
      */
     captured_at?: string | null;
     /**
+     * Category
+     */
+    category?: string | null;
+    /**
+     * Defect Tags
+     */
+    defect_tags?: Array<string> | null;
+    /**
+     * Severity
+     */
+    severity?: string | null;
+    /**
+     * Tags Confirmed By
+     */
+    tags_confirmed_by?: string | null;
+    /**
+     * Tags Confirmed At
+     */
+    tags_confirmed_at?: string | null;
+    /**
+     * Ai Suggestion Id
+     */
+    ai_suggestion_id?: number | null;
+    /**
      * View Url
      */
     view_url?: string | null;
+};
+
+/**
+ * PhotoTagsUpdate
+ *
+ * File a photo: by hand, or confirming an AI draft (``ai_suggestion_id``).
+ */
+export type PhotoTagsUpdate = {
+    /**
+     * Category
+     */
+    category?: 'progress' | 'defect' | 'safety' | 'materials' | 'equipment' | 'documentation' | 'other' | null;
+    /**
+     * Defect Tags
+     */
+    defect_tags?: Array<'crack' | 'corrosion' | 'water_ingress' | 'damage' | 'safety_hazard'>;
+    /**
+     * Severity
+     */
+    severity?: 'low' | 'medium' | 'high' | null;
+    /**
+     * Ai Suggestion Id
+     */
+    ai_suggestion_id?: number | null;
 };
 
 /**
@@ -2724,6 +2982,24 @@ export type ValidationError = {
 };
 
 /**
+ * VoiceFindingRequest
+ */
+export type VoiceFindingRequest = {
+    /**
+     * Inspection Id
+     */
+    inspection_id: number;
+    /**
+     * Transcript
+     */
+    transcript: string;
+    /**
+     * Location Ref
+     */
+    location_ref?: string | null;
+};
+
+/**
  * WeatherReading
  *
  * The fields the legacy SPA reads, plus where the reading is for.
@@ -3753,6 +4029,36 @@ export type photosReadPhotoResponses = {
 };
 
 export type photosReadPhotoResponse = photosReadPhotoResponses[keyof photosReadPhotoResponses];
+
+export type photosFilePhotoData = {
+    body: PhotoTagsUpdate;
+    path: {
+        /**
+         * Photo Id
+         */
+        photo_id: number;
+    };
+    query?: never;
+    url: '/api/v1/photos/{photo_id}/tags';
+};
+
+export type photosFilePhotoErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type photosFilePhotoError = photosFilePhotoErrors[keyof photosFilePhotoErrors];
+
+export type photosFilePhotoResponses = {
+    /**
+     * Successful Response
+     */
+    200: PhotoPublic;
+};
+
+export type photosFilePhotoResponse = photosFilePhotoResponses[keyof photosFilePhotoResponses];
 
 export type dashboardReadDashboardData = {
     body?: never;
@@ -5624,3 +5930,165 @@ export type signoffSubmitSignatureResponses = {
 };
 
 export type signoffSubmitSignatureResponse = signoffSubmitSignatureResponses[keyof signoffSubmitSignatureResponses];
+
+export type aiReadStatusData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/ai/status';
+};
+
+export type aiReadStatusResponses = {
+    /**
+     * Successful Response
+     */
+    200: AiStatus;
+};
+
+export type aiReadStatusResponse = aiReadStatusResponses[keyof aiReadStatusResponses];
+
+export type aiAnalyzePhotoData = {
+    body: PhotoAnalysisRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/ai/photo-analysis';
+};
+
+export type aiAnalyzePhotoErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type aiAnalyzePhotoError = aiAnalyzePhotoErrors[keyof aiAnalyzePhotoErrors];
+
+export type aiAnalyzePhotoResponses = {
+    /**
+     * Successful Response
+     */
+    201: AiSuggestionPublic;
+};
+
+export type aiAnalyzePhotoResponse = aiAnalyzePhotoResponses[keyof aiAnalyzePhotoResponses];
+
+export type aiVoiceFindingData = {
+    body: VoiceFindingRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/ai/voice-finding';
+};
+
+export type aiVoiceFindingErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type aiVoiceFindingError = aiVoiceFindingErrors[keyof aiVoiceFindingErrors];
+
+export type aiVoiceFindingResponses = {
+    /**
+     * Successful Response
+     */
+    201: AiSuggestionPublic;
+};
+
+export type aiVoiceFindingResponse = aiVoiceFindingResponses[keyof aiVoiceFindingResponses];
+
+export type aiListSuggestionsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Finding Id
+         */
+        finding_id?: number | null;
+        /**
+         * Photo Id
+         */
+        photo_id?: number | null;
+    };
+    url: '/api/v1/ai/suggestions';
+};
+
+export type aiListSuggestionsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type aiListSuggestionsError = aiListSuggestionsErrors[keyof aiListSuggestionsErrors];
+
+export type aiListSuggestionsResponses = {
+    /**
+     * Response Ai-List Suggestions
+     *
+     * Successful Response
+     */
+    200: Array<AiSuggestionLog>;
+};
+
+export type aiListSuggestionsResponse = aiListSuggestionsResponses[keyof aiListSuggestionsResponses];
+
+export type aiReadSuggestionData = {
+    body?: never;
+    path: {
+        /**
+         * Suggestion Id
+         */
+        suggestion_id: number;
+    };
+    query?: never;
+    url: '/api/v1/ai/suggestions/{suggestion_id}';
+};
+
+export type aiReadSuggestionErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type aiReadSuggestionError = aiReadSuggestionErrors[keyof aiReadSuggestionErrors];
+
+export type aiReadSuggestionResponses = {
+    /**
+     * Successful Response
+     */
+    200: AiSuggestionLog;
+};
+
+export type aiReadSuggestionResponse = aiReadSuggestionResponses[keyof aiReadSuggestionResponses];
+
+export type aiDismissSuggestionData = {
+    body?: never;
+    path: {
+        /**
+         * Suggestion Id
+         */
+        suggestion_id: number;
+    };
+    query?: never;
+    url: '/api/v1/ai/suggestions/{suggestion_id}/dismiss';
+};
+
+export type aiDismissSuggestionErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type aiDismissSuggestionError = aiDismissSuggestionErrors[keyof aiDismissSuggestionErrors];
+
+export type aiDismissSuggestionResponses = {
+    /**
+     * Successful Response
+     */
+    200: AiSuggestionPublic;
+};
+
+export type aiDismissSuggestionResponse = aiDismissSuggestionResponses[keyof aiDismissSuggestionResponses];

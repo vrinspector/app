@@ -455,6 +455,8 @@ describe("capture loop: drawing tap → finding with photo", () => {
           description: "Guard missing on the flare skid coupling",
           priority: "medium",
           location_ref: "Flare skid layout — pin #903",
+          // Increment 15: the finding takes the drawing's discipline.
+          discipline: "equipment_layout",
           status: "open",
         },
       }),

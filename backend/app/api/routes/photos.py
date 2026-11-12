@@ -35,6 +35,16 @@ The uploaded file itself is never re-encoded, so its own EXIF metadata stays
 in S3 as it was taken. The last photo that keeps a passed line evidenced
 (its only photo, or the only one in a three-shot slot) cannot be deleted.
 
+Increment 15 (Block 10A) files a photo:
+
+    PUT    /photos/{id}/tags        body {category, defect_tags, severity,
+                                          ai_suggestion_id?} → photo
+
+by hand, or confirming the AI draft for that photo (``ai_suggestion_id``;
+the draft is marked ``confirmed``, ``edited`` when the inspector changed it).
+Inspection photos only; refused (409) once the inspection is signed off. An
+empty body (no category, no tags, no severity) clears the filing.
+
 Hardening carried over from the drawings router: the presigned key is bound
 to the inspection (``photos/inspections/{inspection_id}/{uuid}{ext}``) and a
 registration whose ``s3_key`` is outside that prefix is refused with 404.
@@ -42,6 +52,7 @@ Files never touch the API server (Hard Rule 8).
 """
 
 import uuid
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, status
@@ -50,6 +61,7 @@ from sqlmodel import Session, col, select
 from app.api.authz import (
     WRITE_ROLES,
     current_email,
+    ensure_inspection_open,
     get_authorized_inspection,
     get_authorized_itp_item,
     get_authorized_photo,
@@ -57,6 +69,7 @@ from app.api.authz import (
 )
 from app.api.deps import CurrentUser, SessionDep
 from app.api.itp_state import evidence_met, load_itp_state
+from app.api.routes.ai import claim_suggestion, mark_confirmed, tags_differ
 from app.core.auth import AuthUser
 from app.core.storage import PHOTO_EXTENSIONS, storage
 from app.models import (
@@ -67,6 +80,7 @@ from app.models import (
     PhotoPresignRequest,
     PhotoPresignResponse,
     PhotoPublic,
+    PhotoTagsUpdate,
     ProjectItp,
 )
 
@@ -250,3 +264,56 @@ def delete_photo(photo_id: int, session: SessionDep, current_user: CurrentUser) 
     storage.delete_object(photo.s3_key)
     session.delete(photo)
     session.commit()
+
+
+@router.put("/{photo_id}/tags", response_model=PhotoPublic)
+def file_photo(
+    photo_id: int,
+    payload: PhotoTagsUpdate,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> Any:
+    """Block 10A: set (or clear) the photo's category, defect tags and severity."""
+    photo = get_authorized_photo(session, photo_id, current_user, roles=WRITE_ROLES)
+    if photo.inspection_id is None:
+        raise HTTPException(
+            status_code=422, detail="Only inspection photos are filed this way"
+        )
+    inspection = get_authorized_inspection(
+        session, photo.inspection_id, current_user, roles=WRITE_ROLES
+    )
+    ensure_inspection_open(inspection)
+    tags: list[str] = list(dict.fromkeys(payload.defect_tags))
+    values = {
+        "category": payload.category,
+        "defect_tags": tags,
+        "severity": payload.severity,
+    }
+    if payload.ai_suggestion_id is not None:
+        suggestion = claim_suggestion(
+            session,
+            payload.ai_suggestion_id,
+            inspection_id=photo.inspection_id,
+            kinds=("photo",),
+            photo_id=photo.id,
+        )
+        mark_confirmed(
+            suggestion, user=current_user, edited=tags_differ(suggestion.draft, values)
+        )
+        session.add(suggestion)
+        photo.ai_suggestion_id = suggestion.id
+    cleared = payload.category is None and not tags and payload.severity is None
+    photo.category = payload.category
+    photo.defect_tags = tags or None
+    photo.severity = payload.severity
+    if cleared:
+        photo.tags_confirmed_by = None
+        photo.tags_confirmed_at = None
+        photo.ai_suggestion_id = None
+    else:
+        photo.tags_confirmed_by = current_email(current_user)
+        photo.tags_confirmed_at = datetime.now(UTC)
+    session.add(photo)
+    session.commit()
+    session.refresh(photo)
+    return _public(photo)

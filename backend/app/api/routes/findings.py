@@ -13,6 +13,14 @@ Legacy contract (deployed SPA, July 2026):
 Status vocabulary: ``open`` → ``in-progress`` → ``resolved`` (and back via
 ``status``). Resolving records who/when; leaving ``resolved`` clears them.
 All writes are refused with 409 while the inspection is signed off (Block 8B).
+
+Increment 15 (Block 10B / 10A) adds two optional create fields:
+``discipline`` (the drawing discipline vocabulary; also editable) and
+``ai_suggestion_id`` — the AI draft the inspector reviewed before saving. The
+finding is always created from what was submitted; the draft is then marked
+``confirmed`` (``edited`` when any field differs from the proposal). A draft
+backs at most one finding (409 on a second use) and must be from the same
+inspection (404 otherwise).
 """
 
 from datetime import UTC, datetime
@@ -29,6 +37,12 @@ from app.api.authz import (
     get_authorized_inspection,
 )
 from app.api.deps import CurrentUser, SessionDep
+from app.api.routes.ai import (
+    claim_suggestion,
+    finding_differs,
+    finding_draft,
+    mark_confirmed,
+)
 from app.models import (
     Finding,
     FindingCreate,
@@ -64,6 +78,22 @@ def create_finding(
         session, payload.inspection_id, current_user, roles=WRITE_ROLES
     )
     ensure_inspection_open(inspection)
+    suggestion = None
+    if payload.ai_suggestion_id is not None:
+        suggestion = claim_suggestion(
+            session,
+            payload.ai_suggestion_id,
+            inspection_id=payload.inspection_id,
+            kinds=("voice", "photo"),
+        )
+        already = session.exec(
+            select(Finding.id).where(Finding.ai_suggestion_id == suggestion.id)
+        ).first()
+        if already is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="A finding was already saved from this AI draft",
+            )
     finding = Finding(
         inspection_id=payload.inspection_id,
         title=payload.title,
@@ -71,9 +101,20 @@ def create_finding(
         priority=payload.priority,
         location_ref=payload.location_ref,
         status=payload.status,
+        discipline=payload.discipline,
+        ai_suggestion_id=payload.ai_suggestion_id,
     )
     if payload.status == "resolved":
         _mark_resolved(finding, current_user_email=current_email(current_user))
+    if suggestion is not None:
+        mark_confirmed(
+            suggestion,
+            user=current_user,
+            edited=finding_differs(
+                finding_draft(suggestion), payload.model_dump(exclude_unset=False)
+            ),
+        )
+        session.add(suggestion)
     session.add(finding)
     session.commit()
     session.refresh(finding)

@@ -30,6 +30,7 @@ import { derivedProjectCode, normaliseProjectCode } from "@/lib/itp"
 import { nextRevisionLabel, normaliseRevisionLabel } from "@/lib/pinView"
 
 import { DEMO_USER } from "./auth0-stub"
+import { registerAiRoutes } from "./fakeAi"
 import { registerItpRoutes } from "./fakeItp"
 import { demoUploadUrl, forgetStoredFile, storedFileUrl } from "./fakeS3"
 import {
@@ -411,6 +412,10 @@ on("GET", "/findings", ({ query }) => {
 on("POST", "/findings", ({ body }) => {
   const inspectionId = Number(body.inspection_id)
   find(db.inspections, inspectionId, "Inspection")
+  const suggestionId =
+    body.ai_suggestion_id !== undefined && body.ai_suggestion_id !== null
+      ? Number(body.ai_suggestion_id)
+      : null
   const created: FindingPublic = {
     id: nextId(db.findings),
     public_id: nextPublicId(),
@@ -423,8 +428,18 @@ on("POST", "/findings", ({ body }) => {
     resolved_by: null,
     resolved_at: null,
     resolution_notes: null,
+    discipline: (body.discipline as string | null) ?? null,
+    ai_suggestion_id: suggestionId,
     created_at: stamp(),
     updated_at: stamp(),
+  }
+  // Increment 15: saving from an AI draft is the confirmation.
+  if (suggestionId !== null) {
+    aiRoutes.confirm(
+      suggestionId,
+      aiRoutes.findingDiffers(suggestionId, body),
+      created.id,
+    )
   }
   db.findings.push(created)
   return created
@@ -585,6 +600,28 @@ on("POST", "/photos", ({ body }) => {
   }
   db.photos.push(created)
   return created
+})
+// Increment 15 (Block 10A): file a photo, by hand or confirming an AI draft.
+on("PUT", "/photos/{photo_id}/tags", ({ params, body }) => {
+  const photo = find(db.photos, num(params[0]), "Photo")
+  if (photo.inspection_id === null) {
+    throw new HttpError(422, "Only inspection photos are filed this way")
+  }
+  const tags = [...new Set((body.defect_tags as string[] | undefined) ?? [])]
+  const values = { ...body, defect_tags: tags }
+  if (body.ai_suggestion_id) {
+    const id = Number(body.ai_suggestion_id)
+    aiRoutes.confirm(id, aiRoutes.tagsDiffer(id, values))
+    photo.ai_suggestion_id = id
+  }
+  const cleared = !body.category && tags.length === 0 && !body.severity
+  photo.category = (body.category as string | null) ?? null
+  photo.defect_tags = tags.length ? tags : null
+  photo.severity = (body.severity as string | null) ?? null
+  photo.tags_confirmed_by = cleared ? null : me
+  photo.tags_confirmed_at = cleared ? null : stamp()
+  if (cleared) photo.ai_suggestion_id = null
+  return withPhotoUrl(photo)
 })
 on("GET", "/photos/{photo_id}", ({ params }) =>
   withPhotoUrl(find(db.photos, num(params[0]), "Photo")),
@@ -891,6 +928,19 @@ on("DELETE", "/reports/{report_id}", ({ params }) => {
   find(db.reports, num(params[0]), "Report")
   remove(db.reports, (r) => r.id !== num(params[0]))
   return null
+})
+
+// --- AI capture assistance (increment 15) ------------------------------------
+const aiRoutes = registerAiRoutes({
+  on,
+  fail: (status, detail) => {
+    throw new HttpError(status, detail)
+  },
+  me,
+  photos: () => db.photos,
+  findings: () => db.findings,
+  projectOfInspection: (inspectionId) =>
+    find(db.inspections, inspectionId, "Inspection").project_id,
 })
 
 // --- ITPs, sign-off roles, areas (increment 13) ------------------------------

@@ -367,6 +367,30 @@ sheets, so every legacy route behaves exactly as before for them.
 `position_confirmed_at`. ITP line pin lists (`pins` on ITP items) show only
 pins on current revisions.
 
+## AI capture assistance (increment 15)
+
+PRD v2.62 Block 10A (photo analysis) and 10B (voice-to-finding). Drafts are
+never saved by themselves; the inspector confirms through the ordinary
+routes, sending the draft's id. Every model call is logged in
+`ai_suggestions` (prompt text, prompt version, model version, draft or
+error, tokens, who asked / confirmed, edited or not).
+
+| Route | Who | What |
+|---|---|---|
+| `GET /ai/status` | any signed-in user | `{enabled, model, daily_limit, used_today}`; `enabled` is false without `ANTHROPIC_API_KEY` |
+| `POST /ai/photo-analysis {photo_id}` | owner, inspector; inspection open | 201 draft `{category, defects:[{type, note, confidence}], severity, title, description}`; 422 for ITP line photos or an unreadable format, 404 for a missing file, 409 signed off, 429 daily cap, 503 off / busy, 502 model failure (logged as `failed`) |
+| `POST /ai/voice-finding {inspection_id, transcript, location_ref?}` | owner, inspector; inspection open | 201 draft `{title, status, priority, discipline, description, location_ref}`; 422 empty or over `AI_MAX_TRANSCRIPT_CHARS` |
+| `GET /ai/suggestions/{id}` / `GET /ai/suggestions?finding_id=N \| photo_id=N` | any member | the full log row(s) incl. `system_prompt`, `user_prompt`, `input_text`, `error`, tokens, `finding_id` |
+| `POST /ai/suggestions/{id}/dismiss` | owner, inspector | draft → `dismissed`; 409 if not a draft |
+| `POST /findings` | owner, inspector | + optional `discipline` (drawing vocabulary) and `ai_suggestion_id` (voice or photo draft of the same inspection, 404 otherwise; 409 if dismissed / failed or already behind a finding) — marks the draft `confirmed`, `edited` when any field differs |
+| `PUT /findings/{id}` | owner, inspector | + `discipline` |
+| `PUT /photos/{id}/tags {category, defect_tags, severity, ai_suggestion_id?}` | owner, inspector; inspection open | files an inspection photo (by hand, or confirming that photo's draft); an empty body clears it |
+
+`FindingPublic` gains `discipline`, `ai_suggestion_id`; `PhotoPublic` gains
+`category`, `defect_tags`, `severity`, `tags_confirmed_by`,
+`tags_confirmed_at`, `ai_suggestion_id`. Non-members get 404 on every route
+above, viewers 403 on the writes.
+
 ## Authorization (carried over from the July 2026 hardening)
 
 * Every object is reached through its project; non-members get **404** with
@@ -446,3 +470,10 @@ SES must also have the sending domain verified (DKIM records) and the
 account moved out of the SES sandbox before it will mail arbitrary
 addresses. With `SMTP_HOST` empty the app runs normally and logs each email
 as `skipped`.
+
+AI capture (increment 15) — owner action at RG-3, nothing real is committed:
+`ANTHROPIC_API_KEY` (empty = AI hidden), `AI_MODEL` (`claude-sonnet-4-5`),
+`AI_TIMEOUT_SECONDS` (30), `AI_IMAGE_MAX_EDGE` (1568),
+`AI_DAILY_LIMIT_PER_USER` (200, 0 = off), `AI_MAX_TRANSCRIPT_CHARS` (4000),
+`ANTHROPIC_API_URL` (the Messages API). Tests replace the HTTP transport and
+never reach the model.
