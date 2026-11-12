@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router"
 import {
   ChevronLeft,
   ChevronRight,
+  History,
   Loader2,
   MapPin,
   Maximize,
@@ -23,6 +24,14 @@ import { type DrawingPublic, DrawingsService, type PinPublic } from "@/client"
 import { ErrorState } from "@/components/Common/States"
 import { CaptureFindingDialog } from "@/components/Findings/CaptureFindingDialog"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import useCustomToast from "@/hooks/useCustomToast"
 import { type PageSize, usePdfRenderer } from "@/hooks/usePdfRenderer"
 import { useViewerGestures } from "@/hooks/useViewerGestures"
 import {
@@ -33,20 +42,37 @@ import {
   MAX_ZOOM,
   MIN_ZOOM,
   type PointPercent,
+  pinLabel,
   pinsOnPage,
   scrollForZoom,
   zoomStepIn,
   zoomStepOut,
 } from "@/lib/drawings"
+import { formatDate } from "@/lib/format"
+import {
+  applyPinFilters,
+  carriedFromText,
+  loadPinFilters,
+  needsPositionCheck,
+  type PinCluster,
+  type PinFilters,
+  pinFiltersActive,
+  revisionLabel,
+  savePinFilters,
+  zoomToSeparate,
+} from "@/lib/pinView"
 import {
   drawingKeys,
+  drawingRevisionsQuery,
   itpItemsQuery,
   pinsQuery,
   projectKeys,
 } from "@/lib/queries"
 import { cn } from "@/lib/utils"
-import { PIN_STATUS_OPTIONS } from "@/lib/vocab"
+import { PIN_STATUS_OPTIONS, pinStatusOption } from "@/lib/vocab"
+import { extractErrorMessage } from "@/utils"
 import { PinDetailDialog } from "./PinDetailDialog"
+import { type ItpChoice, PinFilterMenu } from "./PinFilterMenu"
 import { PinOverlay } from "./PinOverlay"
 import { PinStatusDialog } from "./PinStatusDialog"
 
@@ -70,6 +96,16 @@ import { PinStatusDialog } from "./PinStatusDialog"
  * Increment 11a: placing a pin can carry straight on to the finding form
  * (`CaptureFindingDialog`), so one tap on the sheet ends in a saved finding
  * with its photo linked to the pin — the PRD's capture loop.
+ *
+ * Increment 14.5 (drawing pins, round two):
+ *   revisions — an old revision opens read-only with a banner pointing at
+ *               the current one; on the current one, pins carried from the
+ *               previous revision are flagged until confirmed or moved, with
+ *               a "Next pin to check" walk through them
+ *   clusters  — overlapping markers collapse into a numbered cluster that
+ *               zooms in on tap (or lists its pins when they share a spot)
+ *   filters   — by status and by link (ITP line / finding / none / to
+ *               check), remembered per device and project
  */
 
 interface DrawingViewerProps {
@@ -107,13 +143,17 @@ export function DrawingViewer({
   const kind = drawingFileKind(drawing)
   const isPdf = kind === "pdf"
   const queryClient = useQueryClient()
+  const { showSuccessToast, showErrorToast } = useCustomToast()
+  // Increment 14.5: an old revision is kept exactly as it was.
+  const isOldRevision = Boolean(drawing.superseded_at)
+  const canEdit = canWrite && !isOldRevision
 
   const stageRef = useRef<HTMLElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   const [zoom, setZoom] = useState<number | null>(null)
   const [pageNumber, setPageNumber] = useState(1)
-  const [pinMode, setPinMode] = useState(itpItemId !== null && canWrite)
+  const [pinMode, setPinMode] = useState(itpItemId !== null && canEdit)
   const [placing, setPlacing] = useState<PointPercent | null>(null)
   const [selectedPin, setSelectedPin] = useState<PinPublic | null>(null)
   const [capturePin, setCapturePin] = useState<PinPublic | null>(null)
@@ -123,6 +163,25 @@ export function DrawingViewer({
   const [imageLoaded, setImageLoaded] = useState(false)
   const pendingScrollRef = useRef<PendingScroll | null>(null)
   const dimensionsSentRef = useRef(false)
+  const [filters, setFiltersState] = useState<PinFilters>(() =>
+    loadPinFilters(projectId),
+  )
+  const setFilters = useCallback(
+    (next: PinFilters) => {
+      setFiltersState(next)
+      savePinFilters(projectId, next)
+    },
+    [projectId],
+  )
+  // A pin being moved: the next tap on the sheet is its new position.
+  const [movingPin, setMovingPin] = useState<PinPublic | null>(null)
+  // Pins sharing one spot that zooming cannot separate.
+  const [clusterList, setClusterList] = useState<PinPublic[] | null>(null)
+  const revisions = useQuery({
+    ...drawingRevisionsQuery(drawing.id),
+    enabled: isOldRevision || (drawing.revision_count ?? 1) > 1,
+  })
+  const currentRevision = revisions.data?.find((r) => r.is_current)
 
   const pins = useQuery(pinsQuery(drawing.id))
   // Block 9.5: the project's ITP lines, so pins that mark one render as a
@@ -334,6 +393,7 @@ export function DrawingViewer({
         break
       case "Escape":
         setPinMode(false)
+        setMovingPin(null)
         break
       default:
         return
@@ -341,10 +401,119 @@ export function DrawingViewer({
     event.preventDefault()
   }
 
-  const visiblePins = useMemo(
+  const pagePins = useMemo(
     () => pinsOnPage(pins.data, kind, pageNumber),
     [pins.data, kind, pageNumber],
   )
+  // Marker numbers come from the whole page, so filtering never renumbers.
+  const pinLabels = useMemo(
+    () => new Map(pagePins.map((pin, index) => [pin.id, pinLabel(pin, index)])),
+    [pagePins],
+  )
+  const visiblePins = useMemo(
+    () => applyPinFilters(pagePins, filters, itpItemsById),
+    [pagePins, filters, itpItemsById],
+  )
+  const filtering = pinFiltersActive(filters)
+  const itpChoices = useMemo<ItpChoice[]>(() => {
+    const seen = new Map<number, ItpChoice>()
+    for (const pin of pins.data ?? []) {
+      const item = pin.itp_item_id ? itpItemsById.get(pin.itp_item_id) : null
+      if (item && !seen.has(item.project_itp_id)) {
+        seen.set(item.project_itp_id, {
+          id: item.project_itp_id,
+          label: item.doc_number
+            ? `${item.doc_number} · ${item.itp_title}`
+            : item.itp_title,
+        })
+      }
+    }
+    return [...seen.values()]
+  }, [pins.data, itpItemsById])
+  const pinsToCheck = useMemo(
+    () =>
+      isOldRevision
+        ? []
+        : (pins.data ?? [])
+            .filter(needsPositionCheck)
+            .sort(
+              (a, b) =>
+                (a.page_number || 1) - (b.page_number || 1) || a.id - b.id,
+            ),
+    [pins.data, isOldRevision],
+  )
+
+  const showNextToCheck = () => {
+    const next = pinsToCheck[0]
+    if (!next) return
+    if (isPdf) setPageNumber(next.page_number || 1)
+    // Make sure the filters don't hide the pin we are about to open.
+    if (filtering && !applyPinFilters([next], filters, itpItemsById).length) {
+      setFilters({ hiddenStatuses: [], link: "check", itpId: null })
+    }
+    setSelectedPin(next)
+  }
+
+  const openCluster = useCallback(
+    (cluster: PinCluster, at: DOMRect) => {
+      const stage = stageRef.current
+      if (!stage || !baseSize || zoom === null) return
+      const next = zoomToSeparate(cluster, baseSize, zoom, MAX_ZOOM)
+      if (next <= zoom + 1e-3) {
+        setClusterList(cluster.pins)
+        return
+      }
+      const stageRect = stage.getBoundingClientRect()
+      changeZoom(next, {
+        x: at.left + at.width / 2 - stageRect.left,
+        y: at.top + at.height / 2 - stageRect.top,
+      })
+    },
+    [baseSize, zoom, changeZoom],
+  )
+
+  const moveMutation = useMutation({
+    mutationFn: async ({
+      pin,
+      point,
+    }: {
+      pin: PinPublic
+      point: PointPercent
+    }) =>
+      (
+        await DrawingsService.updatePin({
+          path: { pin_id: pin.id },
+          body: {
+            x_pct: point.x_pct,
+            y_pct: point.y_pct,
+            page_number: isPdf ? pageNumber : 1,
+          },
+        })
+      ).data as PinPublic,
+    onSuccess: (saved) => {
+      queryClient.setQueryData<PinPublic[]>(drawingKeys.pins(drawing.id), (c) =>
+        c?.map((p) => (p.id === saved.id ? saved : p)),
+      )
+      queryClient.invalidateQueries({ queryKey: drawingKeys.pins(drawing.id) })
+      queryClient.invalidateQueries({
+        queryKey: drawingKeys.detail(drawing.id),
+      })
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.drawings(projectId),
+      })
+      showSuccessToast("Pin moved")
+    },
+    onError: (error: Error) => showErrorToast(extractErrorMessage(error)),
+    onSettled: () => setMovingPin(null),
+  })
+
+  const handlePlace = (point: PointPercent) => {
+    if (movingPin) {
+      moveMutation.mutate({ pin: movingPin, point })
+      return
+    }
+    setPlacing(point)
+  }
 
   const loadError = isPdf ? pdf.error : imageError
   const loading = isPdf ? !pdf.ready && !pdf.error : !imageLoaded && !imageError
@@ -361,6 +530,87 @@ export function DrawingViewer({
       data-testid="drawing-viewer"
       data-kind={kind}
     >
+      {isOldRevision ? (
+        <div
+          className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b bg-muted px-3 py-2 text-sm"
+          role="status"
+          data-testid="old-revision-banner"
+        >
+          <History className="size-4 shrink-0" aria-hidden="true" />
+          <span className="min-w-0 flex-1">
+            You're looking at{" "}
+            <strong>{revisionLabel(drawing) ?? "an earlier revision"}</strong>
+            {drawing.superseded_at
+              ? `, replaced on ${formatDate(drawing.superseded_at)}`
+              : ""}
+            . It is kept as it was: its pins can't be changed.
+          </span>
+          {currentRevision ? (
+            <Link
+              to="/projects/$projectId/drawings/$drawingId"
+              params={{
+                projectId: String(projectId),
+                drawingId: String(currentRevision.id),
+              }}
+              className="font-semibold text-vri-green underline-offset-2 hover:underline"
+              data-testid="open-current-revision"
+            >
+              Open {revisionLabel(currentRevision) ?? "the current revision"}
+            </Link>
+          ) : null}
+        </div>
+      ) : null}
+      {movingPin ? (
+        <div
+          className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b bg-vri-gold/20 px-3 py-2 text-sm"
+          role="status"
+          data-testid="move-pin-banner"
+        >
+          <span className="min-w-0 flex-1">
+            Tap the drawing where pin{" "}
+            <strong>
+              {pinLabels.get(movingPin.id) ??
+                movingPin.tag_number ??
+                `#${movingPin.id}`}
+            </strong>{" "}
+            belongs{isPdf ? " (change page first if it moved pages)" : ""}.
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-7"
+            onClick={() => setMovingPin(null)}
+            data-testid="move-pin-cancel"
+          >
+            Cancel
+          </Button>
+        </div>
+      ) : pinsToCheck.length > 0 ? (
+        <div
+          className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b bg-status-attention-bg px-3 py-2 text-sm text-status-attention-fg"
+          role="status"
+          data-testid="pins-to-check-banner"
+        >
+          <span className="min-w-0 flex-1">
+            <strong>
+              {pinsToCheck.length} pin{pinsToCheck.length === 1 ? "" : "s"}
+            </strong>{" "}
+            carried from {carriedFromText(pinsToCheck[0])} — check{" "}
+            {pinsToCheck.length === 1 ? "its position" : "their positions"}.
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-7 border-current bg-transparent"
+            onClick={showNextToCheck}
+            data-testid="next-pin-to-check"
+          >
+            Next pin to check
+          </Button>
+        </div>
+      ) : null}
       {itpItemId !== null ? (
         <div
           className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b bg-status-attention-bg px-3 py-2 text-sm text-status-attention-fg"
@@ -459,7 +709,14 @@ export function DrawingViewer({
         </div>
 
         <div className="ml-auto flex items-center gap-2">
-          {pinMode ? (
+          <PinFilterMenu
+            filters={filters}
+            onChange={setFilters}
+            itps={itpChoices}
+            shown={visiblePins.length}
+            total={pagePins.length}
+          />
+          {movingPin ? null : pinMode ? (
             <span
               className="text-xs font-semibold text-vri-gold"
               role="status"
@@ -474,11 +731,17 @@ export function DrawingViewer({
               className="text-xs text-vri-offwhite/70"
               data-testid="pin-count"
             >
-              {visiblePins.length} pin{visiblePins.length === 1 ? "" : "s"}
+              {filtering
+                ? `${visiblePins.length} of ${pagePins.length}`
+                : visiblePins.length}{" "}
+              pin
+              {(filtering ? pagePins.length : visiblePins.length) === 1
+                ? ""
+                : "s"}
               {isPdf ? " on this page" : ""}
             </span>
           )}
-          {canWrite ? (
+          {canEdit && !movingPin ? (
             <Button
               type="button"
               size="sm"
@@ -564,11 +827,14 @@ export function DrawingViewer({
                 <PinOverlay
                   pins={visiblePins}
                   itpItems={itpItemsById}
-                  pinMode={pinMode && canWrite}
+                  pinMode={(pinMode || movingPin !== null) && canEdit}
                   suppressClickRef={suppressClickRef}
-                  onPlace={setPlacing}
+                  onPlace={handlePlace}
                   onSelect={setSelectedPin}
-                  selectedPinId={selectedPin?.id ?? null}
+                  selectedPinId={selectedPin?.id ?? movingPin?.id ?? null}
+                  labels={pinLabels}
+                  boxSize={baseSize}
+                  onOpenCluster={openCluster}
                 />
               ) : null}
             </div>
@@ -612,6 +878,15 @@ export function DrawingViewer({
           />
           ITP hold point
         </li>
+        <li className="flex items-center gap-1.5">
+          <span
+            className="flex size-3.5 items-center justify-center rounded-full bg-vri-gold text-[8px] font-bold text-vri-charcoal"
+            aria-hidden="true"
+          >
+            ?
+          </span>
+          Position to check
+        </li>
         {pins.isError ? (
           <li className="ml-auto text-destructive">
             Pins could not be loaded.
@@ -635,7 +910,7 @@ export function DrawingViewer({
             queryClient.invalidateQueries({ queryKey: ["itps"] })
             return
           }
-          if (logFinding && canWrite) {
+          if (logFinding && canEdit) {
             setPinMode(false)
             setCapturePin(pin)
           }
@@ -654,10 +929,81 @@ export function DrawingViewer({
         drawingId={drawing.id}
         pin={selectedPin}
         isPdf={isPdf}
-        canWrite={canWrite}
+        canWrite={canEdit}
         onClose={() => setSelectedPin(null)}
+        onMove={(pin) => {
+          setSelectedPin(null)
+          setPinMode(false)
+          setMovingPin(pin)
+        }}
+      />
+      <ClusterListDialog
+        pins={clusterList}
+        labels={pinLabels}
+        onClose={() => setClusterList(null)}
+        onPick={(pin) => {
+          setClusterList(null)
+          setSelectedPin(pin)
+        }}
       />
     </div>
+  )
+}
+
+/*
+ * Increment 14.5: pins that sit on the very same spot never separate by
+ * zooming, so at full zoom their cluster lists them to pick from.
+ */
+function ClusterListDialog({
+  pins,
+  labels,
+  onClose,
+  onPick,
+}: {
+  pins: PinPublic[] | null
+  labels: Map<number, string>
+  onClose: () => void
+  onPick: (pin: PinPublic) => void
+}) {
+  return (
+    <Dialog open={pins !== null} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent data-testid="pin-cluster-dialog">
+        <DialogHeader>
+          <DialogTitle>{pins?.length ?? 0} pins at this spot</DialogTitle>
+          <DialogDescription>Pick the pin to open.</DialogDescription>
+        </DialogHeader>
+        <ul className="flex flex-col gap-1.5">
+          {(pins ?? []).map((pin) => {
+            const status = pinStatusOption(pin.status)
+            return (
+              <li key={pin.id}>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded-md border px-3 py-2 text-left text-sm hover:border-vri-gold"
+                  onClick={() => onPick(pin)}
+                  data-testid="pin-cluster-item"
+                >
+                  <span
+                    className="flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white"
+                    style={{ background: status.color }}
+                  >
+                    {labels.get(pin.id) ?? pin.tag_number ?? pin.id}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate">
+                    {pin.label || status.label}
+                  </span>
+                  {needsPositionCheck(pin) ? (
+                    <span className="text-xs text-status-attention-fg">
+                      check position
+                    </span>
+                  ) : null}
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      </DialogContent>
+    </Dialog>
   )
 }
 

@@ -261,6 +261,29 @@ function Help() {
               <strong>Pin on drawing</strong> opens a sheet with that inspection
               pre-selected. Untick the box to place pins on their own.
             </li>
+            <li>
+              <strong>Moving a pin:</strong> open it, tap <strong>Move</strong>,
+              then tap the spot where it belongs.
+            </li>
+            <li>
+              <strong>New revision of a sheet:</strong> on the drawing, open the{" "}
+              <strong>⋯</strong> menu and choose{" "}
+              <strong>Upload new revision</strong> (Rev A → Rev B). The new file
+              becomes the one everybody sees and every pin is copied to the same
+              spot with a gold <strong>?</strong> — “carried from Rev A, check
+              position”. Use <strong>Next pin to check</strong>, then{" "}
+              <strong>Position is right</strong> or <strong>Move pin</strong>.
+              Older revisions stay under <strong>Revisions</strong>, read-only,
+              with their pins as they were.
+            </li>
+            <li>
+              <strong>Crowded sheets:</strong> pins too close to tell apart at
+              the current zoom show as one numbered circle — tap it to zoom in
+              on them. <strong>Filter</strong> on the viewer toolbar hides pins
+              by status, or shows only those linked to an ITP line (or one ITP),
+              to a finding, to nothing, or still to check. The phone remembers
+              your filter for that project.
+            </li>
           </ol>
           <ul
             className="mt-3 flex flex-wrap gap-2"

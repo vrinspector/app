@@ -236,6 +236,9 @@ def load_itp_states(db: Session, itps: Iterable[ProjectItp]) -> list[ItpState]:
             select(InspectionPin, Drawing)
             .join(Drawing, col(Drawing.id) == col(InspectionPin.drawing_id))
             .where(col(InspectionPin.itp_item_id).in_(item_ids))
+            # Increment 14.5: a line's pins are the ones on current revisions;
+            # old revisions keep their copies as history.
+            .where(col(Drawing.superseded_at).is_(None))
             .order_by(col(InspectionPin.id))
         ).all()
         for pin, drawing in pins:

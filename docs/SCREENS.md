@@ -1093,3 +1093,54 @@ the stamp, pack v2).
     calendar invites.
 80. **An area pack covers the area's own ITPs** (not those of areas nested
     inside it) and leaves voided ITPs out.
+
+## Increment 14.5 — drawing pins, round two (owner decision 2026-11-10)
+
+The normalized-coordinate pin overlay stays as it is; three things are added.
+
+| Where | What |
+|---|---|
+| Drawing screen → **⋯** menu | **Upload new revision** (file + revision label, suggested from the current one: A → B, 0 → 1, P1 → P2; an unlabelled sheet becomes Rev A), **Revisions (n)** (newest first, current marked, each opens in the viewer), **Delete Rev X only** (the previous revision becomes current again) and **Delete drawing (all revisions)**. The header names the revision ("Rev B", or "Rev A (old revision)") |
+| Viewer, current revision | pins copied from the previous revision carry a dashed gold ring and a "?"; a banner "*n* pins carried from Rev A — check their positions" with **Next pin to check**; the pin's details say "Carried from Rev A — check position" with **Position is right** and **Move pin**; once settled it says who checked it and when |
+| Viewer, old revision | a banner "You're looking at Rev A, replaced on …. It is kept as it was: its pins can't be changed." with **Open Rev B**; no Add pin, pin details read-only, no Edit / Delete / Upload in the menu |
+| Viewer, any pin | **Move** in the pin's details: the next tap on the sheet (on the page shown) is the pin's new spot |
+| Viewer toolbar → **Filter** | show / hide by status (five ticks) and **Show**: All pins / Linked to an ITP line (any, or *Which ITP*) / Linked to a finding / Not linked / Position to check; the button turns gold and shows "3/5" while a filter is on, the pin count reads "3 of 5 pins"; **Show all pins** resets. Remembered on the device per project (`localStorage` key `vri.pinFilters.v1.<project>`) |
+| Viewer, any zoom | pins whose markers would overlap (centres closer than 22 px at the current zoom) collapse into a round numbered **cluster** coloured by its most urgent status; tapping it zooms in just enough to separate them, keeping them under the finger; pins on the very same spot list themselves to pick from instead |
+| Project → Drawings | one card per sheet at its current revision, with a "Rev B" tag and "*n* pins to check" |
+
+Not included, as decided: tiled rendering for very large sheets (only if the
+on-device check in issue #16 shows slow zoom).
+
+Demo: the Site Plan is on Rev B with Rev A kept read-only and one carried pin
+waiting for a check; the P&ID has two valves close enough to cluster when
+zoomed out. Every route answers in `src/demo/fakeApi.ts`.
+
+Tests: backend 17 new (`tests/api/routes/test_drawing_revisions.py`) plus the
+migration guard; frontend 24 new unit tests (`src/test/pinView.test.ts`, 7
+viewer tests in `src/test/drawings.test.tsx`) and 3 Playwright walks in the
+demo at phone size (`tests/demo/drawing-revisions.spec.ts`).
+
+### Decisions for the owner (increment 14.5)
+
+81. **A revision is its own drawing record grouped with its sheet.** Rev A
+    keeps its file, its pins and their history untouched; Rev B starts with
+    copies. Findings and ITP lines linked from a pin stay linked from the
+    copy; an ITP line lists only the pins on current revisions.
+82. **Every pin is carried, whatever its status,** at the same page and
+    x / y, flagged until someone presses **Position is right** or moves it.
+    If the new revision has fewer pages, pins on the missing pages stay
+    flagged and are reached with **Next pin to check**; move them to a page
+    that exists.
+83. **An unlabelled sheet becomes Rev A** the first time it is revised, and
+    the suggestion follows the last label. Labels are stored upper-case
+    without a typed "Rev" and must be unique within the sheet.
+84. **Old revisions cannot be deleted on their own** — they are the record
+    of what the sheet showed. Deleting the current revision alone brings the
+    previous one back; deleting the drawing removes every revision.
+85. **Pins can now be moved** (any pin, not only carried ones) — the legacy
+    app had no move; a move is an ordinary edit, no history is kept of the
+    old position except on the old revision.
+86. **Clusters start at 22 px** between marker points (a marker is 24 px
+    wide) and are coloured by the most urgent status inside (punch item,
+    then not installed, in progress, not started, verified). Filters are per
+    device and project, not shared with the team.

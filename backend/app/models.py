@@ -402,6 +402,26 @@ class Drawing(SQLModel, table=True):
     uploaded_by: str | None = Field(default=None, sa_column=Column(String(255)))
     created_at: datetime | None = Field(default=None, sa_column=_created_at_column())
     updated_at: datetime | None = Field(default=None, sa_column=_updated_at_column())
+    # Increment 14.5 — drawing revisions. Every revision of a sheet is its own
+    # row; ``series_id`` groups them (the id of the first revision, no FK so
+    # the group survives that row's deletion), ``revision`` is the label
+    # ("A", "B", "0", "P1" …) and ``superseded_at`` is set when a newer
+    # revision is uploaded. Exactly one row per series is current
+    # (``superseded_at IS NULL``, partial unique index).
+    series_id: int | None = Field(default=None, sa_column=Column(Integer, index=True))
+    revision: str | None = Field(default=None, sa_column=Column(String(20)))
+    superseded_at: datetime | None = Field(
+        default=None, sa_column=Column(DateTime(timezone=True))
+    )
+
+    __table_args__ = (
+        Index(
+            "uq_drawings_series_current",
+            "series_id",
+            unique=True,
+            postgresql_where=text("superseded_at IS NULL"),
+        ),
+    )
 
     project: Project | None = Relationship(back_populates="drawings")
     pins: list[InspectionPin] = Relationship(
@@ -468,6 +488,26 @@ class InspectionPin(SQLModel, table=True):
         sa_column=Column(
             Integer, ForeignKey("itp_items.id", ondelete="SET NULL"), index=True
         ),
+    )
+
+    # Increment 14.5: a pin copied onto a new drawing revision remembers the
+    # pin it came from and asks for its position to be checked until someone
+    # confirms it or moves it.
+    carried_from_pin_id: int | None = Field(
+        default=None,
+        sa_column=Column(
+            Integer, ForeignKey("inspection_pins.id", ondelete="SET NULL"), index=True
+        ),
+    )
+    position_check: bool = Field(
+        default=False,
+        sa_column=Column(Boolean, nullable=False, server_default=text("false")),
+    )
+    position_confirmed_by: str | None = Field(
+        default=None, sa_column=Column(String(255))
+    )
+    position_confirmed_at: datetime | None = Field(
+        default=None, sa_column=Column(DateTime(timezone=True))
     )
 
     drawing: Drawing | None = Relationship(back_populates="pins")
@@ -1363,6 +1403,28 @@ class DrawingCreate(SQLModel):
     page_height_pts: float | None = Field(default=None, gt=0)
     # Sent by the SPA (display name); the API records the verified identity.
     uploaded_by: str | None = Field(default=None, max_length=255)
+    # Increment 14.5: optional revision label of the first upload ("A", "0" …).
+    revision: str | None = Field(default=None, max_length=20)
+
+
+class DrawingRevisionCreate(SQLModel):
+    """Increment 14.5: register a new revision of an existing drawing.
+
+    The file goes up exactly like a new drawing (``POST /drawings/presign`` →
+    S3 PUT); this registers it against the drawing's series instead of as a
+    separate drawing. Title, number and discipline carry over unless sent.
+    """
+
+    filename: str = Field(min_length=1, max_length=255)
+    s3_key: str = Field(min_length=1, max_length=512)
+    file_type: DrawingFileType = "png"
+    file_size: int | None = Field(default=None, ge=0)
+    page_width_pts: float | None = Field(default=None, gt=0)
+    page_height_pts: float | None = Field(default=None, gt=0)
+    # Blank → the next label after the current one (A → B, 0 → 1, P1 → P2).
+    revision: str | None = Field(default=None, max_length=20)
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+    drawing_number: str | None = Field(default=None, max_length=100)
 
 
 class DrawingUpdate(SQLModel):
@@ -1404,6 +1466,20 @@ class DrawingPublic(SQLModel):
     uploaded_by: str | None
     created_at: datetime
     updated_at: datetime
+    # Increment 14.5 — revisions. ``series_id`` groups a sheet's revisions;
+    # only the current one (``is_current``) takes pin changes.
+    series_id: int | None = None
+    revision: str | None = None
+    superseded_at: datetime | None = None
+    revision_count: int = 1
+    # Pins carried from the previous revision whose position nobody has
+    # confirmed yet.
+    pins_to_check: int = 0
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def is_current(self) -> bool:
+        return self.superseded_at is None
 
 
 class DrawingViewUrl(SQLModel):
@@ -1432,6 +1508,12 @@ class PinUpdate(SQLModel):
     label: str | None = Field(default=None, max_length=255)
     status: PinStatus | None = None
     notes: str | None = None
+    # Increment 14.5: move a pin (clears "check position"), or confirm a
+    # carried pin where it is with ``position_confirmed: true``.
+    x_pct: float | None = Field(default=None, ge=0, le=100)
+    y_pct: float | None = Field(default=None, ge=0, le=100)
+    page_number: int | None = Field(default=None, ge=1)
+    position_confirmed: bool | None = None
 
 
 class PinPublic(SQLModel):
@@ -1450,6 +1532,13 @@ class PinPublic(SQLModel):
     created_by: str | None
     created_at: datetime
     itp_item_id: int | None = None
+    # Increment 14.5: pins carried onto a new drawing revision.
+    carried_from_pin_id: int | None = None
+    # The revision label of the drawing the pin was carried from.
+    carried_from_revision: str | None = None
+    position_check: bool = False
+    position_confirmed_by: str | None = None
+    position_confirmed_at: datetime | None = None
 
 
 class DashboardSummary(SQLModel):

@@ -115,6 +115,9 @@ export const drawingKeys = {
   detail: (drawingId: number) => ["drawings", drawingId] as const,
   viewUrl: (drawingId: number) => ["drawings", drawingId, "view-url"] as const,
   pins: (drawingId: number) => ["drawings", drawingId, "pins"] as const,
+  /** Increment 14.5: every revision of the sheet, newest first. */
+  revisions: (drawingId: number) =>
+    ["drawings", drawingId, "revisions"] as const,
 }
 
 export const inspectionKeys = {
@@ -308,6 +311,18 @@ export const pinsQuery = (drawingId: number) =>
     queryFn: async () =>
       (await DrawingsService.listPins({ path: { drawing_id: drawingId } }))
         .data ?? [],
+  })
+
+/** Increment 14.5: the sheet's revisions, newest first (current one marked). */
+export const drawingRevisionsQuery = (drawingId: number) =>
+  queryOptions<DrawingPublic[]>({
+    queryKey: drawingKeys.revisions(drawingId),
+    queryFn: async () =>
+      (
+        await DrawingsService.listDrawingRevisions({
+          path: { drawing_id: drawingId },
+        })
+      ).data ?? [],
   })
 
 // ── Block 9.5 ITPs and areas (increment 13) ─────────────────────────────────
