@@ -11,6 +11,7 @@ from app.api.routes import (
     itps,
     photos,
     projects,
+    public_itp,
     reports,
     signoff,
     users,
@@ -42,3 +43,5 @@ api_router.include_router(emails.router)
 api_router.include_router(signoff.router)
 # Increment 15 — Block 10A photo analysis + 10B voice-to-finding (Claude API)
 api_router.include_router(ai.router)
+# Increment 17 — Block 10D public ITP generator (no account; rate-limited)
+api_router.include_router(public_itp.router)

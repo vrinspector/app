@@ -31,6 +31,7 @@ import { nextRevisionLabel, normaliseRevisionLabel } from "@/lib/pinView"
 
 import { DEMO_USER } from "./auth0-stub"
 import { registerAiRoutes } from "./fakeAi"
+import { registerGeneratorRoutes } from "./fakeGenerator"
 import { registerItpRoutes } from "./fakeItp"
 import { demoUploadUrl, forgetStoredFile, storedFileUrl } from "./fakeS3"
 import {
@@ -38,6 +39,7 @@ import {
   createSeed,
   type DemoDb,
   nextPublicId,
+  SAMPLE_GENERATOR_PDF_URL,
   SAMPLE_PACK_URL,
   SAMPLE_REPORT_URL,
 } from "./seed"
@@ -156,6 +158,8 @@ const on = (method: string, pattern: string, handler: Handler) => {
       // {token} (the signing link, increment 14) is text; every other
       // parameter is an integer id.
       .replace(/\{token\}/g, "([A-Za-z0-9_-]+)")
+      // {public_id} (the public generator's draft, increment 17) is a UUID.
+      .replace(/\{public_id\}/g, "([0-9a-fA-F-]{36})")
       .replace(/\{[a-z_]+\}/g, "(\\d+)")}/?$`,
   )
   for (const m of method.split("|")) routes.push([m, regex, handler])
@@ -1000,6 +1004,15 @@ const itpRoutes = registerItpRoutes({
         (m.role === "owner" || m.role === "inspector"),
     ),
   packUrl: SAMPLE_PACK_URL,
+})
+
+// --- Public ITP generator, no account (increment 17) -----------------------
+registerGeneratorRoutes({
+  on,
+  fail: (status, detail) => {
+    throw new HttpError(status, detail)
+  },
+  pdfUrl: SAMPLE_GENERATOR_PDF_URL,
 })
 
 // --- Adapter ---------------------------------------------------------------

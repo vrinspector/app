@@ -164,11 +164,38 @@ class Settings(BaseSettings):
     # Report drafting reads at most this many findings (newest dropped first
     # would hide the latest work, so the oldest resolved ones go first).
     AI_REPORT_MAX_FINDINGS: int = 150
+    # --- increment 17 (Block 10D public ITP generator, no account) ---
+    # The free, public scope → draft ITP page. On only when AI is set up too.
+    PUBLIC_ITP_ENABLED: bool = True
+    # Per visitor (keyed by a salted hash of the address, never the address):
+    # drafts per rolling hour and per rolling 24 hours. Failed calls count.
+    PUBLIC_ITP_PER_IP_HOURLY: int = 3
+    PUBLIC_ITP_PER_IP_DAILY: int = 10
+    # Cost ceiling across all visitors per UTC day (0 = no ceiling).
+    PUBLIC_ITP_GLOBAL_DAILY: int = 200
+    PUBLIC_ITP_MIN_SCOPE_CHARS: int = 20
+    PUBLIC_ITP_MAX_SCOPE_CHARS: int = 2000
+    PUBLIC_ITP_TIMEOUT_SECONDS: float = 90.0
+    # A draft's link (and its PDF) stays readable this many days.
+    PUBLIC_ITP_KEEP_DAYS: int = 30
+    # Behind a reverse proxy (Nginx at RG-3) set this to the number of proxies
+    # that append to X-Forwarded-For (usually 1); 0 trusts only the socket
+    # address. Never trust more hops than there are proxies.
+    PUBLIC_ITP_TRUSTED_PROXY_HOPS: int = 0
+    # Key for hashing visitor addresses (placeholder only — set in the
+    # environment at RG-3). Unset, a key derived from DATABASE_URL is used so
+    # every worker counts the same visitor the same way.
+    PUBLIC_ITP_IP_SALT: str | None = None
 
     @computed_field  # type: ignore[prop-decorator]
     @property
     def ai_enabled(self) -> bool:
         return bool(self.ANTHROPIC_API_KEY)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def public_itp_enabled(self) -> bool:
+        return bool(self.ANTHROPIC_API_KEY) and self.PUBLIC_ITP_ENABLED
 
     @computed_field  # type: ignore[prop-decorator]
     @property

@@ -1,4 +1,4 @@
-"""Fake Claude Messages API for the AI capture routes (increments 15 and 16)."""
+"""Fake Claude Messages API for the AI routes (increments 15, 16 and 17)."""
 
 import json
 from typing import Any
@@ -85,7 +85,79 @@ ITP_ANSWER: dict[str, Any] = {
     "notes": ["Page 2 was blurred; line 7 may be incomplete."],
 }
 
+GENERATOR_ANSWER: dict[str, Any] = {
+    "name": "Cast-in-place concrete slab on grade",
+    "description": "Inspections and tests for a slab on grade, subgrade to curing.",
+    "roles": [
+        {"name": "Contractor", "party": "contractor"},
+        {"name": "Owner's representative", "party": "client"},
+        {"name": "Third-party inspector", "party": "engineer"},
+    ],
+    "sections": [
+        {
+            "title": "Before work",
+            "lines": [
+                {
+                    "title": "Mix design submitted and accepted",
+                    "classification": "R",
+                    "acceptance_criteria": "Accepted mix design on file",
+                    "reference": "ACI 301",
+                    "record_required": "Submittal log",
+                    "roles": ["Owner's representative"],
+                },
+                {
+                    "title": "Subgrade compaction",
+                    "classification": "W",
+                    "acceptance_criteria": (
+                        "Project-specific value required — verify before issue"
+                    ),
+                    "reference": "Project specifications",
+                    "record_required": "Density test report",
+                    "roles": ["Third-party inspector"],
+                    "value_type": "number",
+                    "unit": "%",
+                },
+            ],
+        },
+        {
+            "title": "Pre-pour",
+            "lines": [
+                {
+                    "title": "Reinforcement placement and clear cover",
+                    "classification": "H",
+                    "acceptance_criteria": "Bar size, spacing and cover match drawings",
+                    "reference": "Approved shop drawings",
+                    "record_required": "Pre-pour checklist, photo",
+                    "roles": [],
+                    "photo_required": True,
+                },
+            ],
+        },
+        {
+            "title": "Placement",
+            "lines": [
+                {
+                    "title": "Slump",
+                    "classification": "W",
+                    "acceptance_criteria": (
+                        "Project-specific value required — verify before issue"
+                    ),
+                    "reference": "ASTM C143",
+                    "value_type": "number",
+                    "unit": "in",
+                    "roles": ["Third-party inspector"],
+                },
+            ],
+        },
+    ],
+    "notes": [
+        "Assumed a 6 in slab with one layer of reinforcement.",
+        "Confirm every value against the project documents.",
+    ],
+}
+
 TOOL_ANSWERS = {
+    "record_generated_itp": "generator_answer",
     "record_photo_analysis": "photo_answer",
     "record_finding_draft": "voice_answer",
     "record_report_summary": "report_answer",
@@ -102,6 +174,9 @@ class FakeClaude:
         self.voice_answer: dict[str, Any] | None = dict(VOICE_ANSWER)
         self.report_answer: dict[str, Any] | None = dict(REPORT_ANSWER)
         self.itp_answer: dict[str, Any] | None = json.loads(json.dumps(ITP_ANSWER))
+        self.generator_answer: dict[str, Any] | None = json.loads(
+            json.dumps(GENERATOR_ANSWER)
+        )
         self.fail_with: int | None = None
         self.timeout = False
         self.no_tool = False

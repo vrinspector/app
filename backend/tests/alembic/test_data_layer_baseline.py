@@ -25,7 +25,9 @@ BASELINE_REVISION = "b7d3e9a1c204"
 # The revision before the baseline: downgrading to it removes every domain table.
 PRE_BASELINE_REVISION = "3f1c2d9a8b70"
 # Head of the chain (later increments add tables on top of the baseline).
-HEAD_REVISION = "a5e2c8f4d913"
+HEAD_REVISION = "b7d4e1f9a206"
+# The AI report drafting + ITP import revision (increment 16), just below head.
+AI_REPORT_IMPORT_REVISION = "a5e2c8f4d913"
 # The AI capture revision (increment 15), just below head.
 AI_CAPTURE_REVISION = "f1c7a3e8b524"
 # The drawing-revision revision (increment 14.5), just below head.
@@ -813,6 +815,55 @@ def test_ai_report_import_migration_is_additive_and_guarded(legacy_db: str) -> N
     assert suggestions["project_id"]["nullable"] is False
     assert "template_id" not in suggestions
     assert "summary" not in _columns(legacy_db, "inspection_reports")
+    # Idempotent and repeatable.
+    assert run_alembic(legacy_db, "upgrade", "head").returncode == 0
+    assert _material_diffs(legacy_db) == []
+
+
+def test_public_itp_generator_migration_is_additive_and_guarded(
+    legacy_db: str,
+) -> None:
+    """Increment 17: the public generator's usage log."""
+    assert run_alembic(legacy_db, "upgrade", "head").returncode == 0
+    columns = _columns(legacy_db, "public_itp_generations")
+    assert columns["visitor_key"]["nullable"] is False
+    assert columns["email"]["nullable"] is True
+    assert columns["draft"]["nullable"] is True
+    insert = """INSERT INTO public_itp_generations (status, visitor_key, scope,
+                    email, email_consent_at, model, prompt_version,
+                    system_prompt, user_prompt)
+                VALUES ('draft', 'k', 'Pour a slab', {email}, {consent},
+                        'm', 'v', 's', 'u')"""
+    engine = create_engine(legacy_db, isolation_level="AUTOCOMMIT")
+    try:
+        with engine.connect() as conn:
+            # An email is never kept without consent.
+            try:
+                conn.exec_driver_sql(
+                    insert.format(email="'a@example.com'", consent="NULL")
+                )
+            except Exception as exc:  # noqa: BLE001
+                assert "ck_public_itp_generations_consent" in str(exc)
+            else:  # pragma: no cover
+                raise AssertionError("consent check missing")
+            conn.exec_driver_sql(insert.format(email="NULL", consent="NULL"))
+            result = run_alembic(legacy_db, "downgrade", AI_REPORT_IMPORT_REVISION)
+            assert result.returncode != 0
+            assert "Refusing to downgrade b7d4e1f9a206" in (
+                result.stderr + result.stdout
+            )
+            conn.exec_driver_sql("DELETE FROM public_itp_generations")
+    finally:
+        engine.dispose()
+    assert run_alembic(legacy_db, "downgrade", AI_REPORT_IMPORT_REVISION).returncode == 0
+    assert (
+        _scalar(
+            legacy_db,
+            "SELECT count(*) FROM information_schema.tables "
+            "WHERE table_name = 'public_itp_generations'",
+        )
+        == 0
+    )
     # Idempotent and repeatable.
     assert run_alembic(legacy_db, "upgrade", "head").returncode == 0
     assert _material_diffs(legacy_db) == []

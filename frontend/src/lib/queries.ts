@@ -11,6 +11,7 @@ import {
   EmailsService,
   type FindingPublic,
   FindingsService,
+  GeneratorService,
   type InspectionPublic,
   InspectionsService,
   type ItpItemRef,
@@ -25,6 +26,8 @@ import {
   type ProjectItpSummary,
   type ProjectPublic,
   ProjectsService,
+  type PublicItpDraft,
+  type PublicItpGeneratorStatus,
   type ReportPublic,
   ReportsService,
   type SignLinkPublic,
@@ -426,6 +429,31 @@ export const signSessionQuery = (token: string) =>
         .data as SignSessionPublic,
     // 404 / 410 are answers, not blips.
     retry: false,
+  })
+
+/** Increment 17: the public, no-account ITP generator. */
+export const generatorKeys = {
+  status: ["itp-generator", "status"] as const,
+  draft: (publicId: string) => ["itp-generator", "draft", publicId] as const,
+}
+
+export const generatorStatusQuery = () =>
+  queryOptions<PublicItpGeneratorStatus>({
+    queryKey: generatorKeys.status,
+    queryFn: async () =>
+      (await GeneratorService.readStatus()).data as PublicItpGeneratorStatus,
+    staleTime: 5 * 60 * 1000,
+  })
+
+export const generatorDraftQuery = (publicId: string) =>
+  queryOptions<PublicItpDraft>({
+    queryKey: generatorKeys.draft(publicId),
+    queryFn: async () =>
+      (await GeneratorService.readDraft({ path: { public_id: publicId } }))
+        .data as PublicItpDraft,
+    retry: false,
+    // The PDF link inside is short-lived; refetch when the page is reopened.
+    staleTime: 10 * 60 * 1000,
   })
 
 /** Route params arrive as strings; anything that is not a positive integer is a 404. */
