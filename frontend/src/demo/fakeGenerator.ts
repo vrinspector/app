@@ -92,7 +92,7 @@ export function registerGeneratorRoutes({ on, fail, pdfUrl }: GeneratorDeps) {
       },
       watermark: WATERMARK,
       disclaimer: DISCLAIMER,
-      model: "claude-sonnet-4-5 (demo — canned answer)",
+      model: "claude-haiku-5-5 (demo — canned answer)",
       line_count: lines.length,
       hold_count: lines.filter((l) => l.classification === "H").length,
       pdf_url: pdfUrl,

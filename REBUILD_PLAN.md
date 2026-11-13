@@ -52,6 +52,11 @@ Single source of truth for rebuild increments. Automated and interactive session
 - [x] 16 — 10C report drafting + 10E ITP import (owner decisions 2026-11-10: ITP import is the chosen way to create custom templates — PDF, spreadsheet or photo in, draft template out, then light edits in a simple form; do NOT license SurveyJS Creator or any other paid component, low-budget project; adding one-off inspection points to a project ITP was considered and declined)
 - [x] 17 — 10D public ITP generator (rate-limited, watermarked, no-account)
 
+**Owner decisions 2026-11-13 (after the pricing and market-path research):**
+
+- **AI cost.** Default `AI_MODEL` is `claude-haiku-5-5` (smallest current Claude model) and the public generator's ceiling `PUBLIC_ITP_GLOBAL_DAILY` is 25 a day. Before the API key is added at RG-3 the owner sets a monthly spending limit in the Anthropic console and uses a separate key for the public generator. Compare draft quality on real scopes, photos and one PDF ITP once a key exists; if it falls short, raise `AI_MODEL` by environment, not code.
+- **Pricing (working assumption, not built; Stripe stays parked behind the gates).** Flat monthly fee per company in US dollars: about $79–99 for a small team and $199–249 for a larger one; outside signers free; AI included; 14-day trial; annual option as "two months free". PRD v2.63 states no prices, so nothing conflicts. Do not build billing or a pricing page until the owner asks.
+
 ### Block 11 — offline (PRD v2.63 §7)
 
 - [ ] 18 — PowerSync service container + sync rules (project-membership buckets via Auth0 JWT); client SQLite + upload queue against existing write endpoints

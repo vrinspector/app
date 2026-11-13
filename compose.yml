@@ -72,7 +72,7 @@ services:
       # Increment 15 AI capture (Claude API). Empty = AI buttons hidden. The key
       # is owner-supplied at RG-3, never committed.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      AI_MODEL: ${AI_MODEL:-claude-sonnet-4-5}
+      AI_MODEL: ${AI_MODEL:-claude-haiku-5-5}
       S3_BUCKET: ${S3_BUCKET:-vrinspector-files}
       AWS_REGION: ${AWS_REGION:-us-east-1}
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:?Variable not set}@db:5432/app

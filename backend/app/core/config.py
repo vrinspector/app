@@ -145,8 +145,9 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: str | None = None
     ANTHROPIC_API_URL: str = "https://api.anthropic.com/v1/messages"
     # Model alias asked for; the exact version that answered is logged per
-    # suggestion. Change here (environment) when a newer model is adopted.
-    AI_MODEL: str = "claude-sonnet-4-5"
+    # suggestion. Owner decision 2026-11-13: the smallest current Claude model,
+    # to keep cost low; change here (environment) if draft quality falls short.
+    AI_MODEL: str = "claude-haiku-5-5"
     AI_TIMEOUT_SECONDS: float = 30.0
     # Long edge (pixels) of the copy of a photo sent for analysis.
     AI_IMAGE_MAX_EDGE: int = 1568
@@ -172,7 +173,7 @@ class Settings(BaseSettings):
     PUBLIC_ITP_PER_IP_HOURLY: int = 3
     PUBLIC_ITP_PER_IP_DAILY: int = 10
     # Cost ceiling across all visitors per UTC day (0 = no ceiling).
-    PUBLIC_ITP_GLOBAL_DAILY: int = 200
+    PUBLIC_ITP_GLOBAL_DAILY: int = 25
     PUBLIC_ITP_MIN_SCOPE_CHARS: int = 20
     PUBLIC_ITP_MAX_SCOPE_CHARS: int = 2000
     PUBLIC_ITP_TIMEOUT_SECONDS: float = 90.0

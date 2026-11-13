@@ -506,7 +506,7 @@ addresses. With `SMTP_HOST` empty the app runs normally and logs each email
 as `skipped`.
 
 AI capture (increment 15) — owner action at RG-3, nothing real is committed:
-`ANTHROPIC_API_KEY` (empty = AI hidden), `AI_MODEL` (`claude-sonnet-4-5`),
+`ANTHROPIC_API_KEY` (empty = AI hidden), `AI_MODEL` (`claude-haiku-5-5`),
 `AI_TIMEOUT_SECONDS` (30), `AI_IMAGE_MAX_EDGE` (1568),
 `AI_DAILY_LIMIT_PER_USER` (200, 0 = off), `AI_MAX_TRANSCRIPT_CHARS` (4000),
 `ANTHROPIC_API_URL` (the Messages API). Tests replace the HTTP transport and
@@ -515,7 +515,7 @@ never reach the model.
 Public ITP generator (increment 17), placeholders only — set at RG-3:
 `PUBLIC_ITP_ENABLED` (true; also needs `ANTHROPIC_API_KEY`),
 `PUBLIC_ITP_PER_IP_HOURLY` (3), `PUBLIC_ITP_PER_IP_DAILY` (10),
-`PUBLIC_ITP_GLOBAL_DAILY` (200, 0 = no ceiling), `PUBLIC_ITP_MIN_SCOPE_CHARS`
+`PUBLIC_ITP_GLOBAL_DAILY` (25, 0 = no ceiling), `PUBLIC_ITP_MIN_SCOPE_CHARS`
 (20), `PUBLIC_ITP_MAX_SCOPE_CHARS` (2000), `PUBLIC_ITP_TIMEOUT_SECONDS` (90),
 `PUBLIC_ITP_KEEP_DAYS` (30), `PUBLIC_ITP_TRUSTED_PROXY_HOPS` (0; **1 behind
 Nginx**, or every visitor shares the proxy's limit), `PUBLIC_ITP_IP_SALT`
