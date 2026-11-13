@@ -31,8 +31,8 @@ describe("public ITP generator helpers", () => {
     expect(draftFileName("Cast-in-place concrete: slab (Rev A)", "json")).toBe(
       "draft-itp-cast-in-place-concrete-slab-rev-a.json",
     )
-    expect(draftFileName("Béton coulé", "pdf")).toBe(
-      "draft-itp-beton-coule.pdf",
+    expect(draftFileName("Réservoir à eau", "pdf")).toBe(
+      "draft-itp-reservoir-a-eau.pdf",
     )
     expect(draftFileName("", "json")).toBe("draft-itp.json")
     expect(draftFileName("a".repeat(100), "pdf")).toBe(
