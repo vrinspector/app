@@ -46,7 +46,7 @@ interface AiDeps {
   ) => ItpTemplatePublic
 }
 
-const DEMO_MODEL = "claude-sonnet-4-5 (demo — canned answers)"
+const DEMO_MODEL = "claude-haiku-5-5 (demo — canned answers)"
 const stamp = () => new Date().toISOString()
 
 type PhotoAnswer = {

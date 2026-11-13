@@ -1173,7 +1173,8 @@ Tests: backend 21 new (`tests/api/routes/test_ai.py`, the model replaced by
 
 ### Decisions for the owner (increment 15)
 
-87. **Model and cost.** The server asks for `claude-sonnet-4-5` (setting
+87. **Model and cost.** The server asks for `claude-haiku-5-5` (owner
+    decision 2026-11-13: the smallest current Claude model; setting
     `AI_MODEL`, changeable without code) and logs the exact version that
     answered. Photos are sent as a 1568-pixel JPEG copy (the original in S3
     is untouched). Each person can ask for at most 200 drafts a day
@@ -1280,10 +1281,11 @@ migration guard; frontend 4 new unit tests (`src/lib/generator.test.ts`) and
 ### Decisions for the owner (increment 17)
 
 99. **Limits (cost guard for a low-budget project):** 3 drafts an hour and
-    10 a day per visitor, and 200 a day for everyone together; failed calls
+    10 a day per visitor, and 25 a day for everyone together (owner
+    decision 2026-11-13, was 200); failed calls
     count too. All are settings (`PUBLIC_ITP_PER_IP_HOURLY`,
     `PUBLIC_ITP_PER_IP_DAILY`, `PUBLIC_ITP_GLOBAL_DAILY`). At roughly one
-    Sonnet call per draft the daily ceiling bounds the cost; raise it once
+    model call per draft the daily ceiling bounds the cost; raise it once
     you see real use.
 100. **Visitor addresses are never stored** — only a keyed hash, enough to
     count drafts per visitor. Behind Nginx at RG-3 set
