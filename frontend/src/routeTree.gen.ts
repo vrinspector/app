@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LayoutRouteImport } from './routes/_layout'
+import { Route as ItpGeneratorRouteImport } from './routes/itp-generator'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
 import { Route as LayoutHelpRouteImport } from './routes/_layout/help'
@@ -26,6 +27,11 @@ import { Route as LayoutProjectsProjectIdItpsItpIdRouteImport } from './routes/_
 
 const LayoutRoute = LayoutRouteImport.update({
   id: '/_layout',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ItpGeneratorRoute = ItpGeneratorRouteImport.update({
+  id: '/itp-generator',
+  path: '/itp-generator',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -102,6 +108,7 @@ const LayoutProjectsProjectIdItpsItpIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof LayoutIndexRoute
+  '/itp-generator': typeof ItpGeneratorRoute
   '/login': typeof LoginRoute
   '/help': typeof LayoutHelpRoute
   '/settings': typeof LayoutSettingsRoute
@@ -116,6 +123,7 @@ export interface FileRoutesByFullPath {
   '/projects/$projectId/itps/$itpId': typeof LayoutProjectsProjectIdItpsItpIdRoute
 }
 export interface FileRoutesByTo {
+  '/itp-generator': typeof ItpGeneratorRoute
   '/login': typeof LoginRoute
   '/help': typeof LayoutHelpRoute
   '/settings': typeof LayoutSettingsRoute
@@ -133,6 +141,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_layout': typeof LayoutRouteWithChildren
+  '/itp-generator': typeof ItpGeneratorRoute
   '/login': typeof LoginRoute
   '/_layout/help': typeof LayoutHelpRoute
   '/_layout/settings': typeof LayoutSettingsRoute
@@ -151,6 +160,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/itp-generator'
     | '/login'
     | '/help'
     | '/settings'
@@ -165,6 +175,7 @@ export interface FileRouteTypes {
     | '/projects/$projectId/itps/$itpId'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/itp-generator'
     | '/login'
     | '/help'
     | '/settings'
@@ -181,6 +192,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_layout'
+    | '/itp-generator'
     | '/login'
     | '/_layout/help'
     | '/_layout/settings'
@@ -198,6 +210,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   LayoutRoute: typeof LayoutRouteWithChildren
+  ItpGeneratorRoute: typeof ItpGeneratorRoute
   LoginRoute: typeof LoginRoute
   SignTokenRoute: typeof SignTokenRoute
 }
@@ -209,6 +222,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof LayoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/itp-generator': {
+      id: '/itp-generator'
+      path: '/itp-generator'
+      fullPath: '/itp-generator'
+      preLoaderRoute: typeof ItpGeneratorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -341,6 +361,7 @@ const LayoutRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   LayoutRoute: LayoutRouteWithChildren,
+  ItpGeneratorRoute: ItpGeneratorRoute,
   LoginRoute: LoginRoute,
   SignTokenRoute: SignTokenRoute,
 }

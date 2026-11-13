@@ -1,4 +1,4 @@
-import { createFileRoute, redirect } from "@tanstack/react-router"
+import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import { Clock, LogIn, ShieldCheck } from "lucide-react"
 import { useState } from "react"
 
@@ -104,6 +104,16 @@ function Login() {
 
         <p className="text-center text-xs text-muted-foreground">
           Accounts are managed by your organization's administrator.
+        </p>
+        <p className="text-center text-sm">
+          New to VR Inspector?{" "}
+          <Link
+            to="/itp-generator"
+            className="font-medium text-vri-green underline underline-offset-4"
+            data-testid="login-generator-link"
+          >
+            Try the free ITP generator
+          </Link>
         </p>
       </div>
     </AuthLayout>

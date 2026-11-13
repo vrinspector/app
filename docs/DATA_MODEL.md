@@ -381,3 +381,11 @@ suggestion is logged or any report version carries a summary):
 |---|---|
 | `ai_suggestions` | `kind` widened to varchar 20 and may also be `report` (10C) or `itp_import` (10E); `project_id` / `inspection_id` nullable, with check `ck_ai_suggestions_scope` keeping them required for every kind but `itp_import` (an import belongs to the account that asked); + `template_id` (FK `itp_templates` SET NULL, indexed — the master a confirmed import became), `source_files` (JSONB `[{name, content_type, size, s3_key}]`; the originals live in S3 under `imports/itp/<public_id>/`) |
 | `inspection_reports` | + `summary` (text, the inspector's summary printed on that version), `ai_suggestion_id` (FK `ai_suggestions` SET NULL — the report draft it began as) |
+
+## Public ITP generator (increment 17, migration `b7d4e1f9a206`)
+
+Additive and guarded (downgrade refuses while any row is logged):
+
+| Table | Change |
+|---|---|
+| `public_itp_generations` (new) | One row per public generator request let through to the model (PRD v2.63 Block 10D "usage logged"): `id` INTEGER PK, `public_id` UUID (the draft's link), `status` (`draft` / `failed`; a request in flight is `failed` with error "in progress" until it finishes), `visitor_key` (HMAC-SHA256 of the visitor's address — never the address; indexed), `scope`, `email` + `email_consent_at` (check `ck_public_itp_generations_consent`: no email without consent), `user_agent`, `model`, `prompt_version`, `system_prompt`, `user_prompt`, `draft` (JSONB, the ITP-import draft shape), `error`, `input_tokens`, `output_tokens`, `pdf_s3_key` (the watermarked PDF in S3), `created_at` (indexed). Not tied to any account, project or `ai_suggestions` row. The rate limits count these rows |

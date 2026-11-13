@@ -408,6 +408,23 @@ it gains `template_id` and `source_files` (`name`, `content_type`, `size`).
 `ReportPublic` gains `summary` and `ai_suggestion_id`. An ITP import is
 visible only to the account that ran it (404 to anyone else).
 
+## Public ITP generator (increment 17)
+
+PRD v2.63 Block 10D. **No sign-in** on these routes; the draft's random
+`public_id` (UUID4) is the only handle.
+
+| Route | What |
+|---|---|
+| `GET /public/itp-generator/status` | `{enabled, watermark, disclaimer, min_scope_chars, max_scope_chars, hourly_limit, daily_limit}`; `enabled` needs `ANTHROPIC_API_KEY` and `PUBLIC_ITP_ENABLED` |
+| `POST /public/itp-generator {scope, email?, email_consent?, website?}` | 201 `PublicItpDraft` `{public_id, created_at, expires_at, scope, draft (the ITP-import draft shape), template (watermarked template body), watermark, disclaimer, model, line_count, hold_count, pdf_url}`. 422 honeypot `website` filled, scope under 20 / over 2,000 characters (after tidying), email without consent, bad email, or no lines came back; 429 with `Retry-After` per-visitor hourly / daily limit or the daily ceiling; 503 off or AI busy; 502 model failure. Every request let past the input checks is logged (also failures) and counts |
+| `GET /public/itp-generator/{public_id}` | the same draft again (no model call) with a fresh PDF link; 404 unknown, failed or older than `PUBLIC_ITP_KEEP_DAYS` |
+
+The PDF is rendered once (WeasyPrint) and stored at
+`public/itp-generator/<public_id>.pdf`; `pdf_url` is a presigned GET. If
+rendering fails the draft is still returned (`pdf_url: null`) and the next
+read tries again. Responses are `Cache-Control: no-store`. The email is never
+returned.
+
 ## Authorization (carried over from the July 2026 hardening)
 
 * Every object is reached through its project; non-members get **404** with
@@ -494,3 +511,13 @@ AI capture (increment 15) — owner action at RG-3, nothing real is committed:
 `AI_DAILY_LIMIT_PER_USER` (200, 0 = off), `AI_MAX_TRANSCRIPT_CHARS` (4000),
 `ANTHROPIC_API_URL` (the Messages API). Tests replace the HTTP transport and
 never reach the model.
+
+Public ITP generator (increment 17), placeholders only — set at RG-3:
+`PUBLIC_ITP_ENABLED` (true; also needs `ANTHROPIC_API_KEY`),
+`PUBLIC_ITP_PER_IP_HOURLY` (3), `PUBLIC_ITP_PER_IP_DAILY` (10),
+`PUBLIC_ITP_GLOBAL_DAILY` (200, 0 = no ceiling), `PUBLIC_ITP_MIN_SCOPE_CHARS`
+(20), `PUBLIC_ITP_MAX_SCOPE_CHARS` (2000), `PUBLIC_ITP_TIMEOUT_SECONDS` (90),
+`PUBLIC_ITP_KEEP_DAYS` (30), `PUBLIC_ITP_TRUSTED_PROXY_HOPS` (0; **1 behind
+Nginx**, or every visitor shares the proxy's limit), `PUBLIC_ITP_IP_SALT`
+(key for hashing visitor addresses; unset, one is derived from
+`DATABASE_URL`).

@@ -1,0 +1,217 @@
+{
+  "name": "Concrete-encased duct bank — 4-way 4 in PVC",
+  "description": "Inspections and tests for an underground concrete-encased duct bank, from trench to backfill and records.",
+  "roles": [
+    { "name": "Contractor", "party": "contractor" },
+    { "name": "Owner's representative", "party": "client" },
+    { "name": "Third-party inspector", "party": "engineer" }
+  ],
+  "sections": [
+    {
+      "title": "Before work",
+      "lines": [
+        {
+          "title": "Conduit, spacer and fitting submittals accepted",
+          "classification": "R",
+          "acceptance_criteria": "Accepted submittals on file for conduit, spacers, couplings, bends and pull boxes before material is installed",
+          "reference": "Project specifications",
+          "record_required": "Submittal log",
+          "roles": ["Owner's representative"],
+          "photo_required": false,
+          "value_type": "none",
+          "unit": null
+        },
+        {
+          "title": "Concrete mix design accepted",
+          "classification": "R",
+          "acceptance_criteria": "Accepted mix design on file; strength and color dye as specified",
+          "reference": "ACI 301",
+          "record_required": "Mix design submittal",
+          "roles": ["Owner's representative"],
+          "photo_required": false,
+          "value_type": "none",
+          "unit": null
+        },
+        {
+          "title": "Route staked and existing utilities located",
+          "classification": "W",
+          "acceptance_criteria": "Alignment and grades staked; all crossings marked and potholed where shown",
+          "reference": "Approved drawings",
+          "record_required": "Survey record, locate tickets",
+          "roles": ["Contractor", "Owner's representative"],
+          "photo_required": false,
+          "value_type": "none",
+          "unit": null
+        }
+      ]
+    },
+    {
+      "title": "Trench and conduit installation",
+      "lines": [
+        {
+          "title": "Trench depth below finished grade",
+          "classification": "W",
+          "acceptance_criteria": "Project-specific value required — verify before issue",
+          "reference": "NFPA 70",
+          "record_required": "Depth readings every 50 ft",
+          "roles": ["Third-party inspector"],
+          "photo_required": false,
+          "value_type": "number",
+          "unit": "in"
+        },
+        {
+          "title": "Trench bottom firm and free of rock and water",
+          "classification": "I",
+          "acceptance_criteria": "No standing water, no rock or debris larger than 1 in on the bed",
+          "reference": "Project specifications",
+          "record_required": "Daily report",
+          "roles": ["Contractor"],
+          "photo_required": false,
+          "value_type": "none",
+          "unit": null
+        },
+        {
+          "title": "Conduit size, count and spacer spacing",
+          "classification": "W",
+          "acceptance_criteria": "Four 4 in conduits per drawing; spacers at the interval shown, conduits held in position",
+          "reference": "Approved drawings",
+          "record_required": "Installation checklist",
+          "roles": ["Third-party inspector"],
+          "photo_required": false,
+          "value_type": "none",
+          "unit": null
+        },
+        {
+          "title": "Joints glued and bends within allowed total per run",
+          "classification": "I",
+          "acceptance_criteria": "Every joint solvent-welded; total bends between pull points within the allowed total",
+          "reference": "NFPA 70",
+          "record_required": "Installation checklist",
+          "roles": ["Contractor"],
+          "photo_required": false,
+          "value_type": "none",
+          "unit": null
+        },
+        {
+          "title": "Conduits anchored against flotation",
+          "classification": "I",
+          "acceptance_criteria": "Tie-downs at the interval shown; no conduit lifted before or during the pour",
+          "reference": "Approved drawings",
+          "record_required": "Photo",
+          "roles": ["Contractor"],
+          "photo_required": true,
+          "value_type": "none",
+          "unit": null
+        }
+      ]
+    },
+    {
+      "title": "Before encasement",
+      "lines": [
+        {
+          "title": "Duct bank released for concrete encasement",
+          "classification": "H",
+          "acceptance_criteria": "Lines 4–8 complete and accepted; conduit ends capped; mandrel test passed on every conduit",
+          "reference": "Project specifications",
+          "record_required": "Pre-pour release, photos",
+          "roles": ["Owner's representative", "Third-party inspector"],
+          "photo_required": true,
+          "value_type": "none",
+          "unit": null
+        },
+        {
+          "title": "Concrete cover around outer conduits",
+          "classification": "W",
+          "acceptance_criteria": "Project-specific value required — verify before issue",
+          "reference": "Approved drawings",
+          "record_required": "Measured cover",
+          "roles": ["Third-party inspector"],
+          "photo_required": false,
+          "value_type": "number",
+          "unit": "in"
+        }
+      ]
+    },
+    {
+      "title": "Encasement and backfill",
+      "lines": [
+        {
+          "title": "Concrete delivery tickets checked",
+          "classification": "R",
+          "acceptance_criteria": "Mix matches the accepted design; water added recorded; time since batching within the specified limit",
+          "reference": "ASTM C94",
+          "record_required": "Batch tickets",
+          "roles": ["Third-party inspector"],
+          "photo_required": false,
+          "value_type": "none",
+          "unit": null
+        },
+        {
+          "title": "Slump",
+          "classification": "W",
+          "acceptance_criteria": "Project-specific value required — verify before issue",
+          "reference": "ASTM C143",
+          "record_required": "Field test report",
+          "roles": ["Third-party inspector"],
+          "photo_required": false,
+          "value_type": "number",
+          "unit": "in"
+        },
+        {
+          "title": "Warning tape placed above the duct bank",
+          "classification": "I",
+          "acceptance_criteria": "Continuous tape at the depth shown, full width of the bank",
+          "reference": "Approved drawings",
+          "record_required": "Photo",
+          "roles": ["Contractor"],
+          "photo_required": true,
+          "value_type": "none",
+          "unit": null
+        },
+        {
+          "title": "Backfill compaction",
+          "classification": "W",
+          "acceptance_criteria": "Project-specific value required — verify before issue",
+          "reference": "ASTM D1557",
+          "record_required": "Density test report",
+          "roles": ["Third-party inspector"],
+          "photo_required": false,
+          "value_type": "number",
+          "unit": "%"
+        }
+      ]
+    },
+    {
+      "title": "Completion and records",
+      "lines": [
+        {
+          "title": "Mandrel pulled through every conduit after backfill",
+          "classification": "W",
+          "acceptance_criteria": "Mandrel passes end to end in every conduit; pull string left in place",
+          "reference": "Project specifications",
+          "record_required": "Mandrel test record",
+          "roles": ["Owner's representative"],
+          "photo_required": false,
+          "value_type": "none",
+          "unit": null
+        },
+        {
+          "title": "As-built route and depths recorded",
+          "classification": "R",
+          "acceptance_criteria": "As-built drawing shows alignment, depths and crossings",
+          "reference": "Project specifications",
+          "record_required": "As-built drawing",
+          "roles": ["Owner's representative"],
+          "photo_required": false,
+          "value_type": "none",
+          "unit": null
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "Assumed one straight run with two pull boxes; add lines for each pull box if the drawings show more.",
+    "Burial depth, concrete cover, slump and compaction depend on the project — fill them in from the drawings and specifications.",
+    "Confirm every value against the project documents before issue."
+  ]
+}

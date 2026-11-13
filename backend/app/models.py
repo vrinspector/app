@@ -1205,6 +1205,60 @@ class AiSuggestion(SQLModel, table=True):
     created_at: datetime | None = Field(default=None, sa_column=_created_at_column())
 
 
+class PublicItpGeneration(SQLModel, table=True):
+    """One use of the public ITP generator (rebuild increment 17; Block 10D).
+
+    No account is involved, so this is not an ``ai_suggestions`` row (those
+    belong to a signed-in person). Every request that reaches the model is
+    logged here — the draft or the error, the exact prompts, prompt and model
+    version, tokens — which is both the usage log the PRD asks for and what
+    the rate limits count. The visitor's address is never stored: only a
+    keyed hash (``visitor_key``). An email is kept only when the visitor
+    gave one and ticked the consent box.
+    """
+
+    __tablename__ = "public_itp_generations"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('draft', 'failed')", name="ck_public_itp_generations_status"
+        ),
+        CheckConstraint(
+            "email IS NULL OR email_consent_at IS NOT NULL",
+            name="ck_public_itp_generations_consent",
+        ),
+    )
+
+    id: int | None = Field(default=None, sa_column=_pk_column())
+    public_id: uuid.UUID | None = Field(default=None, sa_column=_public_id_column())
+    status: str = Field(sa_column=Column(String(20), nullable=False))
+    visitor_key: str = Field(sa_column=Column(String(64), nullable=False, index=True))
+    scope: str = Field(sa_column=Column(Text, nullable=False))
+    email: str | None = Field(default=None, sa_column=Column(String(255)))
+    email_consent_at: datetime | None = Field(
+        default=None, sa_column=Column(DateTime(timezone=True))
+    )
+    user_agent: str | None = Field(default=None, sa_column=Column(String(255)))
+    model: str = Field(sa_column=Column(String(100), nullable=False))
+    prompt_version: str = Field(sa_column=Column(String(40), nullable=False))
+    system_prompt: str = Field(sa_column=Column(Text, nullable=False))
+    user_prompt: str = Field(sa_column=Column(Text, nullable=False))
+    draft: dict[str, Any] | None = Field(default=None, sa_column=Column(JSONB))
+    error: str | None = Field(default=None, sa_column=Column(Text))
+    input_tokens: int | None = Field(default=None, sa_column=Column(Integer))
+    output_tokens: int | None = Field(default=None, sa_column=Column(Integer))
+    # The watermarked PDF, rendered once and kept in S3 (Hard Rule 8).
+    pdf_s3_key: str | None = Field(default=None, sa_column=Column(String(512)))
+    created_at: datetime | None = Field(
+        default=None,
+        sa_column=Column(
+            DateTime(timezone=True),
+            nullable=False,
+            server_default=text("now()"),
+            index=True,
+        ),
+    )
+
+
 # The seven tables that exist on the live (pre-rebuild) staging database.
 LEGACY_TABLES: tuple[str, ...] = (
     "projects",
@@ -1231,6 +1285,7 @@ DOMAIN_TABLES: tuple[str, ...] = (
     "email_send_log",
     "itp_sign_packs",
     "ai_suggestions",
+    "public_itp_generations",
 )
 
 
@@ -1562,6 +1617,49 @@ class ItpImportSave(SQLModel):
     name: str = Field(min_length=1, max_length=255)
     description: str | None = Field(default=None, max_length=2000)
     draft: ItpImportDraft
+
+
+# --- Increment 17: public ITP generator (Block 10D, no account) ------------------
+
+
+class PublicItpGeneratorStatus(SQLModel):
+    enabled: bool
+    watermark: str
+    disclaimer: str
+    min_scope_chars: int
+    max_scope_chars: int
+    hourly_limit: int
+    daily_limit: int
+
+
+class PublicItpGenerateRequest(SQLModel):
+    """What a visitor sends: a scope of work and, optionally, an email."""
+
+    scope: str = Field(min_length=1, max_length=20000)
+    email: EmailStr | None = None
+    # Must be ticked when an email is given (it is the only reason one is kept).
+    email_consent: bool = False
+    # Honeypot: a field people never see. Anything in it means a bot.
+    website: str | None = Field(default=None, max_length=500)
+
+
+class PublicItpDraft(SQLModel):
+    """A generated draft as the public page shows it."""
+
+    public_id: uuid.UUID
+    created_at: datetime
+    expires_at: datetime
+    scope: str
+    draft: ItpImportDraft
+    # The template body (SurveyJS JSON with the VR Inspector line properties),
+    # carrying the watermark, for the JSON download.
+    template: dict[str, Any]
+    watermark: str
+    disclaimer: str
+    model: str
+    line_count: int
+    hold_count: int
+    pdf_url: str | None = None
 
 
 class AiSourceFile(SQLModel):

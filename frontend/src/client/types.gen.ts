@@ -2573,6 +2573,119 @@ export type ProjectUpdate = {
 };
 
 /**
+ * PublicItpDraft
+ *
+ * A generated draft as the public page shows it.
+ */
+export type PublicItpDraft = {
+    /**
+     * Public Id
+     */
+    public_id: string;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Expires At
+     */
+    expires_at: string;
+    /**
+     * Scope
+     */
+    scope: string;
+    draft: ItpImportDraft;
+    /**
+     * Template
+     */
+    template: {
+        [key: string]: unknown;
+    };
+    /**
+     * Watermark
+     */
+    watermark: string;
+    /**
+     * Disclaimer
+     */
+    disclaimer: string;
+    /**
+     * Model
+     */
+    model: string;
+    /**
+     * Line Count
+     */
+    line_count: number;
+    /**
+     * Hold Count
+     */
+    hold_count: number;
+    /**
+     * Pdf Url
+     */
+    pdf_url?: string | null;
+};
+
+/**
+ * PublicItpGenerateRequest
+ *
+ * What a visitor sends: a scope of work and, optionally, an email.
+ */
+export type PublicItpGenerateRequest = {
+    /**
+     * Scope
+     */
+    scope: string;
+    /**
+     * Email
+     */
+    email?: string | null;
+    /**
+     * Email Consent
+     */
+    email_consent?: boolean;
+    /**
+     * Website
+     */
+    website?: string | null;
+};
+
+/**
+ * PublicItpGeneratorStatus
+ */
+export type PublicItpGeneratorStatus = {
+    /**
+     * Enabled
+     */
+    enabled: boolean;
+    /**
+     * Watermark
+     */
+    watermark: string;
+    /**
+     * Disclaimer
+     */
+    disclaimer: string;
+    /**
+     * Min Scope Chars
+     */
+    min_scope_chars: number;
+    /**
+     * Max Scope Chars
+     */
+    max_scope_chars: number;
+    /**
+     * Hourly Limit
+     */
+    hourly_limit: number;
+    /**
+     * Daily Limit
+     */
+    daily_limit: number;
+};
+
+/**
  * ReportDraftRequest
  */
 export type ReportDraftRequest = {
@@ -6365,3 +6478,74 @@ export type aiSaveItpImportResponses = {
 };
 
 export type aiSaveItpImportResponse = aiSaveItpImportResponses[keyof aiSaveItpImportResponses];
+
+export type generatorReadStatusData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/public/itp-generator/status';
+};
+
+export type generatorReadStatusResponses = {
+    /**
+     * Successful Response
+     */
+    200: PublicItpGeneratorStatus;
+};
+
+export type generatorReadStatusResponse = generatorReadStatusResponses[keyof generatorReadStatusResponses];
+
+export type generatorGenerateDraftData = {
+    body: PublicItpGenerateRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/public/itp-generator';
+};
+
+export type generatorGenerateDraftErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type generatorGenerateDraftError = generatorGenerateDraftErrors[keyof generatorGenerateDraftErrors];
+
+export type generatorGenerateDraftResponses = {
+    /**
+     * Successful Response
+     */
+    201: PublicItpDraft;
+};
+
+export type generatorGenerateDraftResponse = generatorGenerateDraftResponses[keyof generatorGenerateDraftResponses];
+
+export type generatorReadDraftData = {
+    body?: never;
+    path: {
+        /**
+         * Public Id
+         */
+        public_id: string;
+    };
+    query?: never;
+    url: '/api/v1/public/itp-generator/{public_id}';
+};
+
+export type generatorReadDraftErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type generatorReadDraftError = generatorReadDraftErrors[keyof generatorReadDraftErrors];
+
+export type generatorReadDraftResponses = {
+    /**
+     * Successful Response
+     */
+    200: PublicItpDraft;
+};
+
+export type generatorReadDraftResponse = generatorReadDraftResponses[keyof generatorReadDraftResponses];
