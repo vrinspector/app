@@ -1,9 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { Archive, MoreHorizontal, Pencil, Send, Undo2 } from "lucide-react"
+import {
+  Archive,
+  MoreHorizontal,
+  Pencil,
+  Send,
+  Sparkles,
+  Undo2,
+} from "lucide-react"
 import { useMemo, useState } from "react"
 
-import { ItpsService, type ItpTemplatePublic } from "@/client"
+import {
+  AiService,
+  type AiSuggestionLog,
+  ItpsService,
+  type ItpTemplatePublic,
+} from "@/client"
 import { PageHeader } from "@/components/Common/PageHeader"
 import { DetailState, NotFoundState } from "@/components/Common/States"
 import { StatusBadge } from "@/components/Common/StatusBadge"
@@ -18,7 +30,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import useCustomToast from "@/hooks/useCustomToast"
-import { formatDate, joinMeta } from "@/lib/format"
+import { formatDate, formatDateTime, joinMeta } from "@/lib/format"
 import { parseTemplateBody, TemplateError } from "@/lib/itp"
 import { itpKeys, parseId, templateQuery } from "@/lib/queries"
 import { extractErrorMessage } from "@/utils"
@@ -225,6 +237,10 @@ function TemplateBody({ template }: { template: ItpTemplatePublic }) {
         </nav>
       ) : null}
 
+      {template.body?.importedWithAi ? (
+        <ImportProvenance templateId={template.id} />
+      ) : null}
+
       {parsed ? (
         <section
           aria-labelledby="lines-heading"
@@ -283,5 +299,50 @@ function TemplateBody({ template }: { template: ItpTemplatePublic }) {
         }
       />
     </>
+  )
+}
+
+/**
+ * Increment 16 (Block 10E guardrail): a template made by ITP import says so,
+ * with the files it was read from, the model and prompt version, and whether
+ * the draft was edited before it was saved.
+ */
+function ImportProvenance({ templateId }: { templateId: number }) {
+  const log = useQuery({
+    queryKey: ["ai", "template", templateId],
+    queryFn: async () =>
+      (
+        await AiService.listSuggestions({
+          query: { template_id: templateId },
+        })
+      ).data as AiSuggestionLog[],
+    staleTime: 5 * 60_000,
+    retry: false,
+  })
+  const row = log.data?.[0]
+  return (
+    <div
+      className="rounded-md border border-vri-gold/40 bg-vri-gold/5 p-2.5 text-xs text-muted-foreground"
+      data-testid="template-ai-provenance"
+    >
+      <p className="flex items-center gap-1 font-medium text-foreground">
+        <Sparkles className="size-3.5 text-vri-copper" aria-hidden="true" />
+        Imported with AI
+        {row
+          ? row.edited
+            ? ", edited before saving"
+            : ", saved as read"
+          : null}
+      </p>
+      {row ? (
+        <p className="mt-0.5">
+          From{" "}
+          {(row.source_files ?? []).map((f) => f.name).join(", ") ||
+            "an uploaded file"}{" "}
+          · model {row.model} · prompt {row.prompt_version} ·{" "}
+          {formatDateTime(row.created_at)}
+        </p>
+      ) : null}
+    </div>
   )
 }

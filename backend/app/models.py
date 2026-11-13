@@ -49,6 +49,7 @@ from app.core.doc_numbers import (
     effective_project_code,
     normalise_project_code,
 )
+from app.core.itp_import import ItpImportDraft
 
 
 def get_datetime_utc() -> datetime:
@@ -593,6 +594,13 @@ class InspectionReport(SQLModel, table=True):
         default=0, sa_column=Column(Integer, nullable=False, server_default=text("0"))
     )
     generated_by: str | None = Field(default=None, sa_column=Column(String(255)))
+    # Increment 16 (Block 10C): the inspector's summary printed at the top of
+    # this version, and the AI draft it started from, if any.
+    summary: str | None = Field(default=None, sa_column=Column(Text))
+    ai_suggestion_id: int | None = Field(
+        default=None,
+        sa_column=Column(Integer, ForeignKey("ai_suggestions.id", ondelete="SET NULL")),
+    )
     created_at: datetime | None = Field(default=None, sa_column=_created_at_column())
 
     inspection: Inspection | None = Relationship(back_populates="reports")
@@ -1117,7 +1125,17 @@ class AiSuggestion(SQLModel, table=True):
 
     __tablename__ = "ai_suggestions"
     __table_args__ = (
-        CheckConstraint("kind IN ('photo', 'voice')", name="ck_ai_suggestions_kind"),
+        CheckConstraint(
+            "kind IN ('photo', 'voice', 'report', 'itp_import')",
+            name="ck_ai_suggestions_kind",
+        ),
+        # An ITP import (10E) belongs to the account that asked for it; every
+        # other kind is about one inspection.
+        CheckConstraint(
+            "kind = 'itp_import' OR "
+            "(project_id IS NOT NULL AND inspection_id IS NOT NULL)",
+            name="ck_ai_suggestions_scope",
+        ),
         CheckConstraint(
             "status IN ('draft', 'confirmed', 'dismissed', 'failed')",
             name="ck_ai_suggestions_status",
@@ -1126,26 +1144,40 @@ class AiSuggestion(SQLModel, table=True):
 
     id: int | None = Field(default=None, sa_column=_pk_column())
     public_id: uuid.UUID | None = Field(default=None, sa_column=_public_id_column())
-    kind: str = Field(sa_column=Column(String(10), nullable=False))
+    kind: str = Field(sa_column=Column(String(20), nullable=False))
     status: str = Field(
         default="draft",
         sa_column=Column(String(20), nullable=False, server_default=text("'draft'")),
     )
-    project_id: int = Field(
+    project_id: int | None = Field(
+        default=None,
         sa_column=Column(
             Integer,
             ForeignKey("projects.id", ondelete="CASCADE"),
-            nullable=False,
+            nullable=True,
             index=True,
-        )
+        ),
     )
-    inspection_id: int = Field(
+    inspection_id: int | None = Field(
+        default=None,
         sa_column=Column(
             Integer,
             ForeignKey("inspections.id", ondelete="CASCADE"),
-            nullable=False,
+            nullable=True,
             index=True,
-        )
+        ),
+    )
+    # 10E: the master template a confirmed import was saved as.
+    template_id: int | None = Field(
+        default=None,
+        sa_column=Column(
+            Integer, ForeignKey("itp_templates.id", ondelete="SET NULL"), index=True
+        ),
+    )
+    # 10E: the uploaded files — [{name, content_type, size, s3_key}]; the
+    # originals are kept in S3 (Hard Rule 8), never in this table.
+    source_files: list[dict[str, Any]] | None = Field(
+        default=None, sa_column=Column(JSONB)
     )
     photo_id: int | None = Field(
         default=None,
@@ -1520,13 +1552,33 @@ class VoiceFindingRequest(SQLModel):
     location_ref: str | None = Field(default=None, max_length=255)
 
 
+class ReportDraftRequest(SQLModel):
+    inspection_id: int
+
+
+class ItpImportSave(SQLModel):
+    """10E: save a reviewed import draft as a new master template."""
+
+    name: str = Field(min_length=1, max_length=255)
+    description: str | None = Field(default=None, max_length=2000)
+    draft: ItpImportDraft
+
+
+class AiSourceFile(SQLModel):
+    name: str
+    content_type: str
+    size: int
+
+
 class AiSuggestionPublic(SQLModel):
     id: int
     kind: str
     status: str
-    project_id: int
-    inspection_id: int
+    project_id: int | None
+    inspection_id: int | None
     photo_id: int | None
+    template_id: int | None = None
+    source_files: list[AiSourceFile] | None = None
     model: str
     prompt_version: str
     draft: dict[str, Any] | None
@@ -1769,6 +1821,11 @@ class DashboardPublic(SQLModel):
 class ReportGenerateRequest(SQLModel):
     # The SPA's ``generateReport`` body: ``{inspection_id}``.
     inspection_id: int
+    # Increment 16 (Block 10C): an optional summary printed at the top of the
+    # report, written by the inspector or edited from an AI draft
+    # (``ai_suggestion_id``, a ``report`` draft of the same inspection).
+    summary: str | None = Field(default=None, max_length=6000)
+    ai_suggestion_id: int | None = None
 
 
 class ReportPublic(SQLModel):
@@ -1783,6 +1840,8 @@ class ReportPublic(SQLModel):
     photo_count: int
     generated_by: str | None
     created_at: datetime
+    summary: str | None = None
+    ai_suggestion_id: int | None = None
     # Presigned S3 GET URL, generated per response (never stored). The SPA
     # read ``download_url`` from the generate response; every report row
     # carries one so earlier versions can be re-downloaded.

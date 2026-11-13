@@ -1200,3 +1200,55 @@ Tests: backend 21 new (`tests/api/routes/test_ai.py`, the model replaced by
     database downgrade refuses to drop it. Viewers can read it; only owners
     and inspectors can ask for or act on drafts, and only while the
     inspection is open.
+
+
+## Increment 16 — AI report drafting + ITP import (PRD v2.62 Block 10C, v2.63 Block 10E)
+
+Same guardrails as increment 15: AI output is a draft in a form the inspector
+already uses, under the gold "AI draft" notice, and nothing is saved until
+the inspector's own button, which carries the draft's id so the confirmation
+(and whether anything changed) is logged with the prompt and model version.
+
+| Where | What |
+|---|---|
+| Inspection → Reports | **Add a summary** opens a box for a few sentences printed at the top of the next report. Owners and inspectors also get **Draft with AI** (beside it, and inside the box): the summary is written from the recorded findings into the box under the AI-draft notice with **Undo**. **Generate report** sends the edited words and the draft's id; with no summary the request is the legacy `{inspection_id}`. Each version row previews its summary, with an **AI-assisted summary** tag when it began as a draft |
+| Report PDF | the summary above the count tiles; when it began as an AI draft, an italic line "Summary drafted with AI assistance from the recorded findings, then reviewed and approved by <whoever generated it>" |
+| ITP templates | **Import with AI** beside New template. Step 1: **Choose files** (PDF, .xlsx, .csv, photos; up to 8) or **Take photo** (rear camera), optional note for the AI, **Read with AI**. Step 2, the review form: what the AI could not read listed in the notice; name and description; **Who signs** (role names and who they sign for); each section as a green bar with its lines — wording, H / W / R / I, Pass-Fail / measured number / text reading with unit, criteria, reference, record, a tick per signing role and **Photo required**; Add line / Add section / remove. A live check says "N lines · N hold points · N roles" or what still stops saving (a hold point needs a signer, a line needs words). **Save as master template** saves a **draft** master and opens it; **Discard** sets the AI draft aside |
+| Template page | an imported template shows "Imported with AI, edited before saving / saved as read", the source file names, model and prompt version |
+
+Demo: the in-browser API drafts a summary from the sample findings and
+answers any import with one canned structural-steel bolting ITP
+(`src/demo/fakeAi.ts`). Playwright walks both at phone size
+(`tests/demo/ai-report-import.spec.ts`).
+
+Tests: backend 32 new (`tests/api/routes/test_ai_report_import.py`) plus the
+migration guard; frontend 5 new unit tests (`src/lib/itpImport.test.ts`, the
+report summary in `src/test/members-reports.test.tsx`) and 2 Playwright demo
+walks.
+
+### Decisions for the owner (increment 16)
+
+93. **Report summaries are optional and short.** The AI writes two to four
+    plain paragraphs from the findings only (no causes, code opinions or
+    recommendations), and it is told only the inspection's type, title,
+    date, status and findings — never names, the client or the project. For
+    very large inspections it reads at most 150 findings, dropping the
+    oldest resolved ones first (`AI_REPORT_MAX_FINDINGS`). Drafting is
+    allowed after sign-off, since reports are often written then.
+94. **Who can use the AI here:** owners and inspectors ask for and confirm
+    drafts; viewers can still generate reports and write a summary by hand.
+95. **ITP import saves a *draft* master**, never published, so it is checked
+    once more on its page before it is applied. Import is private to the
+    account that ran it, like masters themselves.
+96. **When the document names no signer for a hold point**, the draft gives
+    it to the owner's-side role (else the third-party inspector) and adds a
+    note saying so. When a line has no H / W / R / I code it becomes I
+    (Information) with a note. Check both in the review.
+97. **The uploaded file is kept in S3** (`imports/itp/<draft id>/`) as the
+    record of what the template was read from; only the file name, type and
+    size are shown. Up to 8 files, 20 MB in all; old Excel `.xls` files must
+    be saved as `.xlsx` or CSV first.
+98. **No paid form builder**, per the 2026-11-10 decision: the review form is
+    the "simple form" for light edits; the JSON editor stays for anything
+    more unusual. Adding one-off lines to a project's own ITP remains
+    declined.

@@ -897,6 +897,21 @@ on("GET", "/reports", ({ query }) => {
 on("POST", "/reports/generate", ({ body }) => {
   const inspectionId = Number(body.inspection_id)
   const inspection = find(db.inspections, inspectionId, "Inspection")
+  // Increment 16 (Block 10C): optional summary, maybe confirmed from a draft.
+  const summary =
+    String(body.summary ?? "")
+      .replace(/\r/g, "")
+      .split("\n")
+      .map((p) => p.replace(/\s+/g, " ").trim())
+      .filter(Boolean)
+      .join("\n\n") || null
+  const aiSuggestionId =
+    body.ai_suggestion_id == null ? null : Number(body.ai_suggestion_id)
+  if (aiSuggestionId !== null) {
+    if (!summary)
+      throw new HttpError(422, "An AI draft needs the summary text with it")
+    aiRoutes.confirmReport(aiSuggestionId, inspectionId, summary)
+  }
   const version =
     db.reports
       .filter((r) => r.inspection_id === inspectionId)
@@ -916,6 +931,8 @@ on("POST", "/reports/generate", ({ body }) => {
       .length,
     generated_by: me,
     created_at: stamp(),
+    summary,
+    ai_suggestion_id: aiSuggestionId,
     download_url: SAMPLE_REPORT_URL,
   }
   db.reports.push(created)
@@ -941,6 +958,13 @@ const aiRoutes = registerAiRoutes({
   findings: () => db.findings,
   projectOfInspection: (inspectionId) =>
     find(db.inspections, inspectionId, "Inspection").project_id,
+  inspection: (inspectionId) =>
+    find(db.inspections, inspectionId, "Inspection"),
+  photoCount: (inspectionId) =>
+    db.photos.filter((p) => p.inspection_id === inspectionId).length,
+  // Registered below; only called when a request arrives.
+  createTemplate: (name, description, body) =>
+    itpRoutes.createTemplate(name, description, body),
 })
 
 // --- ITPs, sign-off roles, areas (increment 13) ------------------------------

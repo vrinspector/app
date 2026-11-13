@@ -357,7 +357,7 @@ function InspectionBody({ inspection, project }: InspectionBodyProps) {
         onLoggingChange={setLoggingFinding}
       />
 
-      <ReportsSection inspectionId={inspection.id} />
+      <ReportsSection inspectionId={inspection.id} canWrite={canWrite} />
 
       {picker.inputs}
       {canWrite ? (

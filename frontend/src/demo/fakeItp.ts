@@ -1334,5 +1334,21 @@ export function registerItpRoutes(ctx: ItpContext) {
     "demo-owners-rep",
   )
 
-  return { checkPinItem, checkEvidence, checkEvidenceDelete, checkShotSlot }
+  /** Increment 16: an ITP import saved as a draft master (demo AI routes). */
+  function createTemplate(
+    name: string,
+    description: string | null,
+    body: Body,
+  ): ItpTemplatePublic {
+    parse(body)
+    return templatePublic(addTemplate(name, description, "draft", body))
+  }
+
+  return {
+    checkPinItem,
+    checkEvidence,
+    checkEvidenceDelete,
+    checkShotSlot,
+    createTemplate,
+  }
 }

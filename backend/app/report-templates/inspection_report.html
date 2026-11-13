@@ -20,6 +20,9 @@
     }
   }
   * { box-sizing: border-box; }
+  .narrative { margin: 6px 0 10px; }
+  .narrative p { margin: 0 0 6px; }
+  .narrative .provenance { font-size: 8pt; color: #6c6258; font-style: italic; }
   body { font-family: "DejaVu Sans", "Liberation Sans", Arial, sans-serif; font-size: 10pt; color: #2B2B2B; line-height: 1.4; margin: 0; }
   h1, h2, h3 { font-family: "DejaVu Serif", "Liberation Serif", "Book Antiqua", Georgia, serif; color: #2E3D2E; margin: 0; }
   .band { background: #2E3D2E; color: #F7F5F0; padding: 14px 18px; border-bottom: 4px solid #B8960C; border-radius: 6px 6px 0 0; }
@@ -100,6 +103,12 @@
 </section>
 
 <h2>Summary</h2>
+{% if narrative %}
+<div class="narrative" data-testid="report-narrative">
+  {% for paragraph in narrative %}<p>{{ paragraph }}</p>{% endfor %}
+  {% if narrative_ai %}<p class="provenance">Summary drafted with AI assistance from the recorded findings, then reviewed and approved by {{ generated_by }}.</p>{% endif %}
+</div>
+{% endif %}
 <div class="tiles">
   <div class="tile"><div class="n">{{ summary.findings }}</div><div class="l">Findings</div></div>
   <div class="tile{% if summary.open %} alert{% endif %}"><div class="n">{{ summary.open }}</div><div class="l">Open</div></div>
