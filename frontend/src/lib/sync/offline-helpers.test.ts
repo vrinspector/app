@@ -153,7 +153,7 @@ describe("overlayPending", () => {
 describe("local row conversion", () => {
   it("gives offline rows stable negative ids", () => {
     expect(localNumericId("local-abc")).toBe(localNumericId("local-abc"))
-    expect(localNumericId("local-abc")).not.toBe(localNumericId("local-abd"))
+    expect(localNumericId("local-abc")).not.toBe(localNumericId("local-xyz"))
     expect(numericId("17")).toBe(17)
     expect(numericId(17)).toBe(17)
   })
