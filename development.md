@@ -137,6 +137,15 @@ Sign-in needs a **secure context**: HTTPS, or `http://localhost` on the same mac
 
 Do not store deployment secrets in `.env`. Configure them as described in the [FastAPI Cloud deployment guide](./deployment.md) or the [Docker Compose deployment guide](./deployment-docker-compose.md).
 
+## Offline sync (PowerSync, optional)
+
+Off unless `VITE_POWERSYNC_URL` is set for the frontend. To try it locally:
+`docker compose --profile offline up -d powersync` (after `alembic upgrade
+head`, which creates the `powersync` publication), then set
+`VITE_POWERSYNC_URL=http://localhost:8095` in `frontend/.env`. Check the
+configuration without running the service with `bun run validate:sync` from
+`frontend/`. See `powersync/README.md`.
+
 ## Pre-commit Hooks and Code Linting
 
 The project uses [prek](https://prek.j178.dev/), a modern alternative to [pre-commit](https://pre-commit.com/), for code linting and formatting.

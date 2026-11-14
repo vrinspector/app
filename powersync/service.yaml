@@ -1,0 +1,45 @@
+# PowerSync service configuration (rebuild increment 18).
+#
+# Every value that differs per environment or is secret comes from the
+# environment (`!env`); nothing secret is committed. Local development uses
+# the Compose `powersync` service (profile `offline`, see compose.yml). The
+# staging / production values are set by the owner at release gate RG-3 —
+# these sessions never deploy (REBUILD_PLAN.md rules 5 and 9).
+
+# Source database: the app's own PostgreSQL. The connection needs a role with
+# REPLICATION (on RDS: rds_replication) and wal_level = logical (on RDS:
+# rds.logical_replication = 1 in the parameter group). The publication it reads
+# is created by the Alembic migration `a1f6c3d9e715` (name: powersync).
+replication:
+  connections:
+    - type: postgresql
+      uri: !env PS_DATA_SOURCE_URI
+      sslmode: !env PS_DATA_SOURCE_SSLMODE
+
+# Bucket storage: a separate PostgreSQL database (never the app database).
+storage:
+  type: postgresql
+  uri: !env PS_STORAGE_URI
+  sslmode: !env PS_STORAGE_SSLMODE
+
+port: !env PS_PORT
+
+# Which rows sync to whom: powersync/sync-config.yaml.
+sync_config:
+  path: sync-config.yaml
+
+# Clients present their Auth0 access token (the same one the API accepts).
+# PowerSync checks the RS256 signature against the tenant's JWKS and the
+# audience against the API identifier; `sub` becomes auth.user_id().
+client_auth:
+  jwks_uri: !env PS_AUTH0_JWKS_URI
+  audience:
+    - !env PS_AUTH0_AUDIENCE
+
+system:
+  logging:
+    level: info
+    format: json
+
+telemetry:
+  disable_telemetry_sharing: true

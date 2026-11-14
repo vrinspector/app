@@ -31,6 +31,12 @@ services:
     ports:
       - "8080:8080"
 
+  # Increment 18 (profile "offline"): the sync endpoint the frontend's
+  # VITE_POWERSYNC_URL points at in local development.
+  powersync:
+    ports:
+      - "8095:8080"
+
   backend:
     ports:
       - "8000:8000"

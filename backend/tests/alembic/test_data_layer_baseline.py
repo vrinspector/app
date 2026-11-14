@@ -10,7 +10,7 @@ from collections.abc import Iterator
 import pytest
 from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import create_engine, inspect, make_url, text
 
 from app.core.config import settings
 from app.models import DOMAIN_TABLES, LEGACY_TABLES, SQLModel
@@ -25,7 +25,9 @@ BASELINE_REVISION = "b7d3e9a1c204"
 # The revision before the baseline: downgrading to it removes every domain table.
 PRE_BASELINE_REVISION = "3f1c2d9a8b70"
 # Head of the chain (later increments add tables on top of the baseline).
-HEAD_REVISION = "b7d4e1f9a206"
+HEAD_REVISION = "a1f6c3d9e715"
+# The public ITP generator revision (increment 17), just below head.
+PUBLIC_ITP_REVISION = "b7d4e1f9a206"
 # The AI report drafting + ITP import revision (increment 16), just below head.
 AI_REPORT_IMPORT_REVISION = "a5e2c8f4d913"
 # The AI capture revision (increment 15), just below head.
@@ -315,9 +317,7 @@ def test_email_log_migration_is_additive_and_guarded(legacy_db: str) -> None:
             )
             # Unknown statuses are refused by the check constraint.
             try:
-                conn.exec_driver_sql(
-                    "UPDATE email_send_log SET status = 'bounced'"
-                )
+                conn.exec_driver_sql("UPDATE email_send_log SET status = 'bounced'")
             except Exception as exc:  # noqa: BLE001
                 assert "ck_email_send_log_status" in str(exc)
             else:  # pragma: no cover
@@ -399,8 +399,7 @@ def test_line_evidence_migration_renames_and_guards(legacy_db: str) -> None:
     assert _columns(legacy_db, "photos")["inspection_id"]["nullable"] is True
     assert _columns(legacy_db, "itp_items")["photo_required"]["nullable"] is False
     assert (
-        _scalar(legacy_db, "SELECT count(*) FROM itp_items WHERE photo_required")
-        == 0
+        _scalar(legacy_db, "SELECT count(*) FROM itp_items WHERE photo_required") == 0
     )
 
     engine = create_engine(legacy_db, isolation_level="AUTOCOMMIT")
@@ -472,7 +471,9 @@ def test_doc_number_migration_numbers_and_guards(legacy_db: str) -> None:
         == "A1,B2,C1"
     )
     assert _columns(legacy_db, "projects")["code"]["nullable"] is True
-    assert _scalar(legacy_db, "SELECT count(*) FROM projects WHERE code IS NOT NULL") == 0
+    assert (
+        _scalar(legacy_db, "SELECT count(*) FROM projects WHERE code IS NOT NULL") == 0
+    )
     # Re-running is a no-op (idempotent upgrade keeps the numbers).
     assert run_alembic(legacy_db, "downgrade", LINE_EVIDENCE_REVISION).returncode == 0
     assert run_alembic(legacy_db, "upgrade", DOC_NUMBER_REVISION).returncode == 0
@@ -564,7 +565,9 @@ def test_release_result_migration_is_additive_and_guarded(legacy_db: str) -> Non
             conn.exec_driver_sql(
                 "UPDATE itp_items SET result_scale = NULL, conditions = 'Clean joint'"
             )
-            assert run_alembic(legacy_db, "downgrade", DOC_NUMBER_REVISION).returncode != 0
+            assert (
+                run_alembic(legacy_db, "downgrade", DOC_NUMBER_REVISION).returncode != 0
+            )
             conn.exec_driver_sql("UPDATE itp_items SET conditions = NULL")
     finally:
         engine.dispose()
@@ -640,12 +643,14 @@ def test_drawing_revision_migration_is_additive_and_guarded(legacy_db: str) -> N
     assert pins["carried_from_pin_id"]["nullable"] is True
     # Every legacy drawing is a one-revision series of its own, still current.
     assert _scalar(legacy_db, "SELECT count(*) FROM drawings WHERE series_id = id") == 1
-    assert _scalar(
-        legacy_db, "SELECT count(*) FROM drawings WHERE superseded_at IS NULL"
-    ) == 1
-    assert _scalar(
-        legacy_db, "SELECT count(*) FROM inspection_pins WHERE position_check"
-    ) == 0
+    assert (
+        _scalar(legacy_db, "SELECT count(*) FROM drawings WHERE superseded_at IS NULL")
+        == 1
+    )
+    assert (
+        _scalar(legacy_db, "SELECT count(*) FROM inspection_pins WHERE position_check")
+        == 0
+    )
 
     engine = create_engine(legacy_db, isolation_level="AUTOCOMMIT")
     try:
@@ -668,7 +673,9 @@ def test_drawing_revision_migration_is_additive_and_guarded(legacy_db: str) -> N
     engine = create_engine(legacy_db, isolation_level="AUTOCOMMIT")
     try:
         with engine.connect() as conn:
-            conn.exec_driver_sql("UPDATE drawings SET superseded_at = now() WHERE id = 1")
+            conn.exec_driver_sql(
+                "UPDATE drawings SET superseded_at = now() WHERE id = 1"
+            )
             conn.exec_driver_sql(
                 """INSERT INTO drawings (project_id, title, filename, s3_key,
                                         file_type, series_id, revision)
@@ -703,7 +710,10 @@ def test_ai_capture_migration_is_additive_and_guarded(legacy_db: str) -> None:
     for column in ("category", "defect_tags", "severity", "ai_suggestion_id"):
         assert photos[column]["nullable"] is True
     # Legacy rows untouched.
-    assert _scalar(legacy_db, "SELECT count(*) FROM findings WHERE discipline IS NULL") == 1
+    assert (
+        _scalar(legacy_db, "SELECT count(*) FROM findings WHERE discipline IS NULL")
+        == 1
+    )
     assert _scalar(legacy_db, "SELECT count(*) FROM photos WHERE category IS NULL") == 1
 
     engine = create_engine(legacy_db, isolation_level="AUTOCOMMIT")
@@ -855,7 +865,9 @@ def test_public_itp_generator_migration_is_additive_and_guarded(
             conn.exec_driver_sql("DELETE FROM public_itp_generations")
     finally:
         engine.dispose()
-    assert run_alembic(legacy_db, "downgrade", AI_REPORT_IMPORT_REVISION).returncode == 0
+    assert (
+        run_alembic(legacy_db, "downgrade", AI_REPORT_IMPORT_REVISION).returncode == 0
+    )
     assert (
         _scalar(
             legacy_db,
@@ -867,3 +879,93 @@ def test_public_itp_generator_migration_is_additive_and_guarded(
     # Idempotent and repeatable.
     assert run_alembic(legacy_db, "upgrade", "head").returncode == 0
     assert _material_diffs(legacy_db) == []
+
+
+def _publication_tables(url: str) -> set[str]:
+    engine = create_engine(url)
+    try:
+        with engine.connect() as conn:
+            rows = conn.execute(
+                text(
+                    "SELECT tablename FROM pg_publication_tables "
+                    "WHERE pubname = 'powersync'"
+                )
+            )
+            return {row[0] for row in rows}
+    finally:
+        engine.dispose()
+
+
+def test_powersync_publication_migration(legacy_db: str) -> None:
+    """Increment 18: the publication PowerSync replicates from; no data change."""
+    before = _scalar(legacy_db, "SELECT count(*) FROM findings")
+    assert run_alembic(legacy_db, "upgrade", "head").returncode == 0
+    tables = _publication_tables(legacy_db)
+    assert {"projects", "project_members", "findings", "itp_items"} <= tables
+    assert "external_sign_tokens" not in tables
+    assert "ai_suggestions" not in tables
+    assert len(tables) == 11
+    assert _scalar(legacy_db, "SELECT count(*) FROM findings") == before
+    # A publication left behind with another table list is reset, not doubled.
+    engine = create_engine(legacy_db, isolation_level="AUTOCOMMIT")
+    try:
+        with engine.connect() as conn:
+            conn.exec_driver_sql("ALTER PUBLICATION powersync SET TABLE projects")
+    finally:
+        engine.dispose()
+    assert run_alembic(legacy_db, "downgrade", PUBLIC_ITP_REVISION).returncode == 0
+    assert _publication_tables(legacy_db) == set()
+    assert (
+        _scalar(
+            legacy_db, "SELECT count(*) FROM pg_publication WHERE pubname = 'powersync'"
+        )
+        == 0
+    )
+    engine = create_engine(legacy_db, isolation_level="AUTOCOMMIT")
+    try:
+        with engine.connect() as conn:
+            conn.exec_driver_sql("CREATE PUBLICATION powersync FOR TABLE projects")
+    finally:
+        engine.dispose()
+    assert run_alembic(legacy_db, "upgrade", "head").returncode == 0
+    assert _publication_tables(legacy_db) == tables
+    assert _material_diffs(legacy_db) == []
+
+
+def test_powersync_publication_without_privilege_warns(legacy_db: str) -> None:
+    """A role that may not create publications still migrates (warning only)."""
+    assert run_alembic(legacy_db, "upgrade", PUBLIC_ITP_REVISION).returncode == 0
+    role = f"vri_nopub_{os.getpid()}"
+    db_name = legacy_db.rsplit("/", 1)[1]
+    engine = create_engine(legacy_db, isolation_level="AUTOCOMMIT")
+    try:
+        with engine.connect() as conn:
+            conn.exec_driver_sql(f"DROP ROLE IF EXISTS {role}")
+            conn.exec_driver_sql(f"CREATE ROLE {role} LOGIN PASSWORD 'placeholder'")
+            conn.exec_driver_sql(f"GRANT CONNECT ON DATABASE {db_name} TO {role}")
+            conn.exec_driver_sql(f"REVOKE CREATE ON DATABASE {db_name} FROM PUBLIC")
+            conn.exec_driver_sql(f"GRANT ALL ON SCHEMA public TO {role}")
+            conn.exec_driver_sql(f"GRANT ALL ON ALL TABLES IN SCHEMA public TO {role}")
+        url = make_url(legacy_db).set(username=role, password="placeholder")
+        result = run_alembic(
+            url.render_as_string(hide_password=False), "upgrade", "head"
+        )
+        assert result.returncode == 0, result.stderr
+        assert "Publication powersync not created" in result.stderr + result.stdout
+        assert _publication_tables(legacy_db) == set()
+        assert _scalar(legacy_db, "SELECT version_num FROM alembic_version") == (
+            HEAD_REVISION
+        )
+    finally:
+        with engine.connect() as conn:
+            conn.exec_driver_sql(f"REASSIGN OWNED BY {role} TO CURRENT_USER")
+            conn.exec_driver_sql(f"DROP OWNED BY {role}")
+        engine.dispose()
+        cleanup = create_engine(
+            str(settings.DATABASE_URL), isolation_level="AUTOCOMMIT"
+        )
+        try:
+            with cleanup.connect() as conn:
+                conn.exec_driver_sql(f"DROP ROLE IF EXISTS {role}")
+        finally:
+            cleanup.dispose()

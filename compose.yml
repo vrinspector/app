@@ -19,6 +19,9 @@ services:
 
   db:
     image: postgres:18
+    # Increment 18: PowerSync reads changes through logical replication.
+    # Harmless for everything else (the API and tests do not notice).
+    command: ["postgres", "-c", "wal_level=logical"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d app"]
       interval: 10s
@@ -91,6 +94,7 @@ services:
         - VITE_AUTH0_DOMAIN=${VITE_AUTH0_DOMAIN:-}
         - VITE_AUTH0_CLIENT_ID=${VITE_AUTH0_CLIENT_ID:-}
         - VITE_AUTH0_AUDIENCE=${VITE_AUTH0_AUDIENCE:-}
+        - VITE_POWERSYNC_URL=${VITE_POWERSYNC_URL:-}
     labels:
       # Enable Traefik for this service
       - traefik.enable=true
@@ -101,6 +105,57 @@ services:
       # Route HTTP traffic for this domain
       - traefik.http.routers.backend-http.rule=Host(`${DOMAIN:-localhost}`)
       - traefik.http.routers.backend-http.entrypoints=http
+
+  # Increment 18: offline sync. Off by default; start it with
+  #   docker compose --profile offline up -d
+  # Local development only: the staging / production service is set up by the
+  # owner at RG-3 (REBUILD_PLAN.md rules 5 and 9). Config: powersync/.
+  powersync-storage-init:
+    image: postgres:18
+    profiles: ["offline"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Variable not set}
+    # Bucket storage lives in its own database, never in the app database.
+    entrypoint:
+      - sh
+      - -c
+      - >-
+        psql -h db -U postgres -d app -tAc
+        "SELECT 1 FROM pg_database WHERE datname = 'powersync_storage'" | grep -q 1
+        || psql -h db -U postgres -d app -c "CREATE DATABASE powersync_storage"
+    restart: "no"
+
+  powersync:
+    image: journeyapps/powersync-service:1.27.2
+    profiles: ["offline"]
+    command: ["start", "-r", "unified"]
+    depends_on:
+      db:
+        condition: service_healthy
+      powersync-storage-init:
+        condition: service_completed_successfully
+    # The publication PowerSync reads is created by the API's migrations
+    # (`alembic upgrade head`, see development.md); until it exists the
+    # service logs the error and retries.
+    volumes:
+      - ./powersync:/config:ro
+    environment:
+      POWERSYNC_CONFIG_PATH: /config/service.yaml
+      PS_DATA_SOURCE_URI: postgresql://postgres:${POSTGRES_PASSWORD:?Variable not set}@db:5432/app
+      PS_DATA_SOURCE_SSLMODE: disable
+      PS_STORAGE_URI: postgresql://postgres:${POSTGRES_PASSWORD:?Variable not set}@db:5432/powersync_storage
+      PS_STORAGE_SSLMODE: disable
+      PS_PORT: "8080"
+      PS_AUTH0_JWKS_URI: https://${AUTH0_DOMAIN:?Variable not set}/.well-known/jwks.json
+      PS_AUTH0_AUDIENCE: ${AUTH0_API_AUDIENCE:?Variable not set}
+    labels:
+      - traefik.enable=true
+      - traefik.http.services.powersync.loadbalancer.server.port=8080
+      - traefik.http.routers.powersync-http.rule=Host(`sync.${DOMAIN:-localhost}`)
+      - traefik.http.routers.powersync-http.entrypoints=http
 
 volumes:
   app-db-data:

@@ -1,0 +1,116 @@
+# VR Inspector offline sync — PowerSync Sync Streams (rebuild increment 18).
+#
+# Which rows each signed-in person's phone keeps a local copy of. Nothing here
+# runs against the database: the PowerSync service evaluates these queries on
+# the replicated change stream and on the Auth0 access token of the request.
+#
+# Rule: a person gets every synced row of every project they are a member of,
+# and nothing else. Membership is `project_members.user_sub`, the Auth0 `sub`
+# the API anchors on a member's first signed-in request (increment 04), so the
+# same membership the API enforces decides what syncs (auth.user_id() is the
+# token's `sub`). Writes never go through PowerSync: the app's upload queue
+# replays them against the existing /api/v1/ endpoints, which keep every
+# authorization check (frontend/src/lib/sync/upload.ts).
+#
+# Ids: the database keeps INTEGER primary keys (Hard Rule). The client's local
+# SQLite needs a text `id`, so every id and foreign key is cast to text here;
+# rows written offline carry a temporary `local-…` id until the API assigns
+# the real one.
+#
+# Left out on purpose: presigned / cached URLs (drawings.view_url,
+# thumbnail_url), Auth0 subs, AI prompt logs, signing tokens, email logs,
+# signatures and sign packs, templates (account-level masters).
+#
+# Validated in CI against @powersync/service-sync-rules (the version the
+# pinned service image ships): see powersync/validate.test.ts.
+
+config:
+  edition: 3
+
+with:
+  my_projects: SELECT project_id FROM project_members WHERE user_sub = auth.user_id()
+
+streams:
+  field_data:
+    auto_subscribe: true
+    queries:
+      - >-
+        SELECT CAST(id AS TEXT) AS id, CAST(public_id AS TEXT) AS public_id, name,
+        client, location, status, code, created_by, created_at, updated_at
+        FROM projects WHERE id IN my_projects
+      - >-
+        SELECT CAST(id AS TEXT) AS id, CAST(project_id AS TEXT) AS project_id,
+        user_email, role, created_at
+        FROM project_members WHERE project_id IN my_projects
+      - >-
+        SELECT CAST(id AS TEXT) AS id, CAST(public_id AS TEXT) AS public_id,
+        CAST(project_id AS TEXT) AS project_id, title, inspection_type, inspector,
+        notes, status, inspection_status, signed_off_by, signed_off_at,
+        created_at, updated_at
+        FROM inspections WHERE project_id IN my_projects
+      - >-
+        SELECT CAST(id AS TEXT) AS id, CAST(public_id AS TEXT) AS public_id,
+        CAST(inspection_id AS TEXT) AS inspection_id, title, description,
+        priority, location_ref, status, resolved_by, resolved_at,
+        resolution_notes, discipline, created_at, updated_at
+        FROM findings
+        WHERE inspection_id IN (SELECT id FROM inspections WHERE project_id IN my_projects)
+      - >-
+        SELECT CAST(id AS TEXT) AS id, CAST(public_id AS TEXT) AS public_id,
+        CAST(inspection_id AS TEXT) AS inspection_id,
+        CAST(itp_item_id AS TEXT) AS itp_item_id,
+        CAST(finding_id AS TEXT) AS finding_id, s3_key, filename, content_type,
+        uploaded_by, shot_slot, captured_at, category, defect_tags, severity,
+        created_at
+        FROM photos
+        WHERE inspection_id IN (SELECT id FROM inspections WHERE project_id IN my_projects)
+      - >-
+        SELECT CAST(id AS TEXT) AS id, CAST(public_id AS TEXT) AS public_id,
+        CAST(inspection_id AS TEXT) AS inspection_id,
+        CAST(itp_item_id AS TEXT) AS itp_item_id,
+        CAST(finding_id AS TEXT) AS finding_id, s3_key, filename, content_type,
+        uploaded_by, shot_slot, captured_at, category, defect_tags, severity,
+        created_at
+        FROM photos
+        WHERE itp_item_id IN (SELECT id FROM itp_items WHERE project_itp_id IN
+          (SELECT id FROM project_itps WHERE project_id IN my_projects))
+      - >-
+        SELECT CAST(id AS TEXT) AS id, CAST(public_id AS TEXT) AS public_id,
+        CAST(project_id AS TEXT) AS project_id, title, drawing_number, discipline,
+        filename, s3_key, file_type, file_size, page_width_pts, page_height_pts,
+        CAST(series_id AS TEXT) AS series_id, revision, superseded_at,
+        uploaded_by, created_at, updated_at
+        FROM drawings WHERE project_id IN my_projects
+      - >-
+        SELECT CAST(id AS TEXT) AS id, CAST(public_id AS TEXT) AS public_id,
+        CAST(drawing_id AS TEXT) AS drawing_id, CAST(finding_id AS TEXT) AS finding_id,
+        CAST(itp_item_id AS TEXT) AS itp_item_id, tag_number, label, x_pct, y_pct,
+        status, notes, page_number, position_check,
+        CAST(carried_from_pin_id AS TEXT) AS carried_from_pin_id,
+        created_by, created_at
+        FROM inspection_pins
+        WHERE drawing_id IN (SELECT id FROM drawings WHERE project_id IN my_projects)
+      - >-
+        SELECT CAST(id AS TEXT) AS id, CAST(public_id AS TEXT) AS public_id,
+        CAST(project_id AS TEXT) AS project_id,
+        CAST(parent_area_id AS TEXT) AS parent_area_id, name, area_type,
+        sort_order, created_at, updated_at
+        FROM project_areas WHERE project_id IN my_projects
+      - >-
+        SELECT CAST(id AS TEXT) AS id, CAST(public_id AS TEXT) AS public_id,
+        CAST(project_id AS TEXT) AS project_id, CAST(area_id AS TEXT) AS area_id,
+        template_version, seq, title, status, body, created_at, updated_at
+        FROM project_itps WHERE project_id IN my_projects
+      - >-
+        SELECT CAST(id AS TEXT) AS id, CAST(public_id AS TEXT) AS public_id,
+        CAST(project_itp_id AS TEXT) AS project_itp_id, section, element_name,
+        requirement, classification, status, notes, sort_order,
+        acceptance_criteria, reference_doc, record_required, photo_required,
+        photo_set, result_scale, approved_label, conditions, value_type,
+        value_unit, value_min, value_max, measured_value, created_at, updated_at
+        FROM itp_items
+        WHERE project_itp_id IN (SELECT id FROM project_itps WHERE project_id IN my_projects)
+      - >-
+        SELECT CAST(id AS TEXT) AS id, CAST(project_id AS TEXT) AS project_id,
+        role_name, party, signer_email, created_at
+        FROM signoff_roles WHERE project_id IN my_projects
