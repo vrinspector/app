@@ -6,10 +6,11 @@
  * server's INTEGER ids arrive as text, and rows written offline carry a
  * temporary `local-…` id until the API assigns the real one.
  *
- * Two local-only tables (never synced) support the upload queue:
+ * Local-only tables (never synced) support the upload queue:
  * `local_id_map` remembers which server id each `local-…` id became, and
  * `upload_rejections` keeps every change the API refused, so increment 19 can
- * show it in the conflict audit trail instead of losing it silently.
+ * show it in the conflict audit trail instead of losing it silently, and
+ * `sync_audit` (increment 19) is that trail.
  */
 import { column, Schema, Table } from "@powersync/common"
 
@@ -189,6 +190,43 @@ export const LOCAL_ONLY_COLUMNS: Record<string, Record<string, ColumnKind>> = {
     payload: "text",
     created_at: "text",
   },
+  /**
+   * Increment 19: the sync history — one line per uploaded change: applied,
+   * overwrote a newer server version (last write wins; `replaced` keeps the
+   * server's values), or refused (the API's reason).
+   */
+  sync_audit: {
+    table_name: "text",
+    op: "text",
+    row_id: "text",
+    outcome: "text",
+    http_status: "integer",
+    detail: "text",
+    action: "text",
+    payload: "text",
+    replaced: "text",
+    queued_at: "text",
+    created_at: "text",
+  },
+}
+
+/**
+ * Increment 19: tables the device can write offline record when and what each
+ * write was (`_metadata`, see localWrites.ts); findings and inspections also
+ * keep the `updated_at` the change was made against, for the last-write-wins
+ * check in upload.ts.
+ */
+const WRITE_OPTIONS: Record<
+  string,
+  { trackMetadata: true; trackPrevious?: { columns: string[] } }
+> = {
+  inspections: {
+    trackMetadata: true,
+    trackPrevious: { columns: ["updated_at"] },
+  },
+  findings: { trackMetadata: true, trackPrevious: { columns: ["updated_at"] } },
+  inspection_pins: { trackMetadata: true },
+  itp_items: { trackMetadata: true },
 }
 
 /** Indexes on the foreign keys the screens filter by. */
@@ -208,6 +246,7 @@ const INDEXES: Record<string, Record<string, string[]>> = {
   itp_items: { itp: ["project_itp_id"] },
   signoff_roles: { project: ["project_id"] },
   local_id_map: { local: ["table_name", "local_id"] },
+  sync_audit: { when: ["created_at"] },
 }
 
 function columnsOf(spec: Record<string, ColumnKind>) {
@@ -219,7 +258,10 @@ function columnsOf(spec: Record<string, ColumnKind>) {
 export function buildSchema(): Schema {
   const tables: Record<string, Table> = {}
   for (const [name, spec] of Object.entries(SYNCED_COLUMNS)) {
-    tables[name] = new Table(columnsOf(spec), { indexes: INDEXES[name] })
+    tables[name] = new Table(columnsOf(spec), {
+      indexes: INDEXES[name],
+      ...WRITE_OPTIONS[name],
+    })
   }
   for (const [name, spec] of Object.entries(LOCAL_ONLY_COLUMNS)) {
     tables[name] = new Table(columnsOf(spec), {

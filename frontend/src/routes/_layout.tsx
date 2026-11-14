@@ -8,9 +8,9 @@ import {
   useRouterState,
 } from "@tanstack/react-router"
 import { CircleHelp, SearchX } from "lucide-react"
-
 import { Footer } from "@/components/Common/Footer"
 import { EmptyState, ErrorState } from "@/components/Common/States"
+import { SyncIndicator } from "@/components/Common/SyncIndicator"
 import AppSidebar from "@/components/Sidebar/AppSidebar"
 import { Button } from "@/components/ui/button"
 import {
@@ -73,6 +73,7 @@ function Layout() {
             {section?.title ?? "VR Inspector"}
           </span>
           <div className="ml-auto flex items-center gap-1">
+            <SyncIndicator />
             {section?.path !== "/help" ? (
               <Button
                 asChild

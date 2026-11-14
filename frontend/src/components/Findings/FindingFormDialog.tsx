@@ -36,6 +36,12 @@ import useCustomToast from "@/hooks/useCustomToast"
 import { useDictation } from "@/hooks/useDictation"
 import type { FindingDraftSeed } from "@/lib/ai"
 import { inspectionKeys } from "@/lib/queries"
+import { useSync } from "@/lib/sync/context"
+import {
+  saveFindingOffline,
+  updateFindingOffline,
+} from "@/lib/sync/localWrites"
+import { localFinding } from "@/lib/sync/merge"
 import { cn } from "@/lib/utils"
 import {
   DRAWING_DISCIPLINE_OPTIONS,
@@ -126,6 +132,9 @@ export function FindingFormDialog({
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
   const editing = finding !== undefined
+  // Increment 19: no connection and offline sync on → save on the device.
+  const { db, saveLocally } = useSync()
+  const offlineDb = saveLocally ? db : null
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -181,6 +190,8 @@ export function FindingFormDialog({
   }, [open, dictation.stop])
 
   const mutation = useMutation({
+    // Offline saves go to the device, so they must not wait for a connection.
+    networkMode: offlineDb ? "always" : "online",
     mutationFn: async (values: FormValues) => {
       const fields = {
         title: values.title.trim(),
@@ -192,6 +203,27 @@ export function FindingFormDialog({
         ...(values.discipline !== (editing ? (finding.discipline ?? "") : "")
           ? { discipline: values.discipline || null }
           : {}),
+      }
+      if (offlineDb) {
+        const status =
+          (voice.suggestion?.draft?.status as string | undefined) ?? "open"
+        if (editing) {
+          await updateFindingOffline(offlineDb, finding.id, fields)
+          return { ...finding, ...fields, savedOffline: true }
+        }
+        const id = await saveFindingOffline(offlineDb, inspectionId, {
+          ...fields,
+          status,
+        })
+        return {
+          ...localFinding({
+            id,
+            inspection_id: inspectionId,
+            ...fields,
+            status,
+          }),
+          savedOffline: true,
+        }
       }
       if (editing) {
         const response = await FindingsService.updateFinding({
@@ -217,8 +249,14 @@ export function FindingFormDialog({
       })
       return response.data as FindingPublic
     },
-    onSuccess: (saved) => {
-      showSuccessToast(editing ? "Finding updated" : "Finding logged")
+    onSuccess: (saved: FindingPublic & { savedOffline?: boolean }) => {
+      showSuccessToast(
+        saved.savedOffline
+          ? "Saved on this device — it uploads when you are back online"
+          : editing
+            ? "Finding updated"
+            : "Finding logged",
+      )
       queryClient.invalidateQueries({
         queryKey: inspectionKeys.findings(inspectionId),
       })

@@ -1357,3 +1357,49 @@ mapped, the refused resolve recorded, queue emptied).
 111. **Hosting:** the sync service runs beside the API on the Lightsail box
     (one more container) and needs logical replication switched on in RDS.
     Both are RG-3 steps for you; nothing is deployed by these sessions.
+
+## Increment 19 — offline UX (PRD v2.63 Block 11)
+
+PRD: "visible unsynced indicators on pins and findings; manual sync trigger;
+last-write-wins with audit trail … Capacitor shell … follows Block 11
+completion." Everything below is inert in builds without `VITE_POWERSYNC_URL`
+except the **Offline** chip, which shows in every build.
+
+| Piece | What |
+|---|---|
+| Sync chip (header, every screen) | `SyncIndicator`: **Offline** / **Offline · N waiting** / **N waiting** / **Syncing…** / **Synced** (icon only on phones), with a red count when the sync history has refused or overwritten lines. Hidden online when offline sync is off |
+| Sync panel (tap the chip) | Waiting count, last synced, connection, **Sync now** (reconnects: uploads what is waiting and fetches the latest; disabled with no connection), and the **Sync history**: every change this device uploaded, newest first — applied, *refused* (brick, with the API's reason; the server's version is shown instead) or *replaced a newer server change* (copper, with the server values it replaced). **Clear** empties the history |
+| Saving offline | With no connection and sync on: **Log finding / Edit finding** write to the device (`saveFindingOffline` / `updateFindingOffline`), **placing** and **moving** a pin likewise (`placePinOffline` / `movePinOffline`). Mutations run with `networkMode: "always"` so they do not sit paused. The pin → finding capture loop does not chain offline (a finding links to a pin the server has numbered). Photos, status changes, resolving, deleting and sign-offs still need a connection |
+| Unsynced markers | Findings: **Not uploaded yet** badge (`data-unsynced`), actions hidden until uploaded. Pins: dashed border + small upload badge, "— not uploaded yet" in the accessible name; tapping one explains it opens once uploaded. Implemented by laying the device's waiting rows over the API's list (`lib/sync/merge.ts`); once the queue empties every query is refetched and the overlay drops away |
+| Last write wins | Before an edit of a finding or inspection is sent, the queue reads the server's row; if its `updated_at` moved on since the device's copy (tracked with PowerSync `trackPrevious`), the edit is still applied but the history keeps the replaced values (`sync_audit.replaced`). Each write carries `_metadata` (`trackMetadata`) with when it was made and a one-line description for the history |
+| Sign-out | If changes are waiting: "Changes not uploaded yet — signing out deletes them" with **Sign out anyway** |
+| Help | New "Without signal" section |
+| Capacitor | Evaluated, not added: `docs/CAPACITOR_EVALUATION.md` |
+
+Tests: 39 new Vitest tests — `lib/sync/audit-upload.test.ts` (history
+records, last-write-wins check incl. retries and timestamp formats),
+`lib/sync/offline-helpers.test.ts` (status wording, overlay, local writes,
+history entries), `src/test/offline.test.tsx` (chip, panel, Sync now,
+markers, offline finding create/edit and pin placement through the real
+dialogs with the API mocked).
+
+### Decisions for the owner (increment 19)
+
+112. **The conflict history lives on the device that made the change.** It
+    is enough for the inspector to see what happened; it is not yet a
+    company-wide record. If project owners should see overwritten/refused
+    offline changes too, a small server-side log is the follow-up.
+113. **Offline edits are limited to findings and pins** (create, edit,
+    place, move). Status changes, resolving, deleting, photos and every
+    sign-off need a connection. ITP line results can be queued by the sync
+    layer (increment 18) but the ITP screen still saves online; say if
+    offline ITP recording is wanted on site.
+114. **A finding or pin saved offline cannot be changed again until it has
+    uploaded** — this avoids stacking edits on a record the server has not
+    seen yet.
+115. **Reloading the app with no signal does not work yet** (no installable
+    PWA / service worker). Inspectors should open the project before going
+    out of signal and keep the app open. An installable PWA is recommended
+    as an RG-3 step before any Capacitor work.
+116. **Capacitor: not yet** — PWA first, Capacitor shell when a store
+    listing is needed and after RG-3 (`docs/CAPACITOR_EVALUATION.md`).

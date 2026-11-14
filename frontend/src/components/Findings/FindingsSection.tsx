@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { ClipboardCheck, Plus } from "lucide-react"
+import { ClipboardCheck, CloudOff, Plus } from "lucide-react"
 import { useMemo, useState } from "react"
 
 import { type FindingPublic, FindingsService, type PhotoPublic } from "@/client"
@@ -12,6 +12,8 @@ import { NativeSelect } from "@/components/ui/native-select"
 import useCustomToast from "@/hooks/useCustomToast"
 import { matchesFilter } from "@/lib/format"
 import { findingsQuery, inspectionKeys, photosQuery } from "@/lib/queries"
+import { useLocalRows, useSync } from "@/lib/sync/context"
+import { localFinding, overlayPending } from "@/lib/sync/merge"
 import { FINDING_STATUS_OPTIONS } from "@/lib/vocab"
 import { extractErrorMessage } from "@/utils"
 import { FindingCard } from "./FindingCard"
@@ -28,6 +30,10 @@ import { ResolveFindingDialog } from "./ResolveFindingDialog"
  * Increment 11a: "Pin on drawing" opens a drawing with this inspection
  * pre-selected for the capture loop, and each card shows the photos filed
  * under its finding (`photos.finding_id`).
+ *
+ * Increment 19 (offline): findings saved on this device and not uploaded yet
+ * are laid over the API's list and marked "Not uploaded yet"; their actions
+ * wait until the upload has gone through.
  */
 
 interface FindingsSectionProps {
@@ -48,7 +54,31 @@ export function FindingsSection({
   logging,
   onLoggingChange,
 }: FindingsSectionProps) {
-  const query = useQuery(findingsQuery(inspectionId))
+  const apiQuery = useQuery(findingsQuery(inspectionId))
+  const { snapshot, saveLocally } = useSync()
+  const localRows = useLocalRows("findings", inspectionId)
+  const merged = useMemo(
+    () =>
+      overlayPending(
+        apiQuery.data ?? [],
+        localRows,
+        snapshot.pendingKeys,
+        "findings",
+        localFinding,
+      ),
+    [apiQuery.data, localRows, snapshot.pendingKeys],
+  )
+  // Only differs from the API's answer while something is waiting to upload.
+  const query =
+    merged.unsynced.size > 0
+      ? {
+          isPending: false,
+          isError: false,
+          error: apiQuery.error,
+          data: merged.rows,
+          refetch: apiQuery.refetch,
+        }
+      : apiQuery
   const photos = useQuery(photosQuery(inspectionId))
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
@@ -100,6 +130,16 @@ export function FindingsSection({
 
   return (
     <section aria-labelledby="findings-heading" className="flex flex-col gap-3">
+      {saveLocally && !readOnly ? (
+        <p
+          className="flex items-center gap-2 rounded-md bg-status-neutral-bg px-3 py-2 text-sm text-status-neutral-fg"
+          data-testid="findings-offline-note"
+        >
+          <CloudOff className="size-4 shrink-0" aria-hidden="true" />
+          No connection: findings you log or edit are saved on this device and
+          upload when you are back online. Photos need a connection.
+        </p>
+      ) : null}
       <QueryState
         query={query}
         errorTitle="Couldn't load the findings"
@@ -134,6 +174,7 @@ export function FindingsSection({
             readOnly={readOnly}
             logButton={logButton}
             photosByFinding={photosByFinding}
+            unsynced={merged.unsynced}
             onResolve={setResolving}
             onEdit={setEditing}
             onDelete={setDeleting}
@@ -191,6 +232,8 @@ interface FindingListProps {
   readOnly: boolean
   logButton: React.ReactNode
   photosByFinding: Map<number, PhotoPublic[]>
+  /** Increment 19: findings with a change saved on this device only. */
+  unsynced: ReadonlySet<number>
   onResolve: (finding: FindingPublic) => void
   onEdit: (finding: FindingPublic) => void
   onDelete: (finding: FindingPublic) => void
@@ -205,6 +248,7 @@ function FindingList({
   readOnly,
   logButton,
   photosByFinding,
+  unsynced,
   onResolve,
   onEdit,
   onDelete,
@@ -296,7 +340,8 @@ function FindingList({
               key={finding.id}
               finding={finding}
               photos={photosByFinding.get(finding.id)}
-              readOnly={readOnly}
+              readOnly={readOnly || unsynced.has(finding.id)}
+              unsynced={unsynced.has(finding.id)}
               onResolve={onResolve}
               onEdit={onEdit}
               onDelete={onDelete}
