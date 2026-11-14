@@ -19,6 +19,9 @@ import {
 } from "@/lib/capture"
 import type { PointPercent } from "@/lib/drawings"
 import { drawingKeys } from "@/lib/queries"
+import { useSync } from "@/lib/sync/context"
+import { placePinOffline } from "@/lib/sync/localWrites"
+import { localPin } from "@/lib/sync/merge"
 import { PIN_STATUS_OPTIONS, type PinStatus } from "@/lib/vocab"
 import { extractErrorMessage } from "@/utils"
 
@@ -33,6 +36,10 @@ import { extractErrorMessage } from "@/utils"
  * ("Then log a finding with a photo", on by default and remembered on this
  * device), which is the PRD's drawing-tap → finding capture loop. Unticked,
  * the pin is placed on its own as before.
+ *
+ * Increment 19: with no connection (and offline sync on) the pin is saved on
+ * the device and uploads later; the finding form is not opened then, because
+ * a finding is linked to a pin the server has numbered.
  */
 
 interface PinStatusDialogProps {
@@ -61,12 +68,32 @@ export function PinStatusDialog({
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
   const [logFindingPreferred, setLogFinding] = useState(pinThenFindingPreferred)
-  const logFinding = itpItem === null && logFindingPreferred
+  const { db, saveLocally } = useSync()
+  const offlineDb = saveLocally ? db : null
+  const logFinding = itpItem === null && logFindingPreferred && !offlineDb
   const switchId = useId()
 
   const mutation = useMutation({
+    networkMode: offlineDb ? "always" : "online",
     mutationFn: async (status: PinStatus) => {
       if (!point) throw new Error("No point selected.")
+      if (offlineDb) {
+        const placement = {
+          x_pct: point.x_pct,
+          y_pct: point.y_pct,
+          status,
+          page_number: pageNumber,
+          itp_item_id: itpItem ? itpItem.id : null,
+        }
+        const label =
+          PIN_STATUS_OPTIONS.find((option) => option.value === status)?.label ??
+          status
+        const id = await placePinOffline(offlineDb, drawingId, {
+          ...placement,
+          description: `Placed a “${label}” pin${isPdf ? ` on page ${pageNumber}` : ""}`,
+        })
+        return localPin({ id, drawing_id: drawingId, ...placement })
+      }
       const response = await DrawingsService.createPin({
         path: { drawing_id: drawingId },
         body: {
@@ -80,6 +107,15 @@ export function PinStatusDialog({
       return response.data as PinPublic
     },
     onSuccess: (pin) => {
+      if (offlineDb) {
+        // The device's copy shows it (marked "not uploaded yet").
+        showSuccessToast(
+          "Pin saved on this device — it uploads when you are back online",
+        )
+        onClose()
+        onPlaced?.(pin, { logFinding: false })
+        return
+      }
       queryClient.setQueryData<PinPublic[]>(drawingKeys.pins(drawingId), (c) =>
         c ? [...c, pin] : [pin],
       )

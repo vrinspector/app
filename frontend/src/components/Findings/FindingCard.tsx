@@ -3,6 +3,7 @@ import {
   Camera,
   CheckCircle2,
   ChevronDown,
+  CloudUpload,
   MapPin,
   MoreHorizontal,
   Pencil,
@@ -54,6 +55,9 @@ import { extractErrorMessage } from "@/utils"
  * Increment 11a: photos filed under the finding (`photos.finding_id`, taken
  * in the capture loop) show as a thumbnail strip and open in the viewer.
  *
+ * Increment 19: a finding saved on this device and not uploaded yet carries a
+ * "Not uploaded yet" badge and no actions until the upload has gone through.
+ *
  * Increment 15: the discipline shows beside the location, an "AI-assisted"
  * mark when the finding was confirmed from an AI draft, and the expanded card
  * says how it was drafted (model, prompt version, who confirmed, edited).
@@ -77,6 +81,11 @@ interface FindingCardProps {
   photos?: PhotoPublic[]
   /** Hide every write action (viewer, or the inspection is signed off). */
   readOnly: boolean
+  /**
+   * Increment 19: a change to this finding is saved on this device only and
+   * has not been uploaded yet.
+   */
+  unsynced?: boolean
   onResolve: (finding: FindingPublic) => void
   onEdit: (finding: FindingPublic) => void
   onDelete: (finding: FindingPublic) => void
@@ -86,6 +95,7 @@ export function FindingCard({
   finding,
   photos = [],
   readOnly,
+  unsynced = false,
   onResolve,
   onEdit,
   onDelete,
@@ -129,6 +139,7 @@ export function FindingCard({
     <li
       data-testid="finding-card"
       data-status={status}
+      data-unsynced={unsynced ? "true" : undefined}
       className={cn(
         "list-none rounded-lg border bg-card p-4",
         inProgress && "border-l-4 border-l-vri-copper",
@@ -210,7 +221,7 @@ export function FindingCard({
               ? ` · updated ${formatDateTime(finding.updated_at)}`
               : ""}
           </p>
-          {finding.ai_suggestion_id ? (
+          {finding.ai_suggestion_id && !unsynced ? (
             <AiProvenance findingId={finding.id} />
           ) : null}
         </div>
@@ -279,6 +290,16 @@ export function FindingCard({
           data-testid="finding-priority"
         />
         <StatusBadge value={status} data-testid="finding-status" />
+        {unsynced ? (
+          <span
+            className="inline-flex items-center gap-1 rounded-full bg-status-attention-bg px-2 py-0.5 text-xs font-medium text-status-attention-fg"
+            title="Saved on this device. It uploads when there is a connection; until then it cannot be changed again."
+            data-testid="finding-unsynced"
+          >
+            <CloudUpload className="size-3.5" aria-hidden="true" />
+            Not uploaded yet
+          </span>
+        ) : null}
         {finding.location_ref ? (
           <span className="inline-flex items-center gap-1 text-xs text-vri-copper">
             <MapPin className="size-3.5" aria-hidden="true" />

@@ -25,8 +25,14 @@
  * names the local id — the row itself or a child's foreign key, e.g. a finding
  * logged under an inspection created offline — is sent with the server id.
  *
- * Outcomes per change:
- *  - 2xx (or 404 on a delete: already gone) → done.
+ * Outcomes per change (increment 19 records each one in the sync history,
+ * `sync_audit`, through `UploadStore.record`):
+ *  - 2xx (or 404 on a delete: already gone) → done ("applied").
+ *  - Last write wins: before an edit of a finding or inspection is sent, the
+ *    queue reads the server's current row. If someone changed it after this
+ *    device's copy was taken (its `updated_at` moved on), the edit is still
+ *    applied — the later change wins — but the history keeps the server's
+ *    values it replaced ("overwrote"), so nothing is lost silently.
  *  - Network failure, 401, 408, 425, 429, 5xx → thrown: PowerSync keeps the
  *    queue and retries later (after refreshing the token on 401).
  *  - Any other 4xx (validation, 403 role, 404 object-hiding, 409 locked) →
@@ -45,10 +51,14 @@ export interface QueuedChange {
   op: UpdateKind
   id: string
   opData?: Record<string, unknown>
+  /** Values before the change (tables with `trackPrevious`, see schema.ts). */
+  previousValues?: Record<string, unknown>
+  /** The write's `_metadata` (localWrites.ts: when, and what it was). */
+  metadata?: string
 }
 
 export interface ApiRequest {
-  method: "POST" | "PUT" | "PATCH" | "DELETE"
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE"
   /** Path under /api/v1 */
   path: string
   body?: Record<string, unknown>
@@ -64,11 +74,26 @@ export interface ApiResponse {
 /** Sends one request; throws only when the request could not be made. */
 export type Transport = (request: ApiRequest) => Promise<ApiResponse>
 
+export type AuditOutcome = "applied" | "overwrote" | "refused"
+
+/** One line of the sync history (increment 19). */
+export interface AuditRecord {
+  change: QueuedChange
+  outcome: AuditOutcome
+  /** The API's status (0 when the queue refused it before sending). */
+  httpStatus: number
+  detail: string
+  /** "overwrote": the server's values this change replaced. */
+  replaced?: Record<string, unknown>
+}
+
 export interface UploadStore {
   /** Server id a `local-…` id became, if its create has gone through. */
   serverIdFor(table: string, localId: string): Promise<string | undefined>
   remember(table: string, localId: string, serverId: string): Promise<void>
   reject(change: QueuedChange, status: number, detail: string): Promise<void>
+  /** Adds a line to the sync history. */
+  record?(entry: AuditRecord): Promise<void>
 }
 
 /** Thrown to make PowerSync keep the queue and try again later. */
@@ -95,6 +120,8 @@ interface TableRules {
   /** Fields a change sends with PUT {path}. */
   update?: { path: (id: string) => string; fields: readonly string[] }
   remove?: (id: string) => string
+  /** GET path of one row, for the last-write-wins check (needs updated_at). */
+  read?: (id: string) => string
 }
 
 const NUMERIC = new Set(["x_pct", "y_pct", "page_number"])
@@ -118,6 +145,7 @@ export const WRITABLE: Record<string, TableRules> = {
       fields: ["title", "inspection_type", "inspector", "notes"],
     },
     remove: (id) => `/inspections/${id}`,
+    read: (id) => `/inspections/${id}`,
   },
   findings: {
     references: { inspection_id: "inspections" },
@@ -144,6 +172,7 @@ export const WRITABLE: Record<string, TableRules> = {
       ],
     },
     remove: (id) => `/findings/${id}`,
+    read: (id) => `/findings/${id}`,
   },
   inspection_pins: {
     references: {
@@ -351,6 +380,85 @@ function detailOf(response: ApiResponse): string {
 }
 
 /**
+ * Epoch milliseconds of a timestamp as the API (`2026-11-14T06:00:00.123456`)
+ * or the sync service (`2026-11-14 06:00:00.123456Z`) writes it; NaN when it
+ * cannot be read.
+ */
+export function timestampMs(value: unknown): number {
+  if (typeof value !== "string" || !value.trim()) return Number.NaN
+  let text = value.trim().replace(" ", "T")
+  text = text.replace(/(\.\d{3})\d+/, "$1")
+  if (!/(Z|[+-]\d{2}:?\d{2})$/i.test(text)) text = `${text}Z`
+  return Date.parse(text)
+}
+
+function sameValue(a: unknown, b: unknown): boolean {
+  if (a === b) return true
+  if ((a === null || a === undefined) && (b === null || b === undefined)) {
+    return true
+  }
+  if (typeof a === "number" || typeof b === "number") {
+    return Number(a) === Number(b)
+  }
+  return false
+}
+
+/**
+ * The server values an edit is about to replace, when the server's row was
+ * changed after this device's copy was taken; `undefined` when there is no
+ * conflict (or it cannot be told). Throws `RetryUpload` when the server cannot
+ * be reached.
+ */
+async function replacedServerValues(
+  change: QueuedChange,
+  rules: TableRules,
+  transport: Transport,
+  store: UploadStore,
+): Promise<Record<string, unknown> | undefined> {
+  if (change.op !== "PATCH" || !rules.read) return undefined
+  const base = timestampMs(change.previousValues?.updated_at)
+  if (Number.isNaN(base)) return undefined
+  const id = await serverId(store, change.table, change.id)
+  let response: ApiResponse
+  try {
+    response = await transport({ method: "GET", path: rules.read(id) })
+  } catch (error) {
+    throw new RetryUpload(`Could not reach the server: ${String(error)}`)
+  }
+  if (response.status >= 500 || RETRY_STATUSES.has(response.status)) {
+    throw new RetryUpload(detailOf(response), response.status)
+  }
+  if (response.status < 200 || response.status >= 300) return undefined
+  const server = (response.body ?? {}) as Record<string, unknown>
+  const current = timestampMs(server.updated_at)
+  if (Number.isNaN(current) || current <= base) return undefined
+  const data = change.opData ?? {}
+  const replaced: Record<string, unknown> = {}
+  for (const field of Object.keys(data)) {
+    if (field === "updated_at" || !(field in server)) continue
+    if (!sameValue(server[field], data[field])) replaced[field] = server[field]
+  }
+  // Already the same as this edit (e.g. a retry after it went through).
+  return Object.keys(replaced).length > 0 ? replaced : undefined
+}
+
+async function refuse(
+  change: QueuedChange,
+  store: UploadStore,
+  status: number,
+  detail: string,
+): Promise<"rejected"> {
+  await store.reject(change, status, detail)
+  await store.record?.({
+    change,
+    outcome: "refused",
+    httpStatus: status,
+    detail,
+  })
+  return "rejected"
+}
+
+/**
  * Sends one queued change. Resolves "done" or "rejected"; throws
  * `RetryUpload` when the whole queue should wait and try again.
  */
@@ -364,11 +472,27 @@ export async function uploadChange(
     requests = await planRequests(change, store)
   } catch (error) {
     if (error instanceof Refused) {
-      await store.reject(change, 0, error.message)
-      return "rejected"
+      return refuse(change, store, 0, error.message)
     }
     throw error
   }
+  let replaced: Record<string, unknown> | undefined
+  if (store.record && requests.length > 0) {
+    try {
+      replaced = await replacedServerValues(
+        change,
+        WRITABLE[change.table],
+        transport,
+        store,
+      )
+    } catch (error) {
+      if (error instanceof Refused) {
+        return refuse(change, store, 0, error.message)
+      }
+      throw error
+    }
+  }
+  let lastStatus = 0
   for (const request of requests) {
     // A create that went through before a retry is not sent twice.
     if (
@@ -387,6 +511,7 @@ export async function uploadChange(
       throw new RetryUpload(`Could not reach the server: ${String(error)}`)
     }
     const { status } = response
+    lastStatus = status
     if (status >= 200 && status < 300) {
       if (request.creates) {
         const created = (response.body as { id?: unknown } | undefined)?.id
@@ -405,8 +530,19 @@ export async function uploadChange(
     if (RETRY_STATUSES.has(status) || status >= 500) {
       throw new RetryUpload(detailOf(response), status)
     }
-    await store.reject(change, status, detailOf(response))
-    return "rejected"
+    return refuse(change, store, status, detailOf(response))
   }
+  await store.record?.(
+    replaced
+      ? {
+          change,
+          outcome: "overwrote",
+          httpStatus: lastStatus,
+          detail:
+            "Someone changed this on the server after this device's copy was taken; this device's later change was applied (last change wins).",
+          replaced,
+        }
+      : { change, outcome: "applied", httpStatus: lastStatus, detail: "" },
+  )
   return "done"
 }

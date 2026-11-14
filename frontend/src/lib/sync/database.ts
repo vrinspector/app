@@ -12,6 +12,7 @@ import { fetchTransport, type TokenSource, VriConnector } from "./connector"
 import { buildSchema } from "./schema"
 
 let opening: Promise<PowerSyncDatabase> | null = null
+let activeConnector: VriConnector | null = null
 
 export function offlineDatabase(): Promise<PowerSyncDatabase> {
   if (!opening) {
@@ -38,17 +39,30 @@ export async function startOfflineSync(options: {
     options.getToken,
     fetchTransport(options.apiBase, options.getToken),
   )
+  activeConnector = connector
   await db.connect(connector)
   return db
 }
 
 /**
+ * "Sync now" (increment 19): reconnects, which uploads anything waiting and
+ * fetches the latest from the server straight away.
+ */
+export async function restartSync(): Promise<void> {
+  if (!opening || !activeConnector) return
+  const db = await opening
+  await db.disconnect()
+  await db.connect(activeConnector)
+}
+
+/**
  * Signing out removes the local copy, including anything not yet uploaded:
  * a shared tablet must not hand the next person someone else's projects.
- * (Increment 19 adds the warning before sign-out when changes are waiting.)
+ * The sign-out menu warns first when changes are still waiting (increment 19).
  */
 export async function clearOfflineCopy(): Promise<void> {
   if (!opening) return
   const db = await opening
+  activeConnector = null
   await db.disconnectAndClear()
 }

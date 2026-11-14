@@ -13,8 +13,10 @@ import type {
   PowerSyncCredentials,
 } from "@powersync/common"
 
+import { parseWriteMetadata } from "./localWrites"
 import {
   type ApiRequest,
+  type AuditRecord,
   type QueuedChange,
   type Transport,
   type UploadStore,
@@ -64,6 +66,28 @@ export function sqlUploadStore(db: SqlRunner): UploadStore {
           change.op,
           change.id,
           payload,
+        ],
+      )
+    },
+    async record(entry: AuditRecord) {
+      const meta = parseWriteMetadata(entry.change.metadata)
+      await db.execute(
+        "INSERT INTO sync_audit " +
+          "(id, table_name, op, row_id, outcome, http_status, detail, action, " +
+          "payload, replaced, queued_at, created_at) " +
+          "VALUES (uuid(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [
+          entry.change.table,
+          entry.change.op,
+          entry.change.id,
+          entry.outcome,
+          entry.httpStatus,
+          entry.detail,
+          meta?.action ?? null,
+          JSON.stringify(entry.change.opData ?? {}),
+          entry.replaced ? JSON.stringify(entry.replaced) : null,
+          meta?.queued_at ?? null,
+          new Date().toISOString(),
         ],
       )
     },
@@ -126,6 +150,8 @@ export class VriConnector implements PowerSyncBackendConnector {
           op: entry.op as QueuedChange["op"],
           id: entry.id,
           opData: entry.opData,
+          previousValues: entry.previousValues,
+          metadata: entry.metadata,
         }
         await uploadChange(change, this.transport, store)
       }

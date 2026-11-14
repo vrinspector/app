@@ -294,7 +294,7 @@ describe("dashboard", () => {
 })
 
 describe("help guide", () => {
-  it("renders the six sections with the topic navigation and the pin legend", async () => {
+  it("renders the seven sections with the topic navigation and the pin legend", async () => {
     renderApp("/help")
 
     const guide = within(await screen.findByTestId("help-guide"))
@@ -305,6 +305,7 @@ describe("help guide", () => {
       "Device split",
       "Core workflows",
       "Field-to-office handoff",
+      "Without signal",
       "Access",
       "Troubleshooting",
     ])
@@ -315,6 +316,7 @@ describe("help guide", () => {
       "device-split",
       "workflows",
       "handoff",
+      "offline",
       "access",
       "troubleshooting",
     ]) {
