@@ -15,6 +15,8 @@ ARG VITE_API_URL=
 ARG VITE_AUTH0_DOMAIN=
 ARG VITE_AUTH0_CLIENT_ID=
 ARG VITE_AUTH0_AUDIENCE=
+# Increment 18: the PowerSync endpoint; empty = offline sync off.
+ARG VITE_POWERSYNC_URL=
 
 RUN bun run build
 

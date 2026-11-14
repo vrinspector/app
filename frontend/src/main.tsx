@@ -15,6 +15,7 @@ import {
   InsecureContext,
   isSecureContextForAuth,
 } from "./components/Common/InsecureContext"
+import { OfflineSync } from "./components/Common/OfflineSync"
 import { ThemeProvider } from "./components/theme-provider"
 import { Toaster } from "./components/ui/sonner"
 import "./index.css"
@@ -125,6 +126,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} context={{ auth: { isAuthenticated } }} />
+      <OfflineSync />
       <Toaster richColors closeButton />
     </QueryClientProvider>
   )

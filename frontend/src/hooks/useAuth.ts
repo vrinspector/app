@@ -4,6 +4,7 @@ import { useCallback } from "react"
 
 import { type UserPublic, UsersService } from "@/client"
 import { isAuth0Configured, redirectUri } from "@/lib/auth0"
+import { clearOfflineCopyBeforeSignOut } from "@/lib/sync/signout"
 
 /**
  * The signed-in person, as the UI needs it.
@@ -57,13 +58,13 @@ const useAuth = () => {
     [loginWithRedirect],
   )
 
-  const logout = useCallback(
-    () =>
-      auth0Logout({
-        logoutParams: { returnTo: redirectUri() },
-      }),
-    [auth0Logout],
-  )
+  const logout = useCallback(async () => {
+    // Increment 18: a shared device keeps no copy of the last person's data.
+    await clearOfflineCopyBeforeSignOut()
+    await auth0Logout({
+      logoutParams: { returnTo: redirectUri() },
+    })
+  }, [auth0Logout])
 
   return {
     isAuthenticated,

@@ -389,3 +389,19 @@ Additive and guarded (downgrade refuses while any row is logged):
 | Table | Change |
 |---|---|
 | `public_itp_generations` (new) | One row per public generator request let through to the model (PRD v2.63 Block 10D "usage logged"): `id` INTEGER PK, `public_id` UUID (the draft's link), `status` (`draft` / `failed`; a request in flight is `failed` with error "in progress" until it finishes), `visitor_key` (HMAC-SHA256 of the visitor's address — never the address; indexed), `scope`, `email` + `email_consent_at` (check `ck_public_itp_generations_consent`: no email without consent), `user_agent`, `model`, `prompt_version`, `system_prompt`, `user_prompt`, `draft` (JSONB, the ITP-import draft shape), `error`, `input_tokens`, `output_tokens`, `pdf_s3_key` (the watermarked PDF in S3), `created_at` (indexed). Not tied to any account, project or `ai_suggestions` row. The rate limits count these rows |
+
+## Offline sync publication (increment 18, migration `a1f6c3d9e715`)
+
+No table, column or row changes. The migration creates the PostgreSQL
+publication `powersync` that the PowerSync service replicates from, for
+exactly the tables `powersync/sync-config.yaml` syncs: `projects`,
+`project_members`, `inspections`, `findings`, `photos`, `drawings`,
+`inspection_pins`, `project_areas`, `project_itps`, `itp_items`,
+`signoff_roles`. Upgrade creates it or resets its table list (idempotent);
+when the migrating role lacks the privilege it logs a warning and the
+migration still succeeds (the owner creates it at RG-3, see
+`powersync/README.md`). Downgrade drops it. Logical replication itself
+(`wal_level = logical`, RDS `rds.logical_replication = 1`) and the
+replication role are server settings, not migrations. A test keeps the
+migration's table list, the sync config and the models in step
+(`tests/core/test_powersync_config.py`).

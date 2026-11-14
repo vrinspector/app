@@ -1,7 +1,7 @@
 name: Test Frontend
 
-# Type-check, component/unit tests (Vitest, jsdom) and a production build of
-# the frontend. End-to-end tests run separately in playwright.yml. This
+# Type-check, component/unit tests (Vitest, jsdom), the offline sync config
+# check and a production build of the frontend. End-to-end tests run separately in playwright.yml. This
 # workflow builds and tests only; it never deploys (REBUILD_PLAN.md rule 9).
 
 on:
@@ -33,6 +33,9 @@ jobs:
         working-directory: frontend
       - name: Unit and component tests
         run: bun run test:unit
+        working-directory: frontend
+      - name: Offline sync config (PowerSync sync rules and service schema)
+        run: bun run validate:sync
         working-directory: frontend
       - name: Production build
         run: bun run build

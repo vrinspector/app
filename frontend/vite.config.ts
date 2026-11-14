@@ -32,6 +32,14 @@ export default defineConfig({
       },
     },
   },
+  // Increment 18: PowerSync's SQLite (wa-sqlite, WebAssembly) runs in web
+  // workers; Vite must not pre-bundle it, and workers are ES modules.
+  optimizeDeps: {
+    exclude: ["@journeyapps/wa-sqlite", "@powersync/web"],
+  },
+  worker: {
+    format: "es",
+  },
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "./src"),

@@ -1310,3 +1310,50 @@ migration guard; frontend 4 new unit tests (`src/lib/generator.test.ts`) and
 105. **Carrying a draft into an account** is by pasting the JSON into a new
     template for now. A one-tap "Open in VR Inspector" after sign-in is a
     small follow-up if you want it.
+
+## Increment 18 — offline sync plumbing (PRD v2.63 Block 11)
+
+No screen changes yet: this increment lays the sync path that increment 19's
+offline screens stand on. Details and the RG-3 steps: `powersync/README.md`.
+
+| Piece | What |
+|---|---|
+| Sync service | `journeyapps/powersync-service:1.27.2` as a Compose service under the `offline` profile (bucket storage in its own `powersync_storage` database), config in `powersync/` with every secret from the environment; `db` runs with `wal_level=logical` |
+| Who gets what | Sync Streams (edition 3): one auto-subscribed stream, every query scoped by `project_members.user_sub = auth.user_id()`; projects, members, inspections, findings, photo records, drawings, pins, areas, project ITPs, ITP lines, sign-off roles. Ids and foreign keys cast to text |
+| Database | Migration `a1f6c3d9e715`: the `powersync` publication for exactly those 11 tables (idempotent; warns instead of failing when the role lacks the privilege; downgrade drops it). No table, column or row changes |
+| Client | `src/lib/sync/`: local SQLite schema matching the streams (`@powersync/web` 2.5.0, loaded only when `VITE_POWERSYNC_URL` is set — builds without it contain none of it), Auth0 access token as the sync credential, upload queue replayed against the existing endpoints with `local-…` → server id mapping and a local `upload_rejections` list; local copy cleared on sign-out |
+
+Tests: backend 5 config checks (`tests/core/test_powersync_config.py`: every
+synced column exists, keys cast to text, nothing secret selected, publication
+= synced tables, membership scoping, secrets from the environment) and 2
+migration tests; frontend 35 unit tests (`src/lib/sync/*.test.ts`) and
+`bun run validate:sync` (the service's own sync-rules compiler and config
+schema) in CI. A one-off Chromium run against the real wa-sqlite build
+replayed an offline inspection → finding → resolve through the queue (ids
+mapped, the refused resolve recorded, queue emptied).
+
+### Decisions for the owner (increment 18)
+
+106. **Everything in your projects syncs to your device**, ITPs included —
+    no per-project download choice yet. A typical project is small (records
+    only; photos and drawings stay in S3). If a very large account makes
+    first sync slow, a "download this project" switch is the follow-up.
+107. **Sign-offs and signatures need a connection.** Findings, pins, ITP line
+    results and inspections can be worked offline; signing off an inspection
+    or an ITP line, and external signing, are made against the live record so
+    nobody signs something that changed while they were out of signal.
+108. **The server has the last word.** A change the API refuses when the
+    phone reconnects (signed off meanwhile, role changed, hold point locked)
+    is not forced through: it is kept on the phone with the reason, and the
+    server's version comes back. Increment 19 shows that list (the conflict
+    audit trail).
+109. **Signing out wipes the device's copy**, including changes not yet
+    sent, so a shared tablet never shows the next person someone else's
+    projects. Increment 19 warns first when changes are waiting.
+110. **Members see their own projects only, identified by their Auth0
+    sign-in** — the same membership the API uses. Someone invited by email
+    starts syncing after their first sign-in, when the app links their
+    sign-in to the invitation.
+111. **Hosting:** the sync service runs beside the API on the Lightsail box
+    (one more container) and needs logical replication switched on in RDS.
+    Both are RG-3 steps for you; nothing is deployed by these sessions.
