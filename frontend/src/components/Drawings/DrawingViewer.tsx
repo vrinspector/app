@@ -68,6 +68,9 @@ import {
   pinsQuery,
   projectKeys,
 } from "@/lib/queries"
+import { useLocalRows, useSync } from "@/lib/sync/context"
+import { movePinOffline } from "@/lib/sync/localWrites"
+import { localPin, overlayPending } from "@/lib/sync/merge"
 import { cn } from "@/lib/utils"
 import { PIN_STATUS_OPTIONS, pinStatusOption } from "@/lib/vocab"
 import { extractErrorMessage } from "@/utils"
@@ -183,7 +186,31 @@ export function DrawingViewer({
   })
   const currentRevision = revisions.data?.find((r) => r.is_current)
 
-  const pins = useQuery(pinsQuery(drawing.id))
+  const apiPins = useQuery(pinsQuery(drawing.id))
+  // Increment 19: pins placed or moved on this device and not uploaded yet
+  // are laid over the server's list and marked on the drawing.
+  const { db: syncDb, snapshot: syncSnapshot, saveLocally } = useSync()
+  const offlineDb = saveLocally ? syncDb : null
+  const localPinRows = useLocalRows("inspection_pins", drawing.id)
+  const mergedPins = useMemo(
+    () =>
+      overlayPending(
+        apiPins.data ?? [],
+        localPinRows,
+        syncSnapshot.pendingKeys,
+        "inspection_pins",
+        localPin,
+      ),
+    [apiPins.data, localPinRows, syncSnapshot.pendingKeys],
+  )
+  const pins = {
+    data:
+      apiPins.data === undefined && mergedPins.unsynced.size === 0
+        ? undefined
+        : mergedPins.rows,
+    isError: apiPins.isError,
+  }
+  const unsyncedPins = mergedPins.unsynced
   // Block 9.5: the project's ITP lines, so pins that mark one render as a
   // hold / witness point and the banner can name the line being marked.
   const itpItems = useQuery(itpItemsQuery(projectId))
@@ -473,14 +500,29 @@ export function DrawingViewer({
   )
 
   const moveMutation = useMutation({
+    networkMode: offlineDb ? "always" : "online",
     mutationFn: async ({
       pin,
       point,
     }: {
       pin: PinPublic
       point: PointPercent
-    }) =>
-      (
+    }) => {
+      if (offlineDb) {
+        const to = {
+          x_pct: point.x_pct,
+          y_pct: point.y_pct,
+          page_number: isPdf ? pageNumber : 1,
+        }
+        await movePinOffline(
+          offlineDb,
+          pin.id,
+          to,
+          pinLabels.get(pin.id) ?? pin.label ?? String(pin.id),
+        )
+        return { ...pin, ...to, savedOffline: true }
+      }
+      return (
         await DrawingsService.updatePin({
           path: { pin_id: pin.id },
           body: {
@@ -489,8 +531,15 @@ export function DrawingViewer({
             page_number: isPdf ? pageNumber : 1,
           },
         })
-      ).data as PinPublic,
-    onSuccess: (saved) => {
+      ).data as PinPublic & { savedOffline?: boolean }
+    },
+    onSuccess: (saved: PinPublic & { savedOffline?: boolean }) => {
+      if (saved.savedOffline) {
+        showSuccessToast(
+          "Pin moved on this device — it uploads when you are back online",
+        )
+        return
+      }
       queryClient.setQueryData<PinPublic[]>(drawingKeys.pins(drawing.id), (c) =>
         c?.map((p) => (p.id === saved.id ? saved : p)),
       )
@@ -506,6 +555,16 @@ export function DrawingViewer({
     onError: (error: Error) => showErrorToast(extractErrorMessage(error)),
     onSettled: () => setMovingPin(null),
   })
+
+  const selectPin = (pin: PinPublic) => {
+    if (unsyncedPins.has(pin.id)) {
+      showSuccessToast(
+        "This pin is saved on this device only. It can be opened once it has uploaded.",
+      )
+      return
+    }
+    setSelectedPin(pin)
+  }
 
   const handlePlace = (point: PointPercent) => {
     if (movingPin) {
@@ -830,7 +889,8 @@ export function DrawingViewer({
                   pinMode={(pinMode || movingPin !== null) && canEdit}
                   suppressClickRef={suppressClickRef}
                   onPlace={handlePlace}
-                  onSelect={setSelectedPin}
+                  onSelect={selectPin}
+                  unsyncedIds={unsyncedPins}
                   selectedPinId={selectedPin?.id ?? movingPin?.id ?? null}
                   labels={pinLabels}
                   boxSize={baseSize}
@@ -943,7 +1003,7 @@ export function DrawingViewer({
         onClose={() => setClusterList(null)}
         onPick={(pin) => {
           setClusterList(null)
-          setSelectedPin(pin)
+          selectPin(pin)
         }}
       />
     </div>

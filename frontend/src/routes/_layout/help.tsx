@@ -43,6 +43,7 @@ const TOPICS = [
   { id: "device-split", label: "Device split" },
   { id: "workflows", label: "Core workflows" },
   { id: "handoff", label: "Field-to-office handoff" },
+  { id: "offline", label: "Without signal" },
   { id: "access", label: "Access" },
   { id: "troubleshooting", label: "Troubleshooting" },
 ] as const
@@ -497,6 +498,45 @@ function Help() {
             desktop reviewers can match photos and findings to drawing locations
             before placing pins.
           </p>
+        </HelpSection>
+
+        <HelpSection id="offline" title="Working without signal">
+          <p>
+            The chip at the top right of every screen shows the connection.{" "}
+            <strong>Offline</strong> means this device has no signal;{" "}
+            <strong>3 waiting</strong> means three changes are saved on this
+            device and have not reached the server yet; <strong>Synced</strong>{" "}
+            means everything is uploaded. Tap the chip for details and a{" "}
+            <strong>Sync now</strong> button that uploads straight away once you
+            have signal again.
+          </p>
+          <p>
+            When offline saving is switched on for your company, you can keep
+            working with no signal: <strong>log and edit findings</strong>,{" "}
+            <strong>place pins</strong> and <strong>move pins</strong>. They are
+            saved on the phone or tablet, marked{" "}
+            <strong>Not uploaded yet</strong> (a dashed pin with a small upload
+            badge on the drawing), and upload on their own when the signal
+            returns. Photos, sign-offs, resolving and deleting still need a
+            connection. Open the project before you lose signal and keep the app
+            open: reloading the page with no signal does not work yet.
+          </p>
+          <p>
+            Each upload is checked by the server exactly as if you were online.
+            The <strong>Sync history</strong> in the same panel lists every
+            change this device uploaded. Two kinds are flagged: a change the
+            server <strong>did not accept</strong> (for example, the inspection
+            was signed off meanwhile — the server&apos;s version is shown
+            instead), and a change that{" "}
+            <strong>replaced someone else&apos;s</strong> newer edit, because
+            the later change wins; the history keeps their values so nothing is
+            lost silently.
+          </p>
+          <Note>
+            <strong>Before signing out</strong>, wait for{" "}
+            <strong>Synced</strong>. Signing out removes this device&apos;s
+            copy, including anything not uploaded yet; the app warns you first.
+          </Note>
         </HelpSection>
 
         <HelpSection id="access" title="Permissions and access">

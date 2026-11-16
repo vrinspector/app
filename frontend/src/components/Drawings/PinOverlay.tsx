@@ -1,3 +1,4 @@
+import { CloudUpload } from "lucide-react"
 import { useMemo } from "react"
 
 import type { ItpItemRef, PinPublic } from "@/client"
@@ -28,6 +29,10 @@ import { pinStatusOption } from "@/lib/vocab"
  * (`clusterPins`); tapping it calls `onOpenCluster` with the marker's
  * screen position so the viewer can zoom in on it. A pin carried from an
  * earlier revision and not yet checked gets a dashed ring and a "?".
+ *
+ * Increment 19: a pin placed or moved on this device and not uploaded yet
+ * gets a dashed border and a small upload badge, and says so to screen
+ * readers.
  */
 
 interface PinOverlayProps {
@@ -45,6 +50,8 @@ interface PinOverlayProps {
   /** The rendered drawing box in px; turns clustering on. */
   boxSize?: { width: number; height: number } | null
   onOpenCluster?: (cluster: PinCluster, at: DOMRect) => void
+  /** Increment 19: pins with a change saved on this device only. */
+  unsyncedIds?: ReadonlySet<number>
 }
 
 export function PinOverlay({
@@ -58,6 +65,7 @@ export function PinOverlay({
   labels,
   boxSize,
   onOpenCluster,
+  unsyncedIds,
 }: PinOverlayProps) {
   const clusters = useMemo(
     () =>
@@ -122,6 +130,7 @@ export function PinOverlay({
               pin.itp_item_id ? itpItems?.get(pin.itp_item_id) : undefined
             }
             selected={pin.id === selectedPinId}
+            unsynced={unsyncedIds?.has(pin.id) ?? false}
             onSelect={() => onSelect(pin)}
           />
         )
@@ -190,6 +199,8 @@ interface PinMarkerProps {
   label: string
   itpItem?: ItpItemRef
   selected: boolean
+  /** Increment 19: saved on this device, not uploaded yet. */
+  unsynced?: boolean
   onSelect: () => void
 }
 
@@ -204,6 +215,7 @@ export function PinMarker({
   label,
   itpItem,
   selected,
+  unsynced = false,
   onSelect,
 }: PinMarkerProps) {
   const status = pinStatusOption(pin.status)
@@ -224,7 +236,8 @@ export function PinMarker({
       }
       data-itp-released={itpItem ? String(itpItem.released) : undefined}
       data-position-check={check ? "true" : undefined}
-      aria-label={`Pin ${label}: ${status.label}${pin.label ? ` — ${pin.label}` : ""}${itpText}${check ? ` — carried from ${carriedFromText(pin)}, check position` : ""}`}
+      data-unsynced={unsynced ? "true" : undefined}
+      aria-label={`Pin ${label}: ${status.label}${pin.label ? ` — ${pin.label}` : ""}${itpText}${check ? ` — carried from ${carriedFromText(pin)}, check position` : ""}${unsynced ? " — not uploaded yet" : ""}`}
       aria-pressed={selected}
       onClick={(event) => {
         event.stopPropagation()
@@ -246,6 +259,7 @@ export function PinMarker({
           check &&
             !itpItem &&
             "outline-2 outline-offset-2 outline-dashed outline-vri-gold",
+          unsynced && "border-dashed opacity-80",
           selected && "scale-125 ring-2 ring-vri-gold",
         )}
         style={{ background: status.color }}
@@ -259,6 +273,15 @@ export function PinMarker({
           data-testid="pin-check-badge"
         >
           ?
+        </span>
+      ) : null}
+      {unsynced ? (
+        <span
+          className="absolute -top-1.5 -left-2 flex size-4 items-center justify-center rounded-full border border-white bg-status-attention-bg text-status-attention-fg"
+          aria-hidden="true"
+          data-testid="pin-unsynced-badge"
+        >
+          <CloudUpload className="size-2.5" />
         </span>
       ) : null}
       <span

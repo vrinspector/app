@@ -42,6 +42,16 @@ in the device's `upload_rejections` list with the API's reason instead of
 blocking everything behind it. Sign-offs and signatures always need a
 connection.
 
+**On screen (increment 19).** With no connection, *Log / Edit finding* and
+*place / move pin* write to the local copy (`src/lib/sync/localWrites.ts`);
+those rows show "Not uploaded yet" until the queue empties. The header chip
+shows Offline / N waiting / Syncing… / Synced and opens the sync panel with
+**Sync now** and the **sync history** (`sync_audit`, local-only): every
+uploaded change, refused ones with the API's reason, and edits that replaced
+a newer server change (last write wins — the queue checks the server's
+`updated_at` for findings and inspections first and keeps the replaced
+values). Photos taken offline are not queued yet (follow-up issue).
+
 ## Running it locally
 
 ```bash
