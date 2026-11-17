@@ -1403,3 +1403,54 @@ dialogs with the API mocked).
     as an RG-3 step before any Capacitor work.
 116. **Capacitor: not yet** — PWA first, Capacitor shell when a store
     listing is needed and after RG-3 (`docs/CAPACITOR_EVALUATION.md`).
+
+## Increment 20 — offline photo queue (PRD v2.63 Block 11; issue #39)
+
+Owner decision 2026-11-16: photos taken with no signal stay on the device and
+upload when the signal returns. This works in **every build** (it needs only
+the browser's own storage), not just builds with `VITE_POWERSYNC_URL`; a
+photo for a finding logged offline needs the offline sync, since the finding
+itself waits in that queue.
+
+| Piece | What |
+|---|---|
+| Where photos wait | `lib/photoQueue/`: the browser's IndexedDB (`vri-photo-queue`), one record per photo — target (inspection / finding / ITP line + three-shot slot), file name, type, capture time, who took it, a one-line description, state, last reason, attempts. The bytes are kept as the original file (stored as an ArrayBuffer with its name, type and date; handed back as the same `File`, EXIF and all — nothing is resized). Removed from the device the moment the server has registered the photo. `navigator.storage.persist()` is requested on the first queued photo so the browser does not evict them |
+| When a photo is queued | Take photo / Upload on the inspection and on ITP lines (and slots): when the device says it is offline, **or** when a step of the online upload cannot reach the server or S3 (patchy signal). **Add photo** on a finding card (new; also on a finding saved offline and not uploaded yet) always goes through the queue, which sends it at once when there is signal |
+| Sending | `PhotoQueueRunner` (mounted in the signed-in shell): at start-up, when the connection returns, when a photo is queued with signal, right after the offline sync has uploaded everything (so a finding made offline has its server id), every minute while photos wait, and on **Sync now**. One photo at a time, oldest first, through the existing presign → direct S3 PUT → register (`lib/photoQueue/process.ts`); `local-…` finding ids are mapped through the offline sync's `local_id_map`; an S3 403 (expired link) gets one fresh link |
+| Outcomes | Uploaded → off the device, a line in the sync history. No signal / 401 / 408 / 425 / 429 / 5xx → waits (the rest of the run stops: they would fail the same way). Parent not uploaded yet → waits (the others still go). Any other refusal, or a parent the server refused → **Not accepted**: kept on the device with the API's reason, a red count on the chip, a history line, **Retry** and **Delete from device** (confirmed). Never dropped silently |
+| Shown on the parent | Dashed gold tile / thumbnail with **Not uploaded yet** (brick with the reason and Retry when refused): the inspection's Site photos (heading "+ N on this device"), the finding's strip, the ITP line's photos and the three-shot slot it was taken for. An ITP line counts it as evidence only once uploaded ("…counts as evidence once uploaded") |
+| Chip and panel | Counts photos with changes ("Offline · 3 waiting", "2 changes and 1 photo not uploaded yet"); shows online when photos wait even if offline sync is off. Panel: **Photos on this device** (thumbnail, what for, when taken, size, state) and **Upload photos now** when offline sync is off |
+| Storage check | `navigator.storage.estimate()`: a photo is refused in plain words when it would leave under 50 MB for the app; the sync panel warns below 250 MB free |
+| Sign-out | Warns when photos (or changes) are waiting, then clears the photos and their history from the device with the offline copy |
+
+No API, table or migration change; S3 stays the only file store on the
+server; no new dependency. Help "Working without signal" updated.
+
+Tests: `lib/photoQueue/queue.test.ts` (storage check, retry rules, original
+bytes and capture time sent, ITP slot, finding made offline waits then goes,
+refused parent, refused photo kept with reason → Retry, no-signal stop, S3
+link refresh, full device, recover, sign-out clear, one drain at a time),
+`lib/sync/offline-helpers.test.ts` (chip wording with photos),
+`src/test/photo-queue.test.tsx` (Add photo offline on a finding and on a
+finding saved offline, chip counts, panel Retry / Delete, storage warning),
+and the Playwright demo walk `tests/demo/offline-photos.spec.ts` (real
+Chromium + IndexedDB: signal off → inspection and finding photos wait on the
+device → signal back → both upload and leave the device).
+
+### Decisions for the owner (increment 20)
+
+117. **Photos queue in every build**, even before offline sync is switched
+    on: it costs nothing on the server and means a photo taken in a dead
+    spot is never lost. Findings and pins still need offline sync to be
+    saved without signal.
+118. **Add photo on a finding card is new.** Until now a finding got photos
+    only through the drawing capture loop; the card button is what lets a
+    finding logged offline carry a photo. It also works online.
+119. **A refused photo stays until someone acts** (Retry or Delete from
+    device, confirmed). If many pile up on shared tablets, an automatic
+    clean-up after N days can be added; nothing is deleted on its own now.
+120. **Very rarely a photo could be saved twice**: if the signal drops after
+    the server saved the photo but before the phone heard back, the phone
+    keeps it and sends it again. Delete the duplicate in the photo viewer.
+121. **Space thresholds** (refuse below 50 MB free for the app, warn below
+    250 MB) are starting values; adjust after the device pass (issue #16).

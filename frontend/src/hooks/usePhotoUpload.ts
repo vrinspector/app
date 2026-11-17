@@ -1,9 +1,11 @@
 import { useQueryClient } from "@tanstack/react-query"
+import { AxiosError } from "axios"
 import { useCallback, useEffect, useRef, useState } from "react"
 
 import { type PhotoPublic, PhotosService } from "@/client"
 import useAuth from "@/hooks/useAuth"
 import useCustomToast from "@/hooks/useCustomToast"
+import { PhotoQueueError, type PhotoTarget, photoQueue } from "@/lib/photoQueue"
 import { inspectionKeys } from "@/lib/queries"
 import { extractErrorMessage } from "@/utils"
 
@@ -19,6 +21,11 @@ import { extractErrorMessage } from "@/utils"
  * library picker allows multi-select), each shows its own progress and can
  * be retried from the step that failed, and a local preview is shown while
  * the upload runs so the capture loop feels immediate on site.
+ *
+ * Increment 20: with no signal — the device says it is offline, or a step
+ * cannot reach the server or S3 — the photo is kept on the device instead
+ * (lib/photoQueue) and uploads through the same three steps when the signal
+ * returns. It shows on the inspection marked "Not uploaded yet".
  */
 
 export type UploadStatus = "presigning" | "uploading" | "registering" | "error"
@@ -63,6 +70,70 @@ export function describeFile(file: File) {
   return { contentType, filename }
 }
 
+/** The direct S3 PUT failed; `status` 0 means S3 could not be reached. */
+export class StorageUploadError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message)
+    this.name = "StorageUploadError"
+  }
+}
+
+/** The device says it has no connection (increment 20). */
+export function deviceOffline(): boolean {
+  return typeof navigator !== "undefined" && navigator.onLine === false
+}
+
+/** The request never reached the server or S3 (no signal, not a refusal). */
+export function isNetworkFailure(error: unknown): boolean {
+  if (error instanceof StorageUploadError) return error.status === 0
+  if (error instanceof AxiosError) return !error.response
+  return false
+}
+
+/** HTTP status of an API or S3 error; undefined when nothing answered. */
+export function uploadErrorStatus(error: unknown): number | undefined {
+  if (error instanceof StorageUploadError) {
+    return error.status === 0 ? undefined : error.status
+  }
+  if (error instanceof AxiosError) return error.response?.status
+  return undefined
+}
+
+export const KEPT_ON_DEVICE_MESSAGE =
+  "No signal: photo kept on this device. It uploads on its own when the signal is back."
+
+/**
+ * Keep a photo on the device for later (increment 20). Returns null when it
+ * was kept, or the plain-words reason it could not be (device full).
+ */
+export async function keepPhotoOnDevice(
+  file: File,
+  target: PhotoTarget,
+  description: string,
+  uploadedBy: string | null,
+): Promise<string | null> {
+  const { contentType, filename } = describeFile(file)
+  try {
+    await photoQueue.enqueue({
+      file,
+      target,
+      description,
+      uploadedBy,
+      filename,
+      contentType,
+      capturedAt: capturedAt(file),
+    })
+    return null
+  } catch (error) {
+    return error instanceof PhotoQueueError
+      ? error.message
+      : "The photo could not be kept on this device."
+  }
+}
+
 /** PUT to the presigned URL with upload progress (fetch has none). */
 export function putToS3(
   url: string,
@@ -81,12 +152,19 @@ export function putToS3(
     }
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) resolve()
-      else reject(new Error(`Storage upload failed (${xhr.status}).`))
+      else
+        reject(
+          new StorageUploadError(
+            `Storage upload failed (${xhr.status}).`,
+            xhr.status,
+          ),
+        )
     }
     xhr.onerror = () =>
       reject(
-        new Error(
+        new StorageUploadError(
           "Could not reach file storage. Check your connection and try again.",
+          0,
         ),
       )
     xhr.onabort = () => reject(new Error("Upload cancelled."))
@@ -94,10 +172,14 @@ export function putToS3(
   })
 }
 
-export function usePhotoUpload(inspectionId: number) {
+export function usePhotoUpload(inspectionId: number, inspectionTitle = "") {
   const queryClient = useQueryClient()
   const { user } = useAuth()
   const { showSuccessToast } = useCustomToast()
+  const uploadedBy = user?.name ?? user?.email ?? null
+  const description = inspectionTitle
+    ? `Site photo for “${inspectionTitle}”`
+    : "Site photo"
   const [uploads, setUploads] = useState<PhotoUpload[]>([])
   const uploadsRef = useRef(uploads)
   uploadsRef.current = uploads
@@ -128,9 +210,33 @@ export function usePhotoUpload(inspectionId: number) {
     })
   }, [])
 
+  /** No signal: keep it on the device instead of failing (increment 20). */
+  const keep = useCallback(
+    async (upload: PhotoUpload): Promise<boolean> => {
+      const problem = await keepPhotoOnDevice(
+        upload.file,
+        { kind: "inspection", inspectionId: String(inspectionId) },
+        description,
+        uploadedBy,
+      )
+      if (problem) {
+        patch(upload.id, { status: "error", error: problem })
+        return false
+      }
+      remove(upload.id)
+      showSuccessToast(KEPT_ON_DEVICE_MESSAGE)
+      return true
+    },
+    [inspectionId, description, uploadedBy, patch, remove, showSuccessToast],
+  )
+
   const run = useCallback(
     async (upload: PhotoUpload) => {
       const { contentType, filename } = describeFile(upload.file)
+      if (deviceOffline()) {
+        await keep(upload)
+        return
+      }
       try {
         patch(upload.id, {
           status: "presigning",
@@ -161,7 +267,7 @@ export function usePhotoUpload(inspectionId: number) {
               s3_key: presign.s3_key,
               filename,
               content_type: contentType,
-              uploaded_by: user?.name ?? user?.email ?? null,
+              uploaded_by: uploadedBy,
               captured_at: capturedAt(upload.file),
             },
           })
@@ -179,6 +285,10 @@ export function usePhotoUpload(inspectionId: number) {
         remove(upload.id)
         showSuccessToast("Photo uploaded")
       } catch (error) {
+        if (isNetworkFailure(error)) {
+          await keep(upload)
+          return
+        }
         patch(upload.id, {
           status: "error",
           error:
@@ -188,7 +298,15 @@ export function usePhotoUpload(inspectionId: number) {
         })
       }
     },
-    [inspectionId, patch, remove, queryClient, showSuccessToast, user],
+    [
+      inspectionId,
+      patch,
+      remove,
+      queryClient,
+      showSuccessToast,
+      uploadedBy,
+      keep,
+    ],
   )
 
   const addFiles = useCallback(

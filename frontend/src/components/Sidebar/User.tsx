@@ -19,7 +19,9 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import useAuth, { type SessionUser } from "@/hooks/useAuth"
+import { usePhotoQueue } from "@/lib/photoQueue"
 import { useSync } from "@/lib/sync/context"
+import { waitingWords } from "@/lib/sync/status"
 import { getInitials } from "@/utils"
 
 function UserInfo({ user }: { user: SessionUser }) {
@@ -47,6 +49,7 @@ export function User({ user }: { user: SessionUser | null }) {
   const { logout } = useAuth()
   const { isMobile, setOpenMobile } = useSidebar()
   const { snapshot } = useSync()
+  const photos = usePhotoQueue()
   const [confirming, setConfirming] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
 
@@ -66,15 +69,18 @@ export function User({ user }: { user: SessionUser | null }) {
     }
   }
   // Increment 19: signing out removes this device's offline copy, including
-  // changes not uploaded yet, so say so first.
+  // changes not uploaded yet, so say so first. Increment 20: the same for
+  // photos kept on the device (waiting, or refused and kept for a Retry).
+  const photoCount = photos.items.length
   const handleLogout = async () => {
-    if (snapshot.pending > 0) {
+    if (snapshot.pending > 0 || photoCount > 0) {
       setConfirming(true)
       return
     }
     await signOut()
   }
   const waiting = snapshot.pending
+  const items = waiting + photoCount
 
   return (
     <SidebarMenu>
@@ -117,13 +123,20 @@ export function User({ user }: { user: SessionUser | null }) {
           onOpenChange={(open) => {
             if (!signingOut) setConfirming(open)
           }}
-          title="Changes not uploaded yet"
+          title={
+            photoCount > 0 && waiting === 0
+              ? "Photos not uploaded yet"
+              : "Changes not uploaded yet"
+          }
           description={
             <>
-              {waiting} change{waiting === 1 ? " is" : "s are"} saved only on
-              this device. Signing out deletes {waiting === 1 ? "it" : "them"}.
-              Connect and wait for the header to say <strong>Synced</strong> to
-              keep {waiting === 1 ? "it" : "them"}.
+              <span data-testid="signout-waiting">
+                {waitingWords(waiting, photoCount)}
+              </span>{" "}
+              {items === 1 ? "is" : "are"} saved only on this device. Signing
+              out deletes {items === 1 ? "it" : "them"}. Connect and wait for
+              the header to say <strong>Synced</strong> to keep{" "}
+              {items === 1 ? "it" : "them"}.
             </>
           }
           confirmLabel="Sign out anyway"

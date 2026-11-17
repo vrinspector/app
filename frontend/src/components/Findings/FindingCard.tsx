@@ -12,12 +12,14 @@ import {
   Trash2,
   Wrench,
 } from "lucide-react"
-import { useState } from "react"
+import { useRef, useState } from "react"
 
 import { type FindingPublic, FindingsService, type PhotoPublic } from "@/client"
 import { AiProvenance } from "@/components/Ai/AiProvenance"
+import { requestPhotoUpload } from "@/components/Common/PhotoQueueRunner"
 import { StatusBadge } from "@/components/Common/StatusBadge"
 import { PhotoViewerDialog } from "@/components/Photos/PhotoViewerDialog"
+import { QueuedPhotoTile } from "@/components/Photos/QueuedPhotoTile"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -27,8 +29,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { LoadingButton } from "@/components/ui/loading-button"
+import useAuth from "@/hooks/useAuth"
 import useCustomToast from "@/hooks/useCustomToast"
+import {
+  deviceOffline,
+  KEPT_ON_DEVICE_MESSAGE,
+  keepPhotoOnDevice,
+} from "@/hooks/usePhotoUpload"
 import { formatDate, formatDateTime } from "@/lib/format"
+import { isFindingPhoto, useQueuedPhotos } from "@/lib/photoQueue"
 import { inspectionKeys } from "@/lib/queries"
 import { cn } from "@/lib/utils"
 import {
@@ -61,7 +70,20 @@ import { extractErrorMessage } from "@/utils"
  * Increment 15: the discipline shows beside the location, an "AI-assisted"
  * mark when the finding was confirmed from an AI draft, and the expanded card
  * says how it was drafted (model, prompt version, who confirmed, edited).
+ *
+ * Increment 20: **Add photo** files a photo under the finding — also under a
+ * finding saved on this device and not uploaded yet. The photo is kept on
+ * the device first (lib/photoQueue) and goes up through presign → S3 →
+ * register as soon as there is signal and the finding itself is on the
+ * server; until then it shows in the strip with a dashed "not uploaded" edge.
  */
+
+/** The id a photo for this finding is queued under (`local-…` when made offline). */
+export function findingQueueId(finding: FindingPublic): string {
+  return finding.id < 0 && finding.public_id
+    ? finding.public_id
+    : String(finding.id)
+}
 
 export type FindingStatusValue = "open" | "in-progress" | "resolved"
 
@@ -86,6 +108,11 @@ interface FindingCardProps {
    * has not been uploaded yet.
    */
   unsynced?: boolean
+  /**
+   * Increment 20: may photos be added (a write role and an open inspection),
+   * even while the finding itself is waiting to upload.
+   */
+  canAddPhoto?: boolean
   onResolve: (finding: FindingPublic) => void
   onEdit: (finding: FindingPublic) => void
   onDelete: (finding: FindingPublic) => void
@@ -96,14 +123,55 @@ export function FindingCard({
   photos = [],
   readOnly,
   unsynced = false,
+  canAddPhoto = false,
   onResolve,
   onEdit,
   onDelete,
 }: FindingCardProps) {
   const queryClient = useQueryClient()
+  const { user } = useAuth()
   const { showSuccessToast, showErrorToast } = useCustomToast()
   const [expanded, setExpanded] = useState(false)
   const [viewing, setViewing] = useState<number | null>(null)
+  const queued = useQueuedPhotos(isFindingPhoto(finding))
+  const photoInputRef = useRef<HTMLInputElement>(null)
+
+  const addPhotos = async (files: FileList | null) => {
+    const list = Array.from(files ?? []).filter(
+      (file) => !file.type || file.type.startsWith("image/"),
+    )
+    let kept = 0
+    for (const file of list) {
+      const problem = await keepPhotoOnDevice(
+        file,
+        {
+          kind: "finding",
+          inspectionId: String(finding.inspection_id),
+          findingId: findingQueueId(finding),
+        },
+        `Photo for finding “${finding.title}”`,
+        user?.name ?? user?.email ?? null,
+      )
+      if (problem) {
+        showErrorToast(problem)
+        break
+      }
+      kept += 1
+    }
+    if (kept === 0) return
+    if (deviceOffline() || unsynced) {
+      showSuccessToast(
+        unsynced && !deviceOffline()
+          ? "Photo kept on this device. It uploads right after the finding does."
+          : KEPT_ON_DEVICE_MESSAGE,
+      )
+    } else {
+      showSuccessToast(
+        kept === 1 ? "Uploading photo…" : `Uploading ${kept} photos…`,
+      )
+    }
+    requestPhotoUpload()
+  }
 
   const status = (finding.status || "open") as FindingStatusValue
   const resolved = status === "resolved"
@@ -248,12 +316,15 @@ export function FindingCard({
         </div>
       ) : null}
 
-      {photos.length > 0 ? (
+      {photos.length > 0 || queued.length > 0 ? (
         <ul
           className="mt-3 flex flex-wrap gap-1.5 pl-6"
-          aria-label={`${photos.length} photo${photos.length === 1 ? "" : "s"} for ${finding.title}`}
+          aria-label={`${photos.length} photo${photos.length === 1 ? "" : "s"} for ${finding.title}${queued.length ? `, ${queued.length} not uploaded yet` : ""}`}
           data-testid="finding-photos"
         >
+          {queued.map((photo) => (
+            <QueuedPhotoTile key={photo.id} photo={photo} variant="strip" />
+          ))}
           {photos.map((photo, index) => (
             <li key={photo.id} className="list-none">
               <button
@@ -327,8 +398,36 @@ export function FindingCard({
         ) : null}
       </div>
 
+      {queued.some((photo) => photo.status === "failed") ? (
+        <p
+          className="mt-1 pl-6 text-xs text-destructive"
+          data-testid="finding-queued-error"
+        >
+          A photo was not accepted:{" "}
+          {queued.find((photo) => photo.status === "failed")?.error}. It is
+          still on this device; open the sync panel to Retry or delete it.
+        </p>
+      ) : null}
+
+      {canAddPhoto && readOnly ? (
+        <div className="mt-3 flex flex-wrap gap-2 pl-6">
+          <AddPhotoButton
+            inputRef={photoInputRef}
+            onFiles={addPhotos}
+            title={finding.title}
+          />
+        </div>
+      ) : null}
+
       {!readOnly ? (
         <div className="mt-3 flex flex-wrap gap-2 pl-6">
+          {canAddPhoto ? (
+            <AddPhotoButton
+              inputRef={photoInputRef}
+              onFiles={addPhotos}
+              title={finding.title}
+            />
+          ) : null}
           {status === "open" ? (
             <LoadingButton
               size="sm"
@@ -377,5 +476,44 @@ export function FindingCard({
         />
       ) : null}
     </li>
+  )
+}
+
+function AddPhotoButton({
+  inputRef,
+  onFiles,
+  title,
+}: {
+  inputRef: React.RefObject<HTMLInputElement | null>
+  onFiles: (files: FileList | null) => void
+  title: string
+}) {
+  return (
+    <>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden="true"
+        data-testid="finding-photo-input"
+        onChange={(event) => {
+          onFiles(event.target.files)
+          event.target.value = ""
+        }}
+      />
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={() => inputRef.current?.click()}
+        aria-label={`Add photo to ${title}`}
+        data-testid="finding-add-photo"
+      >
+        <Camera />
+        Add photo
+      </Button>
+    </>
   )
 }

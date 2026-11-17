@@ -92,52 +92,101 @@ function changes(count: number): string {
   return `${count} change${count === 1 ? "" : "s"}`
 }
 
+function photoWords(count: number): string {
+  return `${count} photo${count === 1 ? "" : "s"}`
+}
+
+/** Increment 20: photos kept on this device (lib/photoQueue). */
+export interface PhotoCounts {
+  /** Waiting to upload (or uploading now). */
+  waiting: number
+  /** Refused by the server; kept with the reason and a Retry. */
+  failed: number
+}
+
+export const NO_PHOTOS: PhotoCounts = { waiting: 0, failed: 0 }
+
+/** "2 changes and 1 photo", "1 photo", "3 changes". */
+export function waitingWords(pending: number, photos: number): string {
+  if (pending && photos) return `${changes(pending)} and ${photoWords(photos)}`
+  if (photos) return photoWords(photos)
+  return changes(pending)
+}
+
 /** What the header chip says. */
-export function summarizeSync(snapshot: SyncSnapshot): SyncSummary {
+export function summarizeSync(
+  snapshot: SyncSnapshot,
+  photos: PhotoCounts = NO_PHOTOS,
+): SyncSummary {
+  const syncOn = snapshot.enabled && snapshot.ready
+  const pending = syncOn ? snapshot.pending : 0
+  const total = pending + photos.waiting
   if (!snapshot.online) {
-    if (!snapshot.enabled || !snapshot.ready) {
+    if (!syncOn) {
+      if (photos.waiting) {
+        return {
+          tone: "offline",
+          label: `Offline · ${photos.waiting} waiting`,
+          detail: `No connection. ${photoWords(photos.waiting)} kept on this device will upload when you are back online. Photos can still be taken; other changes need a connection.`,
+        }
+      }
       return {
         tone: "offline",
         label: "Offline",
         detail:
-          "No connection. What is already on screen stays visible; saving needs a connection.",
+          "No connection. What is already on screen stays visible; photos you take are kept on this device, other changes need a connection.",
       }
     }
     return {
       tone: "offline",
-      label: snapshot.pending
-        ? `Offline · ${snapshot.pending} waiting`
-        : "Offline",
-      detail: snapshot.pending
-        ? `No connection. ${changes(snapshot.pending)} saved on this device will upload when you are back online.`
-        : "No connection. Findings and pins you save are kept on this device and upload when you are back online.",
+      label: total ? `Offline · ${total} waiting` : "Offline",
+      detail: total
+        ? `No connection. ${waitingWords(pending, photos.waiting)} saved on this device will upload when you are back online.`
+        : "No connection. Findings, pins and photos you save are kept on this device and upload when you are back online.",
     }
   }
-  if (!snapshot.enabled || !snapshot.ready) {
+  if (!syncOn) {
+    if (photos.waiting) {
+      return {
+        tone: "waiting",
+        label: `${photos.waiting} waiting`,
+        detail: `${photoWords(photos.waiting)} on this device not uploaded yet.`,
+      }
+    }
+    if (photos.failed) {
+      return {
+        tone: "waiting",
+        label: "Photos",
+        detail: `${photoWords(photos.failed)} on this device not accepted by the server. Open the sync panel to Retry or delete.`,
+      }
+    }
     return { tone: "hidden", label: "", detail: "" }
   }
   if (snapshot.uploading || (snapshot.downloading && !snapshot.lastSyncedAt)) {
     return {
       tone: "syncing",
       label: "Syncing…",
-      detail: snapshot.pending
-        ? `Uploading ${changes(snapshot.pending)} from this device.`
+      detail: total
+        ? `Uploading ${waitingWords(pending, photos.waiting)} from this device.`
         : "Bringing this device up to date.",
     }
   }
-  if (snapshot.pending > 0) {
+  if (total > 0) {
+    const words = waitingWords(pending, photos.waiting)
     return {
       tone: "waiting",
-      label: `${snapshot.pending} waiting`,
+      label: `${total} waiting`,
       detail: snapshot.error
-        ? `${changes(snapshot.pending)} not uploaded yet: ${snapshot.error}`
-        : `${changes(snapshot.pending)} not uploaded yet.`,
+        ? `${words} not uploaded yet: ${snapshot.error}`
+        : `${words} not uploaded yet.`,
     }
   }
   return {
     tone: "synced",
     label: "Synced",
-    detail: "Everything on this device is uploaded.",
+    detail: photos.failed
+      ? `Everything else is uploaded; ${photoWords(photos.failed)} not accepted by the server ${photos.failed === 1 ? "is" : "are"} still on this device.`
+      : "Everything on this device is uploaded.",
   }
 }
 

@@ -7,15 +7,21 @@ import { EmptyState, QueryState } from "@/components/Common/States"
 import { Button } from "@/components/ui/button"
 import type { PhotoUpload } from "@/hooks/usePhotoUpload"
 import { formatDate } from "@/lib/format"
+import { isInspectionPhoto, useQueuedPhotos } from "@/lib/photoQueue"
 import { photosQuery } from "@/lib/queries"
 import { cn } from "@/lib/utils"
 import { PhotoViewerDialog } from "./PhotoViewerDialog"
+import { QueuedPhotoTile } from "./QueuedPhotoTile"
 
 /*
  * "Site Photos (N)" — the thumbnail grid from the legacy findings screen
  * with the capture buttons in its header. Uploads in flight render as
  * tiles at the front of the grid (local preview, progress, retry) so the
  * person sees the photo land where it will live.
+ *
+ * Increment 20: photos taken without signal and kept on this device come
+ * next, marked "Not uploaded yet" (or "Not accepted" with the reason and a
+ * Retry), until the server has them.
  */
 
 interface PhotosSectionProps {
@@ -39,6 +45,7 @@ export function PhotosSection({
 }: PhotosSectionProps) {
   const query = useQuery(photosQuery(inspectionId))
   const [viewing, setViewing] = useState<number | null>(null)
+  const queued = useQueuedPhotos(isInspectionPhoto(inspectionId))
 
   const captureButtons = canWrite ? (
     <div className="flex gap-2">
@@ -68,6 +75,14 @@ export function PhotosSection({
           : count}
         )
       </span>
+      {queued.length > 0 ? (
+        <span
+          className="ml-2 text-sm font-normal text-vri-copper"
+          data-testid="photos-queued-count"
+        >
+          + {queued.length} on this device
+        </span>
+      ) : null}
     </h2>
   )
 
@@ -76,7 +91,9 @@ export function PhotosSection({
       <QueryState
         query={query}
         errorTitle="Couldn't load the photos"
-        isEmpty={(photos) => photos.length === 0 && uploads.length === 0}
+        isEmpty={(photos) =>
+          photos.length === 0 && uploads.length === 0 && queued.length === 0
+        }
         empty={
           <>
             <div className="flex items-center justify-between gap-3">
@@ -113,6 +130,9 @@ export function PhotosSection({
                   onRetry={() => onRetryUpload(upload.id)}
                   onDismiss={() => onDismissUpload(upload.id)}
                 />
+              ))}
+              {queued.map((photo) => (
+                <QueuedPhotoTile key={photo.id} photo={photo} />
               ))}
               {photos.map((photo, index) => (
                 <PhotoTile

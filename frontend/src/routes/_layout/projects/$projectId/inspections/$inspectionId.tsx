@@ -139,7 +139,7 @@ function InspectionBody({ inspection, project }: InspectionBodyProps) {
   const [signingOff, setSigningOff] = useState(false)
   const [loggingFinding, setLoggingFinding] = useState(false)
 
-  const photoUpload = usePhotoUpload(inspection.id)
+  const photoUpload = usePhotoUpload(inspection.id, inspection.title)
   const picker = usePhotoPicker(photoUpload.addFiles)
 
   const isClosed = inspection.inspection_status === "closed"

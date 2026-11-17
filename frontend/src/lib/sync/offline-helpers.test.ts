@@ -29,6 +29,7 @@ import {
   rowKey,
   type SyncSnapshot,
   summarizeSync,
+  waitingWords,
 } from "./status"
 import { isLocalId } from "./upload"
 
@@ -62,7 +63,7 @@ describe("summarizeSync", () => {
   it("says offline even when offline saving is off", () => {
     const summary = summarizeSync({ ...IDLE_SNAPSHOT, online: false })
     expect(summary.tone).toBe("offline")
-    expect(summary.detail).toMatch(/saving needs a connection/)
+    expect(summary.detail).toMatch(/other changes need a connection/)
   })
 
   it("counts what is waiting while offline", () => {
@@ -96,6 +97,45 @@ describe("summarizeSync", () => {
     expect(summary.detail).toBe(
       "2 changes not uploaded yet: the server could not be reached",
     )
+  })
+})
+
+describe("summarizeSync with photos on the device (increment 20)", () => {
+  it("counts photos with changes while offline", () => {
+    const summary = summarizeSync(snap({ online: false, pending: 2 }), {
+      waiting: 1,
+      failed: 0,
+    })
+    expect(summary.label).toBe("Offline · 3 waiting")
+    expect(summary.detail).toMatch(/2 changes and 1 photo saved on this device/)
+  })
+
+  it("counts photos even when offline saving is off", () => {
+    const offline = summarizeSync(
+      { ...IDLE_SNAPSHOT, online: false },
+      { waiting: 2, failed: 0 },
+    )
+    expect(offline.label).toBe("Offline · 2 waiting")
+    expect(offline.detail).toMatch(/2 photos kept on this device/)
+    const online = summarizeSync(IDLE_SNAPSHOT, { waiting: 2, failed: 0 })
+    expect(online).toMatchObject({ tone: "waiting", label: "2 waiting" })
+    const refused = summarizeSync(IDLE_SNAPSHOT, { waiting: 0, failed: 1 })
+    expect(refused.tone).toBe("waiting")
+    expect(refused.detail).toMatch(/not accepted by the server/)
+  })
+
+  it("does not say synced without mentioning a refused photo", () => {
+    const summary = summarizeSync(snap({}), { waiting: 0, failed: 1 })
+    expect(summary.tone).toBe("synced")
+    expect(summary.detail).toMatch(
+      /1 photo not accepted .* is still on this device/,
+    )
+  })
+
+  it("puts counts in words", () => {
+    expect(waitingWords(1, 0)).toBe("1 change")
+    expect(waitingWords(0, 3)).toBe("3 photos")
+    expect(waitingWords(2, 1)).toBe("2 changes and 1 photo")
   })
 })
 
