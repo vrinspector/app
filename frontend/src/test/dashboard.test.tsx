@@ -294,7 +294,7 @@ describe("dashboard", () => {
 })
 
 describe("help guide", () => {
-  it("renders the seven sections with the topic navigation and the pin legend", async () => {
+  it("renders the eight sections with the topic navigation and the pin legend", async () => {
     renderApp("/help")
 
     const guide = within(await screen.findByTestId("help-guide"))
@@ -306,6 +306,7 @@ describe("help guide", () => {
       "Core workflows",
       "Field-to-office handoff",
       "Without signal",
+      "Home screen",
       "Access",
       "Troubleshooting",
     ])
@@ -317,6 +318,7 @@ describe("help guide", () => {
       "workflows",
       "handoff",
       "offline",
+      "install",
       "access",
       "troubleshooting",
     ]) {
@@ -326,6 +328,13 @@ describe("help guide", () => {
       within(guide.getByTestId("getting-started-steps")).getAllByRole(
         "listitem",
       ),
+    ).toHaveLength(4)
+    // Increment 21: how to put the app on the home screen, per platform.
+    expect(
+      within(guide.getByTestId("install-ios")).getAllByRole("listitem"),
+    ).toHaveLength(4)
+    expect(
+      within(guide.getByTestId("install-android")).getAllByRole("listitem"),
     ).toHaveLength(4)
 
     // The five pin statuses in the legacy picker order, with their colours.

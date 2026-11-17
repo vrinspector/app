@@ -12,6 +12,7 @@ import { Footer } from "@/components/Common/Footer"
 import { PhotoQueueRunner } from "@/components/Common/PhotoQueueRunner"
 import { EmptyState, ErrorState } from "@/components/Common/States"
 import { SyncIndicator } from "@/components/Common/SyncIndicator"
+import { UpdateNotice } from "@/components/Common/UpdateNotice"
 import AppSidebar from "@/components/Sidebar/AppSidebar"
 import { Button } from "@/components/ui/button"
 import {
@@ -91,6 +92,7 @@ function Layout() {
             ) : null}
           </div>
         </header>
+        <UpdateNotice />
         <main className="flex-1 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6 md:p-8">
           <div className="mx-auto flex max-w-7xl flex-col gap-6">
             <Outlet />

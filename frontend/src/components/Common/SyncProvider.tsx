@@ -14,6 +14,7 @@ import {
 import { type AuditRow, toAuditEntry } from "@/lib/sync/audit"
 import { isOfflineSyncEnabled, powerSyncUrl } from "@/lib/sync/config"
 import { SyncContext, type SyncContextValue } from "@/lib/sync/context"
+import { setOfflineReader } from "@/lib/sync/offlineRead"
 import {
   describeSyncError,
   IDLE_SNAPSHOT,
@@ -159,6 +160,15 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       cancelled = true
     }
   }, [isAuthenticated, getAccessTokenSilently])
+
+  // Increment 21: the field screens read this copy when the API cannot be
+  // reached. If the copy opens while there is no signal (an app opened from
+  // the home screen offline), screens that already gave up try again.
+  useEffect(() => {
+    setOfflineReader(db)
+    if (db && !navigator.onLine) void queryClient.invalidateQueries()
+    return () => setOfflineReader(null)
+  }, [db, queryClient])
 
   const refreshQueue = useCallback(async () => {
     if (!db) return

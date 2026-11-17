@@ -29,7 +29,9 @@ export const Route = createFileRoute("/_layout/help")({
 /*
  * The in-app user guide: the legacy Help overlay (`renderHelpGuide`) with
  * the same six sections — getting started, device split, core workflows,
- * field-to-office hand-off, access, troubleshooting — and its copy brought
+ * field-to-office hand-off, access, troubleshooting — plus "Working without
+ * signal" (increments 19–21) and "Add to home screen" (increment 21), and
+ * its copy brought
  * up to date with the rebuilt screens: button names (Take photo, Log
  * finding, Upload drawing), the viewer that opens fit-to-width and zooms
  * 25–300 % with pinch and buttons on PDFs *and* raster drawings
@@ -44,6 +46,7 @@ const TOPICS = [
   { id: "workflows", label: "Core workflows" },
   { id: "handoff", label: "Field-to-office handoff" },
   { id: "offline", label: "Without signal" },
+  { id: "install", label: "Home screen" },
   { id: "access", label: "Access" },
   { id: "troubleshooting", label: "Troubleshooting" },
 ] as const
@@ -518,8 +521,20 @@ function Help() {
             <strong>Not uploaded yet</strong> (a dashed pin with a small upload
             badge on the drawing), and upload on their own when the signal
             returns. Sign-offs, resolving and deleting still need a connection.
-            Open the project before you lose signal and keep the app open:
-            reloading the page with no signal does not work yet.
+            Open your projects once while you have signal so they are on the
+            device. After that the app opens with no signal too — from the
+            home-screen icon (see <strong>Add to home screen</strong> below) or
+            by reloading the page — and shows the copy saved on the device:
+            projects, inspections, findings, drawings and pins. The dashboard,
+            reports and ITP screens still need signal.
+          </p>
+          <p data-testid="help-offline-drawings">
+            <strong>Drawings without signal.</strong> A drawing you have opened
+            once with signal is kept on the device and opens with no signal next
+            time. Drawings are kept only while the device has plenty of room, so
+            they never take the space photos need; when the device is getting
+            full, older drawings are not kept and need signal again. A drawing
+            never opened on this device says it needs a connection.
           </p>
           <p data-testid="help-offline-photos">
             <strong>Photos without signal.</strong> Take photos as usual — on
@@ -559,6 +574,69 @@ function Help() {
             <strong>Synced</strong>. Signing out removes this device&apos;s
             copy, including changes and photos not uploaded yet; the app warns
             you first.
+          </Note>
+        </HelpSection>
+
+        <HelpSection id="install" title="Add to home screen">
+          <p>
+            VR Inspector can sit on your phone or tablet&apos;s home screen like
+            an app. It opens full screen, without the browser bar, and opens
+            even with no signal once you have used it with signal. There is
+            nothing to download from an app store. Sign in once in the browser
+            first.
+          </p>
+          <div className="grid gap-3 md:grid-cols-2">
+            <HelpCard title="iPhone and iPad (Safari)">
+              <ol
+                className="list-decimal space-y-1 pl-5"
+                data-testid="install-ios"
+              >
+                <li>
+                  Open VR Inspector in <strong>Safari</strong>.
+                </li>
+                <li>
+                  Tap the <strong>Share</strong> button (the square with an
+                  arrow pointing up).
+                </li>
+                <li>
+                  Scroll down and tap <strong>Add to Home Screen</strong>, then{" "}
+                  <strong>Add</strong>.
+                </li>
+                <li>Open VR Inspector from the new icon from now on.</li>
+              </ol>
+            </HelpCard>
+            <HelpCard title="Android (Chrome)">
+              <ol
+                className="list-decimal space-y-1 pl-5"
+                data-testid="install-android"
+              >
+                <li>
+                  Open VR Inspector in <strong>Chrome</strong>.
+                </li>
+                <li>
+                  Tap the <strong>⋮</strong> menu at the top right.
+                </li>
+                <li>
+                  Tap <strong>Add to Home screen</strong> (or{" "}
+                  <strong>Install app</strong>), then <strong>Install</strong>.
+                </li>
+                <li>Open VR Inspector from the new icon from now on.</li>
+              </ol>
+            </HelpCard>
+          </div>
+          <p>
+            When a new version of VR Inspector is published, a notice{" "}
+            <strong>Update available</strong> appears under the top bar. Tap{" "}
+            <strong>Reload</strong> when you are done typing; changes and photos
+            saved on the device are kept. <strong>Later</strong> hides it until
+            the next start.
+          </p>
+          <Note>
+            <strong>Signing in needs signal.</strong> If the app shows the
+            sign-in page with no signal, your saved work is still on the device:
+            sign in again when you have signal and anything waiting uploads. The
+            public signing page for outside signers and the free ITP generator
+            always need a connection.
           </Note>
         </HelpSection>
 

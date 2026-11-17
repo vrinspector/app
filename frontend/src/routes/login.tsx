@@ -1,8 +1,9 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router"
-import { Clock, LogIn, ShieldCheck } from "lucide-react"
+import { Clock, CloudOff, LogIn, ShieldCheck } from "lucide-react"
 import { useState } from "react"
 
 import { AuthLayout } from "@/components/Common/AuthLayout"
+import { useOnline } from "@/components/Common/SyncProvider"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { LoadingButton } from "@/components/ui/loading-button"
 import useAuth from "@/hooks/useAuth"
@@ -39,6 +40,7 @@ function Login() {
   const { isConfigured, error, login } = useAuth()
   const { returnTo, reason } = Route.useSearch()
   const [redirecting, setRedirecting] = useState(false)
+  const online = useOnline()
 
   const onSignIn = async () => {
     if (redirecting) return
@@ -67,6 +69,20 @@ function Login() {
             <AlertTitle>Your session ended</AlertTitle>
             <AlertDescription>
               Sign in again to pick up where you left off.
+            </AlertDescription>
+          </Alert>
+        ) : null}
+
+        {!online ? (
+          // Increment 21: the home-screen app opens with no signal, but
+          // signing in always needs a connection.
+          <Alert data-testid="login-offline">
+            <CloudOff />
+            <AlertTitle>No signal</AlertTitle>
+            <AlertDescription>
+              Signing in needs a connection. If you were already signed in on
+              this device, your work is still on it: sign in again when you have
+              signal and anything waiting will upload.
             </AlertDescription>
           </Alert>
         ) : null}

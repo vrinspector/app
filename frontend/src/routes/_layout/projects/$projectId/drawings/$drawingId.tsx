@@ -27,13 +27,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import useCustomToast from "@/hooks/useCustomToast"
+import { useDrawingFile } from "@/hooks/useDrawingFile"
 import { useProjectRole } from "@/hooks/useProjectRole"
 import { formatDate, joinMeta } from "@/lib/format"
 import { revisionLabel } from "@/lib/pinView"
 import {
   drawingKeys,
   drawingQuery,
-  drawingViewUrlQuery,
   parseId,
   projectKeys,
   projectQuery,
@@ -149,7 +149,8 @@ function DrawingBody({
   const { showSuccessToast, showErrorToast } = useCustomToast()
   const { canWrite } = useProjectRole(projectId)
   const project = useQuery(projectQuery(projectId))
-  const viewUrl = useQuery(drawingViewUrlQuery(drawing.id))
+  // Increment 21: a copy kept on this device opens with no signal.
+  const viewFile = useDrawingFile(drawing)
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState<"all" | "revision" | null>(null)
   const [revising, setRevising] = useState(false)
@@ -293,11 +294,11 @@ function DrawingBody({
         }
       />
 
-      {viewUrl.isPending ? (
+      {viewFile.isPending ? (
         <LoadingState message="Fetching the drawing…" />
-      ) : viewUrl.isError ? (
+      ) : viewFile.isError ? (
         <DetailState
-          query={viewUrl}
+          query={viewFile}
           noun="drawing"
           backTo="/projects/$projectId"
           backParams={{ projectId: String(projectId) }}
@@ -308,12 +309,12 @@ function DrawingBody({
         </DetailState>
       ) : (
         <DrawingViewer
-          key={viewUrl.data}
+          key={viewFile.data.url}
           projectId={projectId}
           drawing={drawing}
-          viewUrl={viewUrl.data}
+          viewUrl={viewFile.data.url}
           canWrite={canWrite}
-          onRetry={() => viewUrl.refetch()}
+          onRetry={() => viewFile.refetch()}
           inspectionId={inspectionId ?? null}
           itpItemId={itpItemId ?? null}
         />

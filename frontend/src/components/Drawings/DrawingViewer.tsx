@@ -114,7 +114,7 @@ import { PinStatusDialog } from "./PinStatusDialog"
 interface DrawingViewerProps {
   projectId: number
   drawing: DrawingPublic
-  /** The presigned GET for the file (drawingViewUrlQuery). */
+  /** The file to show: a presigned GET, or a blob: URL of the copy kept on this device (useDrawingFile). */
   viewUrl: string
   canWrite: boolean
   /** Re-mint the view URL and reload, after a load failure. */

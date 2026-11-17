@@ -20,6 +20,7 @@ import { ThemeProvider } from "./components/theme-provider"
 import { Toaster } from "./components/ui/sonner"
 import "./index.css"
 import { AUTH0_SCOPE, auth0Config, redirectUri } from "./lib/auth0"
+import { registerServiceWorker } from "./lib/pwa/register"
 import type { RouterContext } from "./lib/router-context"
 import { redirectToLogin } from "./lib/session"
 import { routeTree } from "./routeTree.gen"
@@ -164,6 +165,11 @@ function Root() {
     </Auth0Provider>
   )
 }
+
+// Increment 21: keep the app's own files on the device so the home-screen
+// icon opens with no signal (production builds only; never on the public
+// signing page or the public ITP generator).
+registerServiceWorker()
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <StrictMode>

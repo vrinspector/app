@@ -40,7 +40,13 @@ export async function startOfflineSync(options: {
     fetchTransport(options.apiBase, options.getToken),
   )
   activeConnector = connector
-  await db.connect(connector)
+  // Increment 21: never wait for the server here. With no signal (an app
+  // opened from the home screen offline) the device's copy must still open
+  // for the screens; PowerSync keeps retrying the connection on its own and
+  // the sync chip follows its status.
+  void db.connect(connector).catch((error: unknown) => {
+    console.warn("Offline sync could not connect yet", error)
+  })
   return db
 }
 
