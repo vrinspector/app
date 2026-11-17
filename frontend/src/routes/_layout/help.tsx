@@ -517,9 +517,31 @@ function Help() {
             saved on the phone or tablet, marked{" "}
             <strong>Not uploaded yet</strong> (a dashed pin with a small upload
             badge on the drawing), and upload on their own when the signal
-            returns. Photos, sign-offs, resolving and deleting still need a
-            connection. Open the project before you lose signal and keep the app
-            open: reloading the page with no signal does not work yet.
+            returns. Sign-offs, resolving and deleting still need a connection.
+            Open the project before you lose signal and keep the app open:
+            reloading the page with no signal does not work yet.
+          </p>
+          <p data-testid="help-offline-photos">
+            <strong>Photos without signal.</strong> Take photos as usual — on
+            the inspection, on a finding (<strong>Add photo</strong>, also on a
+            finding you logged without signal) or on an ITP line and its
+            three-shot slots. With no signal each photo is kept on the phone or
+            tablet exactly as the camera took it, shown where it belongs with a
+            dashed edge and <strong>Not uploaded yet</strong>, and counted in
+            the chip. When the signal returns it uploads on its own (or tap{" "}
+            <strong>Sync now</strong>); a photo for a finding logged offline
+            goes up right after that finding. An ITP line counts a photo as
+            evidence only once it has uploaded. If the server does not accept a
+            photo (for example, the inspection was signed off meanwhile), it
+            stays on the device: the sync panel shows why, with{" "}
+            <strong>Retry</strong> and <strong>Delete from device</strong>.
+            Nothing is thrown away without you saying so.
+          </p>
+          <p>
+            Photos waiting on the device take up space. The sync panel warns
+            when the device is getting full, and if there is no room left the
+            app says so instead of taking the photo — upload the waiting photos
+            or free up space on the device first.
           </p>
           <p>
             Each upload is checked by the server exactly as if you were online.
@@ -535,7 +557,8 @@ function Help() {
           <Note>
             <strong>Before signing out</strong>, wait for{" "}
             <strong>Synced</strong>. Signing out removes this device&apos;s
-            copy, including anything not uploaded yet; the app warns you first.
+            copy, including changes and photos not uploaded yet; the app warns
+            you first.
           </Note>
         </HelpSection>
 

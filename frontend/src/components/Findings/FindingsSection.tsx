@@ -342,6 +342,7 @@ function FindingList({
               photos={photosByFinding.get(finding.id)}
               readOnly={readOnly || unsynced.has(finding.id)}
               unsynced={unsynced.has(finding.id)}
+              canAddPhoto={!readOnly}
               onResolve={onResolve}
               onEdit={onEdit}
               onDelete={onDelete}

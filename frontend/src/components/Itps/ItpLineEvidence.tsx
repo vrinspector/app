@@ -21,11 +21,17 @@ import {
 } from "@/client"
 import { usePhotoPicker } from "@/components/Photos/PhotoCapture"
 import { PhotoViewerDialog } from "@/components/Photos/PhotoViewerDialog"
+import { QueuedPhotoTile } from "@/components/Photos/QueuedPhotoTile"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import useCustomToast from "@/hooks/useCustomToast"
 import { useItpPhotoUpload } from "@/hooks/useItpPhotoUpload"
 import { formatMeasured, THREE_SHOT_SLOTS, toleranceLabel } from "@/lib/itp"
+import {
+  isItpItemPhoto,
+  type QueuedPhotoMeta,
+  useQueuedPhotos,
+} from "@/lib/photoQueue"
 import { itpKeys } from "@/lib/queries"
 import { cn } from "@/lib/utils"
 import { extractErrorMessage } from "@/utils"
@@ -213,8 +219,13 @@ export function LinePhotos({
         .data ?? [],
     enabled: count > 0,
   })
-  const upload = useItpPhotoUpload(item.id, onChanged)
+  const upload = useItpPhotoUpload(
+    item.id,
+    onChanged,
+    item.element_name ?? undefined,
+  )
   const picker = usePhotoPicker(upload.addFiles)
+  const queued = useQueuedPhotos(isItpItemPhoto(item.id))
   const list = count > 0 ? (photos.data ?? []) : []
   const onFile = count > 0
 
@@ -223,13 +234,16 @@ export function LinePhotos({
       <ThreeShotPhotos
         item={item}
         photos={list}
+        queued={queued}
         canAdd={canAdd}
         upload={upload}
         onChanged={onChanged}
       />
     )
   }
-  if (!onFile && !canAdd && !item.photo_required) return null
+  if (!onFile && !canAdd && !item.photo_required && !queued.length) {
+    return null
+  }
 
   return (
     <div className="flex flex-col gap-2" data-testid="itp-line-photos">
@@ -277,8 +291,13 @@ export function LinePhotos({
         ) : null}
       </div>
 
-      {list.length || upload.uploads.length ? (
+      {queued.length ? <QueuedNote count={queued.length} /> : null}
+
+      {list.length || upload.uploads.length || queued.length ? (
         <ul className="flex flex-wrap gap-2" aria-label="Line photos">
+          {queued.map((photo) => (
+            <QueuedPhotoTile key={photo.id} photo={photo} variant="strip" />
+          ))}
           {upload.uploads.map((u) => (
             <li
               key={u.id}
@@ -347,15 +366,28 @@ export function LinePhotos({
 
 type ItpUpload = ReturnType<typeof useItpPhotoUpload>
 
+/** Increment 20: photos for this line kept on the device count once uploaded. */
+function QueuedNote({ count }: { count: number }) {
+  return (
+    <p className="text-xs text-vri-copper" data-testid="itp-photos-on-device">
+      {count === 1
+        ? "1 photo is on this device and not uploaded yet; it counts as evidence once uploaded."
+        : `${count} photos are on this device and not uploaded yet; they count as evidence once uploaded.`}
+    </p>
+  )
+}
+
 function ThreeShotPhotos({
   item,
   photos,
+  queued,
   canAdd,
   upload,
   onChanged,
 }: {
   item: ItpItemPublic
   photos: PhotoPublic[]
+  queued: QueuedPhotoMeta[]
   canAdd: boolean
   upload: ItpUpload
   onChanged: () => void
@@ -364,6 +396,12 @@ function ThreeShotPhotos({
   const filled = new Set(item.shot_slots ?? [])
   const complete = THREE_SHOT_SLOTS.every((slot) => filled.has(slot.value))
   const extras = photos.filter((p) => !p.shot_slot)
+  const queuedSlot = (slot: string | null) =>
+    queued.filter(
+      (photo) =>
+        photo.target.kind === "itp_item" &&
+        (photo.target.slot ?? null) === slot,
+    )
   const open = (photo: PhotoPublic) => setViewing(photos.indexOf(photo))
 
   return (
@@ -387,6 +425,7 @@ function ThreeShotPhotos({
           </span>
         )}
       </p>
+      {queued.length ? <QueuedNote count={queued.length} /> : null}
       <ol className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-3">
         {THREE_SHOT_SLOTS.map((slot, n) => (
           <ShotSlotTile
@@ -395,6 +434,7 @@ function ThreeShotPhotos({
             slot={slot}
             photos={photos.filter((p) => p.shot_slot === slot.value)}
             uploads={upload.uploads.filter((u) => u.slot === slot.value)}
+            queued={queuedSlot(slot.value)}
             canAdd={canAdd}
             onFiles={(files) => upload.addFiles(files, slot.value)}
             onRetry={upload.retry}
@@ -402,9 +442,14 @@ function ThreeShotPhotos({
           />
         ))}
       </ol>
-      {extras.length ? (
+      {extras.length || queuedSlot(null).length ? (
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <span>Other photos</span>
+          <ul className="contents">
+            {queuedSlot(null).map((photo) => (
+              <QueuedPhotoTile key={photo.id} photo={photo} variant="strip" />
+            ))}
+          </ul>
           {extras.map((photo) => (
             <Thumb key={photo.id} photo={photo} onOpen={open} small />
           ))}
@@ -426,6 +471,7 @@ function ShotSlotTile({
   slot,
   photos,
   uploads,
+  queued,
   canAdd,
   onFiles,
   onRetry,
@@ -435,6 +481,7 @@ function ShotSlotTile({
   slot: (typeof THREE_SHOT_SLOTS)[number]
   photos: PhotoPublic[]
   uploads: ItpUpload["uploads"]
+  queued: QueuedPhotoMeta[]
   canAdd: boolean
   onFiles: (files: FileList | null) => void
   onRetry: (id: string) => void
@@ -467,6 +514,13 @@ function ShotSlotTile({
         ) : null}
       </p>
       <p className="text-xs leading-snug text-muted-foreground">{slot.hint}</p>
+      {queued.length ? (
+        <ul className="flex flex-wrap gap-1.5" aria-label="On this device">
+          {queued.map((photo) => (
+            <QueuedPhotoTile key={photo.id} photo={photo} variant="strip" />
+          ))}
+        </ul>
+      ) : null}
       {has || uploads.length ? (
         <div className="flex flex-wrap gap-1.5">
           {uploads.map((u) => (

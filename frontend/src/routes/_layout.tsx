@@ -9,6 +9,7 @@ import {
 } from "@tanstack/react-router"
 import { CircleHelp, SearchX } from "lucide-react"
 import { Footer } from "@/components/Common/Footer"
+import { PhotoQueueRunner } from "@/components/Common/PhotoQueueRunner"
 import { EmptyState, ErrorState } from "@/components/Common/States"
 import { SyncIndicator } from "@/components/Common/SyncIndicator"
 import AppSidebar from "@/components/Sidebar/AppSidebar"
@@ -56,6 +57,7 @@ function Layout() {
 
   return (
     <SidebarProvider>
+      <PhotoQueueRunner />
       <AppSidebar />
       <SidebarInset>
         <header

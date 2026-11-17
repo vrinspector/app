@@ -7,6 +7,10 @@ import useCustomToast from "@/hooks/useCustomToast"
 import {
   capturedAt,
   describeFile,
+  deviceOffline,
+  isNetworkFailure,
+  KEPT_ON_DEVICE_MESSAGE,
+  keepPhotoOnDevice,
   type PhotoUpload,
   putToS3,
 } from "@/hooks/usePhotoUpload"
@@ -26,14 +30,23 @@ import { extractErrorMessage } from "@/utils"
  *
  * `onUploaded` runs after each registered photo so the ITP screen can
  * refresh the line's "photo on file" state.
+ *
+ * Increment 20: with no signal the photo is kept on the device under the
+ * line (and its three-shot slot) and uploads when the signal returns; it
+ * counts as evidence only once the server has it.
  */
 
 let nextId = 0
 
-export function useItpPhotoUpload(itemId: number, onUploaded: () => void) {
+export function useItpPhotoUpload(
+  itemId: number,
+  onUploaded: () => void,
+  lineTitle = "",
+) {
   const queryClient = useQueryClient()
   const { user } = useAuth()
   const { showSuccessToast } = useCustomToast()
+  const uploadedBy = user?.name ?? user?.email ?? null
   const [uploads, setUploads] = useState<PhotoUpload[]>([])
   const uploadsRef = useRef(uploads)
   uploadsRef.current = uploads
@@ -61,9 +74,38 @@ export function useItpPhotoUpload(itemId: number, onUploaded: () => void) {
     })
   }, [])
 
+  const keep = useCallback(
+    async (upload: PhotoUpload) => {
+      const slotName = upload.slot
+        ? {
+            context: "Context",
+            intermediate: "Intermediate",
+            closeup: "Close-up",
+          }[upload.slot]
+        : null
+      const problem = await keepPhotoOnDevice(
+        upload.file,
+        { kind: "itp_item", itemId: String(itemId), slot: upload.slot ?? null },
+        `${slotName ? `${slotName} photo` : "Photo"} for ITP line${lineTitle ? ` “${lineTitle}”` : ""}`,
+        uploadedBy,
+      )
+      if (problem) {
+        patch(upload.id, { status: "error", error: problem })
+        return
+      }
+      remove(upload.id)
+      showSuccessToast(KEPT_ON_DEVICE_MESSAGE)
+    },
+    [itemId, lineTitle, uploadedBy, patch, remove, showSuccessToast],
+  )
+
   const run = useCallback(
     async (upload: PhotoUpload) => {
       const { contentType, filename } = describeFile(upload.file)
+      if (deviceOffline()) {
+        await keep(upload)
+        return
+      }
       try {
         patch(upload.id, {
           status: "presigning",
@@ -92,7 +134,7 @@ export function useItpPhotoUpload(itemId: number, onUploaded: () => void) {
               s3_key: presign.s3_key,
               filename,
               content_type: contentType,
-              uploaded_by: user?.name ?? user?.email ?? null,
+              uploaded_by: uploadedBy,
               shot_slot: upload.slot ?? null,
               captured_at: capturedAt(upload.file),
             },
@@ -107,6 +149,10 @@ export function useItpPhotoUpload(itemId: number, onUploaded: () => void) {
         showSuccessToast("Photo added to the line")
         onUploaded()
       } catch (error) {
+        if (isNetworkFailure(error)) {
+          await keep(upload)
+          return
+        }
         patch(upload.id, {
           status: "error",
           error:
@@ -116,7 +162,16 @@ export function useItpPhotoUpload(itemId: number, onUploaded: () => void) {
         })
       }
     },
-    [itemId, patch, remove, queryClient, showSuccessToast, user, onUploaded],
+    [
+      itemId,
+      patch,
+      remove,
+      queryClient,
+      showSuccessToast,
+      uploadedBy,
+      onUploaded,
+      keep,
+    ],
   )
 
   const addFiles = useCallback(
