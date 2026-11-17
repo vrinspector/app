@@ -85,8 +85,11 @@ function photo(name = "crack.jpg") {
   })
 }
 
+let store = memoryPhotoStore()
+
 beforeEach(() => {
-  photoQueue.useStore(memoryPhotoStore())
+  store = memoryPhotoStore()
+  photoQueue.useStore(store)
 })
 
 afterEach(() => {
@@ -194,7 +197,7 @@ describe("photos in the sync chip and panel", () => {
 
   it("lists a refused photo with its reason, Retry and Delete from device", async () => {
     const refused = await queue("late.jpg")
-    await photoQueue["store"].patch(refused, {
+    await store.patch(refused, {
       status: "failed",
       error: "Inspection is signed off",
     })
@@ -220,7 +223,7 @@ describe("photos in the sync chip and panel", () => {
     await waitFor(() => expect(photoQueue.getSnapshot().failed).toBe(0))
 
     // Deleting is explicit and confirmed.
-    await photoQueue["store"].patch(refused, { status: "failed", error: "No" })
+    await store.patch(refused, { status: "failed", error: "No" })
     await photoQueue.refresh()
     const again = (await screen.findAllByTestId("sync-photo")).find(
       (row) => row.dataset.status === "failed",
