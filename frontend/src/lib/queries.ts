@@ -38,6 +38,27 @@ import {
   type WeatherReading,
   WeatherService,
 } from "@/client"
+import {
+  readLocalDrawing,
+  readLocalDrawings,
+  readLocalFindings,
+  readLocalInspection,
+  readLocalInspections,
+  readLocalMembers,
+  readLocalPins,
+  readLocalProject,
+  readLocalProjects,
+  withLocalFallback,
+  withOfflineMessage,
+} from "@/lib/sync/offlineRead"
+
+/**
+ * Increment 21: the field screens read the device's synced copy when the
+ * API cannot be reached (lib/sync/offlineRead.ts). They run even while the
+ * browser reports no connection ("always"), so an app opened from the home
+ * screen with no signal shows that copy instead of waiting for signal.
+ */
+const OFFLINE_READ = { networkMode: "always" } as const
 
 /*
  * Query keys and options for the project → inspection hierarchy, in one
@@ -138,31 +159,57 @@ export const inspectionKeys = {
 export const dashboardQuery = () =>
   queryOptions<DashboardPublic>({
     queryKey: dashboardKeys.all,
-    queryFn: async () =>
-      (await DashboardService.readDashboard()).data as DashboardPublic,
+    queryFn: () =>
+      withOfflineMessage(
+        async () =>
+          (await DashboardService.readDashboard()).data as DashboardPublic,
+        "No signal. The dashboard needs a connection; the projects saved on this device are under All projects.",
+      ),
     staleTime: 0,
+    networkMode: "always",
   })
 
 export const projectsQuery = () =>
   queryOptions<ProjectPublic[]>({
     queryKey: projectKeys.all,
-    queryFn: async () => (await ProjectsService.listProjects()).data ?? [],
+    queryFn: () =>
+      withLocalFallback(
+        async () => (await ProjectsService.listProjects()).data ?? [],
+        readLocalProjects,
+      ),
+    ...OFFLINE_READ,
   })
 
 export const projectQuery = (projectId: number) =>
   queryOptions<ProjectPublic>({
     queryKey: projectKeys.detail(projectId),
-    queryFn: async () =>
-      (await ProjectsService.readProject({ path: { project_id: projectId } }))
-        .data as ProjectPublic,
+    queryFn: () =>
+      withLocalFallback(
+        async () =>
+          (
+            await ProjectsService.readProject({
+              path: { project_id: projectId },
+            })
+          ).data as ProjectPublic,
+        (db) => readLocalProject(db, projectId),
+      ),
+    ...OFFLINE_READ,
   })
 
 export const membersQuery = (projectId: number) =>
   queryOptions<MemberPublic[]>({
     queryKey: projectKeys.members(projectId),
-    queryFn: async () =>
-      (await ProjectsService.listMembers({ path: { project_id: projectId } }))
-        .data ?? [],
+    queryFn: () =>
+      withLocalFallback(
+        async () =>
+          (
+            await ProjectsService.listMembers({
+              path: { project_id: projectId },
+            })
+          ).data ?? [],
+        (db) => readLocalMembers(db, projectId),
+      ),
+    ...OFFLINE_READ,
   })
 
 /** Owner-only: the member-invite rows of the project's email send log
@@ -185,34 +232,49 @@ export const inviteEmailsQuery = (projectId: number) =>
 export const inspectionsQuery = (projectId: number) =>
   queryOptions<InspectionPublic[]>({
     queryKey: projectKeys.inspections(projectId),
-    queryFn: async () =>
-      (
-        await InspectionsService.listInspections({
-          query: { project_id: projectId },
-        })
-      ).data ?? [],
+    queryFn: () =>
+      withLocalFallback(
+        async () =>
+          (
+            await InspectionsService.listInspections({
+              query: { project_id: projectId },
+            })
+          ).data ?? [],
+        (db) => readLocalInspections(db, projectId),
+      ),
+    ...OFFLINE_READ,
   })
 
 export const inspectionQuery = (inspectionId: number) =>
   queryOptions<InspectionPublic>({
     queryKey: inspectionKeys.detail(inspectionId),
-    queryFn: async () =>
-      (
-        await InspectionsService.readInspection({
-          path: { inspection_id: inspectionId },
-        })
-      ).data as InspectionPublic,
+    queryFn: () =>
+      withLocalFallback(
+        async () =>
+          (
+            await InspectionsService.readInspection({
+              path: { inspection_id: inspectionId },
+            })
+          ).data as InspectionPublic,
+        (db) => readLocalInspection(db, inspectionId),
+      ),
+    ...OFFLINE_READ,
   })
 
 export const findingsQuery = (inspectionId: number) =>
   queryOptions<FindingPublic[]>({
     queryKey: inspectionKeys.findings(inspectionId),
-    queryFn: async () =>
-      (
-        await FindingsService.listFindings({
-          query: { inspection_id: inspectionId },
-        })
-      ).data ?? [],
+    queryFn: () =>
+      withLocalFallback(
+        async () =>
+          (
+            await FindingsService.listFindings({
+              query: { inspection_id: inspectionId },
+            })
+          ).data ?? [],
+        (db) => readLocalFindings(db, inspectionId),
+      ),
+    ...OFFLINE_READ,
   })
 
 /**
@@ -271,20 +333,33 @@ export const weatherQuery = (inspectionId: number) =>
 export const drawingsQuery = (projectId: number) =>
   queryOptions<DrawingPublic[]>({
     queryKey: projectKeys.drawings(projectId),
-    queryFn: async () =>
-      (
-        await DrawingsService.listDrawings({
-          query: { project_id: projectId },
-        })
-      ).data ?? [],
+    queryFn: () =>
+      withLocalFallback(
+        async () =>
+          (
+            await DrawingsService.listDrawings({
+              query: { project_id: projectId },
+            })
+          ).data ?? [],
+        (db) => readLocalDrawings(db, projectId),
+      ),
+    ...OFFLINE_READ,
   })
 
 export const drawingQuery = (drawingId: number) =>
   queryOptions<DrawingPublic>({
     queryKey: drawingKeys.detail(drawingId),
-    queryFn: async () =>
-      (await DrawingsService.readDrawing({ path: { drawing_id: drawingId } }))
-        .data as DrawingPublic,
+    queryFn: () =>
+      withLocalFallback(
+        async () =>
+          (
+            await DrawingsService.readDrawing({
+              path: { drawing_id: drawingId },
+            })
+          ).data as DrawingPublic,
+        (db) => readLocalDrawing(db, drawingId),
+      ),
+    ...OFFLINE_READ,
   })
 
 /**
@@ -311,9 +386,14 @@ export const drawingViewUrlQuery = (drawingId: number) =>
 export const pinsQuery = (drawingId: number) =>
   queryOptions<PinPublic[]>({
     queryKey: drawingKeys.pins(drawingId),
-    queryFn: async () =>
-      (await DrawingsService.listPins({ path: { drawing_id: drawingId } }))
-        .data ?? [],
+    queryFn: () =>
+      withLocalFallback(
+        async () =>
+          (await DrawingsService.listPins({ path: { drawing_id: drawingId } }))
+            .data ?? [],
+        (db) => readLocalPins(db, drawingId),
+      ),
+    ...OFFLINE_READ,
   })
 
 /** Increment 14.5: the sheet's revisions, newest first (current one marked). */

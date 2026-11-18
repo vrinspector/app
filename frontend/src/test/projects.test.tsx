@@ -7,8 +7,9 @@ import {
 import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { AxiosError } from "axios"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
+import { setOfflineReader } from "@/lib/sync/offlineRead"
 import { routeTree } from "@/routeTree.gen"
 
 /*
@@ -627,6 +628,99 @@ describe("inspection screen", () => {
 
     expect(await screen.findByTestId("not-found-state")).toHaveTextContent(
       "Inspection not found",
+    )
+  })
+})
+
+/*
+ * Increment 21: an app opened from the home screen with no signal shows the
+ * device's synced copy (lib/sync/offlineRead.ts).
+ */
+describe("with no signal", () => {
+  const networkDown = () => new AxiosError("Network Error", "ERR_NETWORK")
+  const localTables: Record<string, Record<string, unknown>[]> = {
+    projects: [
+      {
+        id: "7",
+        public_id: "prj_7",
+        name: "Landfill Gas Project",
+        client: "Redtail Renewables",
+        location: "Richmond VA",
+        status: "active",
+        created_at: "2026-07-01T12:00:00Z",
+        updated_at: "2026-07-01T12:00:00Z",
+      },
+    ],
+    project_members: [
+      {
+        id: "1",
+        project_id: "7",
+        user_email: "stacey@example.com",
+        role: "owner",
+      },
+    ],
+    inspections: [
+      {
+        id: "21",
+        public_id: "insp_21",
+        project_id: "7",
+        title: "Site Walk #1 - Civil",
+        inspection_type: "civil",
+        status: "open",
+        inspection_status: "open",
+        created_at: "2026-07-02T09:00:00Z",
+        updated_at: "2026-07-02T09:00:00Z",
+      },
+    ],
+  }
+  const localDb = {
+    getAll: vi.fn(async (sql: string, params?: unknown[]) => {
+      const table = /FROM (\w+)/.exec(sql)?.[1] ?? ""
+      const where = /WHERE (\w+) = \?/.exec(sql)?.[1]
+      const rows = localTables[table] ?? []
+      return (
+        where
+          ? rows.filter((r) => String(r[where]) === String(params?.[0]))
+          : rows
+      ) as never
+    }),
+  }
+
+  beforeEach(() => {
+    api.listProjects.mockRejectedValue(networkDown())
+    api.readProject.mockRejectedValue(networkDown())
+    api.listMembers.mockRejectedValue(networkDown())
+    api.listInspections.mockRejectedValue(networkDown())
+  })
+
+  afterEach(() => {
+    setOfflineReader(null)
+  })
+
+  it("lists the projects saved on the device", async () => {
+    setOfflineReader(localDb)
+    renderApp("/projects")
+
+    const cards = await screen.findAllByTestId("project-card")
+    expect(cards).toHaveLength(1)
+    expect(cards[0]).toHaveTextContent("Landfill Gas Project")
+  })
+
+  it("opens a project and its inspections from the device", async () => {
+    setOfflineReader(localDb)
+    renderApp("/projects/7")
+
+    expect(
+      await screen.findByRole("heading", { name: "Landfill Gas Project" }),
+    ).toBeInTheDocument()
+    expect(await screen.findByText("Site Walk #1 - Civil")).toBeInTheDocument()
+  })
+
+  it("says plainly that signal is needed when nothing is on the device", async () => {
+    renderApp("/projects")
+
+    expect(await screen.findByTestId("error-state")).toHaveTextContent(
+      "No signal",
     )
   })
 })

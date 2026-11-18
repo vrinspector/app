@@ -4,6 +4,9 @@ import tailwindcss from "@tailwindcss/vite"
 import { tanstackRouter } from "@tanstack/router-plugin/vite"
 import react from "@vitejs/plugin-react-swc"
 import { defineConfig } from "vite"
+import { VitePWA } from "vite-plugin-pwa"
+
+import { pwaOptions } from "./src/lib/pwa/config"
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -52,6 +55,8 @@ export default defineConfig({
     }),
     react(),
     tailwindcss(),
+    // Increment 21: installable app that opens with no signal (src/lib/pwa/config.ts).
+    VitePWA(pwaOptions),
   ],
   // Component/unit tests (Vitest + Testing Library, jsdom). End-to-end
   // tests live in ./tests and run with Playwright against the built app.
